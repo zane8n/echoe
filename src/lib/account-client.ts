@@ -4,12 +4,13 @@ interface AccountResponse {
     mode: "local" | "cloud";
     account: AccountSummary | null;
     error?: string;
+    googleAvailable?: boolean;
 }
 
 const readResponse = async (response: Response): Promise<AccountResponse> => {
     const payload = await response.json() as AccountResponse;
     if (!response.ok && response.status !== 503) throw new Error(payload.error || "Account request failed.");
-    return response.status === 503 ? { mode: "local", account: null } : payload;
+    return response.status === 503 ? { mode: "local", account: null, googleAvailable: false } : payload;
 };
 
 export const getAccount = async (): Promise<AccountResponse> =>

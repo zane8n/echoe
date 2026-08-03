@@ -4,8 +4,8 @@
   "description": "A calm milestone and habit tracker for practical growth.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fdfaf5",
-  "theme_color": "#fdfaf5",
+  "background_color": "#f7f7f3",
+  "theme_color": "#f7f7f3",
   "icons": [
     {
       "src": "/icon.svg",

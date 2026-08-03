@@ -64,11 +64,12 @@ describe("Echoe milestone experience", () => {
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ mode: "local", account: null }), { status: 503 })));
         const user = userEvent.setup();
         const onPreviewTheme = vi.fn();
+        const onSave = vi.fn();
         render(
             <SettingsSheet
                 settings={{ theme: "warm", showActivityHistogram: true, profile: { displayName: "", intention: "", supportStyle: "gentle" } }}
                 storage={storageSummary}
-                onSave={vi.fn()}
+                onSave={onSave}
                 onPreviewTheme={onPreviewTheme}
                 onExport={vi.fn()}
                 onImport={vi.fn()}
@@ -80,12 +81,14 @@ describe("Echoe milestone experience", () => {
 
         expect(screen.getByRole("dialog", { name: "Settings" })).toHaveClass("acrylic-surface");
         expect(document.querySelector(".acrylic-backdrop")).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Quiet teal" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Clear blue" })).toBeInTheDocument();
-        expect(screen.getByText(/ordered records live in IndexedDB/i)).toBeInTheDocument();
-        expect(screen.getByText(/synced with Postgres/i)).toBeInTheDocument();
-        await user.click(screen.getByRole("button", { name: "Quiet teal" }));
+        expect(screen.getByRole("button", { name: "Still water" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Morning mist" })).toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: "Still water" }));
         expect(onPreviewTheme).toHaveBeenCalledWith("teal");
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ theme: "teal" }));
+        await user.click(screen.getByRole("tab", { name: "Data" }));
+        expect(screen.getByText(/ordered history is kept locally first/i)).toBeInTheDocument();
+        expect(screen.getByText(/synced securely/i)).toBeInTheDocument();
     });
 
     it("saves a personal profile and preferred encouragement style", async () => {
@@ -106,15 +109,39 @@ describe("Echoe milestone experience", () => {
             />,
         );
 
+        await user.click(screen.getByRole("tab", { name: "You" }));
         await user.type(screen.getByRole("textbox", { name: "Your name" }), "Kikandi");
         await user.type(screen.getByRole("textbox", { name: /what are you building toward/i }), "Move with purpose and patience.");
         await user.selectOptions(screen.getByRole("combobox", { name: /how Echoe should encourage you/i }), "reflective");
-        await user.click(screen.getByRole("button", { name: "Save settings" }));
+        await user.click(screen.getByRole("button", { name: "Save changes" }));
 
         expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
             theme: "blue",
             profile: expect.objectContaining({ displayName: "Kikandi", intention: "Move with purpose and patience.", supportStyle: "reflective" }),
         }));
+    });
+
+    it("offers Google sign-in without exposing deployment configuration", async () => {
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ mode: "cloud", account: null, googleAvailable: true }), { status: 200 })));
+        const user = userEvent.setup();
+        render(
+            <SettingsSheet
+                settings={{ theme: "warm", showActivityHistogram: true, profile: { displayName: "Kikandi", intention: "", supportStyle: "gentle" } }}
+                storage={storageSummary}
+                onSave={vi.fn()}
+                onPreviewTheme={vi.fn()}
+                onExport={vi.fn()}
+                onImport={vi.fn()}
+                onClearData={vi.fn().mockResolvedValue(undefined)}
+                onAccountChange={vi.fn().mockResolvedValue(undefined)}
+                onClose={vi.fn()}
+            />,
+        );
+
+        await user.click(screen.getByRole("tab", { name: "You" }));
+        const googleLink = await screen.findByRole("link", { name: "Continue with Google" });
+        expect(googleLink).toHaveAttribute("href", "/api/auth/google");
+        expect(screen.queryByText(/DATABASE_URL|GOOGLE_CLIENT/i)).not.toBeInTheDocument();
     });
 
     it("selects and saves a milestone color with an explicit active state", async () => {

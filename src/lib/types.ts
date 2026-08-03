@@ -67,6 +67,8 @@ export interface AccountSummary {
     displayName: string;
     handle: string;
     createdAt: string;
+    authProvider?: "password" | "google" | "password+google";
+    email?: string;
 }
 
 export interface DashboardState {

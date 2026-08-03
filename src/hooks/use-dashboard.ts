@@ -54,6 +54,10 @@ export function useDashboardState() {
 
         const bootstrap = async () => {
             try {
+                const accountResult = typeof window === "undefined"
+                    ? null
+                    : new URLSearchParams(window.location.search).get("account");
+                const forceRemoteAccount = accountResult === "switched";
                 await initializeLocalDatabase();
                 let localState = await loadDashboardState();
                 if (!active) return;
@@ -74,7 +78,7 @@ export function useDashboardState() {
                 const localIsPristine = localState.events.length === 0
                     && localState.achievements.length === 0
                     && !localState.settings.profile.displayName;
-                if (remote.state && (localIsPristine || (Number.isFinite(remoteTime) && remoteTime > localTime))) {
+                if (remote.state && (forceRemoteAccount || localIsPristine || (Number.isFinite(remoteTime) && remoteTime > localTime))) {
                     localState = await commitDashboardState(remote.state, "remote-pull", "Loaded newer data from the Vercel database");
                     publishState(localState);
                 } else {

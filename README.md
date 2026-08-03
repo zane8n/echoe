@@ -20,6 +20,19 @@ Before registration, the browser installation is identified by a random, HttpOnl
 
 The personal profile (name, intention, and preferred encouragement style) is part of the versioned state, so it is included in IndexedDB, exports, snapshots, and cloud sync. Existing v2 installations are migrated additively without clearing milestones or check-ins.
 
+## Google Sign-In
+
+Google sign-in uses a server-side OpenID Connect authorization-code flow with state and PKCE. The client secret and database connection string are only read by server routes and are never included in the browser bundle.
+
+1. In Google Cloud Console, configure the OAuth consent screen.
+2. Create an OAuth client with application type **Web application**.
+3. Add `http://localhost:3000/api/auth/google/callback` as a local authorized redirect URI.
+4. Add `https://YOUR_VERCEL_DOMAIN/api/auth/google/callback` as the production authorized redirect URI.
+5. In Vercel, open **Project Settings > Environment Variables** and add `DATABASE_URL`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` for Production and Preview as needed.
+6. Redeploy after saving the variables.
+
+Do not add a `NEXT_PUBLIC_` prefix to any of these values. The sample names are documented in `.env.example`; real secrets belong in `.env.local` for local work and in Vercel project settings for deployment.
+
 ## Development
 
 ```bash
@@ -38,4 +51,4 @@ pnpm test
 pnpm build
 ```
 
-Tests cover empty-state removal, time calculations, dynamic countdowns and progress bars, dated success/missed check-ins, growth prompts, acrylic add/edit/settings surfaces, app and milestone themes, milestone color selection, profile persistence, account registration and sign-in, clustered histograms, IndexedDB ordering and history, stale-data cleanup, and the Vercel sync API contract.
+Tests cover empty-state removal, time calculations, dynamic countdowns and progress bars, dated success/missed check-ins, growth prompts, acrylic add/edit/settings surfaces, immediate app theme persistence, milestone color selection, profile persistence, password and Google sign-in, clustered histograms, IndexedDB ordering and history, stale-data cleanup, and the sync API contract.

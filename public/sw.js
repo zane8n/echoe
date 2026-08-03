@@ -1,4 +1,4 @@
-const CACHE = "echoe-shell-v4";
+const CACHE = "echoe-shell-v5";
 const APP_SHELL = ["/", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {

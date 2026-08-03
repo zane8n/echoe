@@ -6,31 +6,28 @@ export const STALE_DATA_RESET_KEY = "echoe.stale-data-cleared.v2";
 export const DAY_MS = 86_400_000;
 
 export const THEMES: Record<ThemeName, ThemeConfig> = {
-    warm: { name: "warm", label: "Golden hour", bg: "#fdfaf5", surface: "#fefdfb", ink: "#2d2520", inkSoft: "#5c534a", muted: "#9a9186", line: "rgba(140,120,100,0.14)", accent: "#f0a04b", accentInk: "#7a4518" },
-    teal: { name: "teal", label: "Quiet teal", bg: "#f2faf8", surface: "#fbfefd", ink: "#16312d", inkSoft: "#3c5e57", muted: "#718f88", line: "rgba(45,125,108,0.15)", accent: "#208c78", accentInk: "#0d5548" },
-    blue: { name: "blue", label: "Clear blue", bg: "#f3f7fc", surface: "#fbfdff", ink: "#182b42", inkSoft: "#405b78", muted: "#7189a3", line: "rgba(60,112,164,0.15)", accent: "#397fbd", accentInk: "#174d7b" },
-    cool: { name: "cool", label: "Sea glass", bg: "#f5f9fb", surface: "#fcfdfe", ink: "#1e2d33", inkSoft: "#4a5a62", muted: "#7d939c", line: "rgba(100,140,155,0.14)", accent: "#4dab93", accentInk: "#1d5243" },
-    earth: { name: "earth", label: "Terracotta", bg: "#faf7f2", surface: "#fdfbf8", ink: "#2d2418", inkSoft: "#5c4e3a", muted: "#8a7a62", line: "rgba(130,110,80,0.14)", accent: "#c77d4e", accentInk: "#5c3418" },
-    rose: { name: "rose", label: "Rose quartz", bg: "#fdf8f9", surface: "#fefcfc", ink: "#2d1e22", inkSoft: "#5c4248", muted: "#9a7c84", line: "rgba(150,110,120,0.14)", accent: "#d47888", accentInk: "#6b2d3a" },
-    ocean: { name: "ocean", label: "Deep ocean", bg: "#f4f7fa", surface: "#fafcfd", ink: "#1a2730", inkSoft: "#3d5563", muted: "#6d8a9c", line: "rgba(80,120,150,0.14)", accent: "#3a8fa8", accentInk: "#194553" },
-    glacier: { name: "glacier", label: "Glacier ice", bg: "#f6fafd", surface: "#fcfdfe", ink: "#1c2935", inkSoft: "#455669", muted: "#7e929f", line: "rgba(100,140,170,0.14)", accent: "#5b9ecf", accentInk: "#234b68" },
+    warm: { name: "warm", label: "Soft linen", bg: "#f7f7f3", surface: "#fcfcf9", ink: "#292c28", inkSoft: "#545a53", muted: "#7d847c", line: "rgba(56,66,58,0.13)", accent: "#8b9a7e", accentInk: "#22291f" },
+    teal: { name: "teal", label: "Still water", bg: "#f3f7f6", surface: "#fbfcfc", ink: "#27312f", inkSoft: "#52615d", muted: "#7c8985", line: "rgba(54,77,71,0.13)", accent: "#7fa69d", accentInk: "#203b35" },
+    blue: { name: "blue", label: "Morning mist", bg: "#f3f6f9", surface: "#fbfcfd", ink: "#29323b", inkSoft: "#52606e", muted: "#7d8995", line: "rgba(57,75,93,0.13)", accent: "#829db7", accentInk: "#1f3040" },
+    cool: { name: "cool", label: "Silver air", bg: "#f5f6f7", surface: "#fcfcfd", ink: "#2d3237", inkSoft: "#596067", muted: "#838a91", line: "rgba(64,72,80,0.12)", accent: "#929ba3", accentInk: "#292f34" },
+    earth: { name: "earth", label: "Soft clay", bg: "#f7f5f2", surface: "#fcfbf9", ink: "#312e2a", inkSoft: "#615b54", muted: "#898179", line: "rgba(78,68,59,0.12)", accent: "#a08f7f", accentInk: "#302720" },
+    rose: { name: "rose", label: "Pressed petal", bg: "#f8f5f6", surface: "#fdfbfc", ink: "#332d30", inkSoft: "#64585d", muted: "#8d8186", line: "rgba(83,62,71,0.12)", accent: "#aa9098", accentInk: "#38282e" },
+    ocean: { name: "ocean", label: "Rain glass", bg: "#f2f6f7", surface: "#fafcfc", ink: "#283237", inkSoft: "#526269", muted: "#7b8b92", line: "rgba(51,76,86,0.13)", accent: "#7897a4", accentInk: "#182e37" },
+    glacier: { name: "glacier", label: "Pale sky", bg: "#f4f7f8", surface: "#fbfcfd", ink: "#2a3236", inkSoft: "#58646a", muted: "#818d92", line: "rgba(59,77,85,0.12)", accent: "#91a9b4", accentInk: "#253a43" },
 };
 
 export const THEME_ORDER: ThemeName[] = ["warm", "teal", "blue", "cool", "ocean", "glacier", "rose", "earth"];
 
 export const COLOR_MAP: Record<AccentColor, { color: string; ink: string; glow: string }> = {
-    amber: { color: "#f0a04b", ink: "#7a4518", glow: "rgba(240,160,75,0.22)" },
-    coral: { color: "#e8735a", ink: "#7a3022", glow: "rgba(232,115,90,0.22)" },
-    teal: { color: "#4dab93", ink: "#1d5243", glow: "rgba(77,171,147,0.22)" },
-    lavender: { color: "#9b8ec4", ink: "#423a61", glow: "rgba(155,142,196,0.22)" },
-    mint: { color: "#7dbf8e", ink: "#2d5537", glow: "rgba(125,191,142,0.22)" },
-    sky: { color: "#71b7d9", ink: "#294e61", glow: "rgba(113,183,217,0.22)" },
+    amber: { color: "#bea477", ink: "#594629", glow: "rgba(190,164,119,0.14)" },
+    coral: { color: "#ba9186", ink: "#5d3f38", glow: "rgba(186,145,134,0.14)" },
+    teal: { color: "#7fa79e", ink: "#31524b", glow: "rgba(127,167,158,0.14)" },
+    lavender: { color: "#9c97b2", ink: "#48435d", glow: "rgba(156,151,178,0.14)" },
+    mint: { color: "#91aa93", ink: "#405542", glow: "rgba(145,170,147,0.14)" },
+    sky: { color: "#86a5b5", ink: "#354f5d", glow: "rgba(134,165,181,0.14)" },
 };
 
-export const CONFETTI_COLORS = [
-    "#f0a04b", "#e8735a", "#4dab93", "#9b8ec4", "#7dbf8e",
-    "#71b7d9", "#f5c26b", "#e8977a", "#5ec4ad", "#b8aed6",
-];
+export const CONFETTI_COLORS = ["#bea477", "#ba9186", "#7fa79e", "#9c97b2", "#91aa93", "#86a5b5"];
 
 export const KBD_SHORTCUTS = [
     { key: "N", description: "New milestone" },

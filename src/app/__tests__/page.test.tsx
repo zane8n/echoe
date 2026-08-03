@@ -34,7 +34,7 @@ describe("Echoe app shell", () => {
         expect(screen.getByText("Designed by").parentElement).toHaveTextContent("Designed by Kikandi");
         expect(screen.queryByText(/where you stand/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/life.*ending/i)).not.toBeInTheDocument();
-        expect(screen.getByText(/stored in this browser/i)).toBeInTheDocument();
+        expect(screen.getByText(/stored on this device/i)).toBeInTheDocument();
     });
 
     it("previews a general theme across the app and opens frosted add/edit surfaces", async () => {
@@ -43,8 +43,8 @@ describe("Echoe app shell", () => {
         const shell = container.querySelector(".app-shell");
 
         await user.click(screen.getByRole("button", { name: "Settings" }));
-        await user.click(screen.getByRole("button", { name: "Quiet teal" }));
-        expect(shell).toHaveStyle({ "--accent": "#208c78", "--bg": "#f2faf8" });
+        await user.click(screen.getByRole("button", { name: "Still water" }));
+        expect(shell).toHaveStyle({ "--accent": "#7fa69d", "--bg": "#f3f7f6" });
         expect(screen.getByRole("dialog", { name: "Settings" })).toHaveClass("acrylic-surface");
         await user.click(screen.getByRole("button", { name: "Close settings" }));
 

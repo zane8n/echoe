@@ -1,5 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import {
     AccountConflictError,
     authenticateAccount,
@@ -7,27 +6,12 @@ import {
     readAccount,
     registerAccount,
 } from "@/lib/server-db";
+import { getOwnerSession, ownerCookieValue, withOwnerCookie } from "@/lib/owner-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const OWNER_COOKIE = "echoe-owner";
 const HANDLE_PATTERN = /^[a-z0-9][a-z0-9_-]{2,23}$/;
-
-const getOwner = async () => {
-    const jar = await cookies();
-    const existing = jar.get(OWNER_COOKIE)?.value;
-    const valid = existing && /^[0-9a-f-]{36}$/i.test(existing);
-    return { ownerId: valid ? existing : randomUUID(), isNew: !valid };
-};
-
-const cookieValue = (ownerId: string, maxAge = 31_536_000) =>
-    `${OWNER_COOKIE}=${ownerId}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
-
-const withOwnerCookie = (response: Response, ownerId: string, shouldSet: boolean) => {
-    if (shouldSet) response.headers.append("Set-Cookie", cookieValue(ownerId));
-    return response;
-};
 
 const sameOrigin = async (request: Request) => {
     const origin = request.headers.get("origin");
@@ -40,10 +24,11 @@ const sameOrigin = async (request: Request) => {
 const normalizedHandle = (value: unknown) => String(value ?? "").trim().toLowerCase();
 
 export async function GET() {
-    if (!databaseConfigured()) return Response.json({ mode: "local", account: null }, { status: 503 });
-    const { ownerId, isNew } = await getOwner();
+    const googleAvailable = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+    if (!databaseConfigured()) return Response.json({ mode: "local", account: null, googleAvailable: false }, { status: 503 });
+    const { ownerId, isNew } = await getOwnerSession();
     const account = await readAccount(ownerId);
-    return withOwnerCookie(Response.json({ mode: "cloud", account }), ownerId, isNew);
+    return withOwnerCookie(Response.json({ mode: "cloud", account, googleAvailable }), ownerId, isNew);
 }
 
 export async function POST(request: Request) {
@@ -59,7 +44,7 @@ export async function POST(request: Request) {
 
     if (payload.action === "sign-out") {
         const response = Response.json({ mode: "cloud", account: null });
-        response.headers.append("Set-Cookie", cookieValue("", 0));
+        response.headers.append("Set-Cookie", ownerCookieValue("", 0));
         return response;
     }
 
@@ -85,7 +70,7 @@ export async function POST(request: Request) {
         return Response.json({ error: "Add the name you want Echoe to use." }, { status: 400 });
     }
 
-    const { ownerId, isNew } = await getOwner();
+    const { ownerId, isNew } = await getOwnerSession();
     try {
         const account = await registerAccount(ownerId, displayName, handle, password);
         return withOwnerCookie(Response.json({ mode: "cloud", account }), ownerId, isNew);

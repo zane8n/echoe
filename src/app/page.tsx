@@ -66,6 +66,27 @@ export default function Home() {
         if (toastTimer.current) clearTimeout(toastTimer.current);
         toastTimer.current = setTimeout(() => setToastMessage(""), 2400);
     }, []);
+    useEffect(() => {
+        const url = new URL(window.location.href);
+        const accountResult = url.searchParams.get("account");
+        const authResult = url.searchParams.get("auth");
+        const message = accountResult === "connected"
+            ? "Google account connected"
+            : accountResult === "switched"
+                ? "Signed in with Google"
+                : authResult === "failed"
+                    ? "Google sign-in could not be completed"
+                    : authResult === "unavailable"
+                        ? "Cloud sign-in is not available yet"
+                        : "";
+        const timer = message ? window.setTimeout(() => showToast(message), 0) : null;
+        if (accountResult || authResult) {
+            url.searchParams.delete("account");
+            url.searchParams.delete("auth");
+            window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+        }
+        return () => { if (timer) window.clearTimeout(timer); };
+    }, [showToast]);
     const openEventEditor = useCallback((id: string | null = null) => {
         setEditingEventId(id);
         setActiveSheet("event");
@@ -196,7 +217,7 @@ export default function Home() {
                 />
                 <WeeksGrid events={state.events} show={state.settings.showActivityHistogram} tick={tick} />
                 <footer className="mt-[84px] flex flex-wrap justify-between gap-5 border-t border-[var(--color-line)] pb-9 pt-7 text-xs text-[var(--color-muted)]">
-                    <span>{state.settings.profile.displayName ? `${state.settings.profile.displayName}'s Echoe` : "Your Echoe"} is {storageSummary.syncStatus === "synced" ? "backed by your Vercel database" : "stored in this browser"}</span>
+                    <span>{state.settings.profile.displayName ? `${state.settings.profile.displayName}'s Echoe` : "Your Echoe"} is {storageSummary.syncStatus === "synced" ? "synced securely" : "stored on this device"}</span>
                     <span>Designed by <span className="font-semibold text-[var(--color-accent-ink)]">Kikandi</span></span>
                 </footer>
             </main>

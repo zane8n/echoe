@@ -1,19 +1,19 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-bg: var(--bg, #fdfaf5);
-  --color-surface: var(--surface, #fefdfb);
+  --color-bg: var(--bg, #f7f7f3);
+  --color-surface: var(--surface, #fcfcf9);
   --color-panel: color-mix(in srgb, var(--surface, #fefdfb) 74%, transparent);
   --color-panel-strong: color-mix(in srgb, var(--surface, #fefdfb) 92%, var(--bg, #fdfaf5));
-  --color-ink: var(--ink, #2d2520);
-  --color-ink-soft: var(--ink-soft, #5c534a);
-  --color-muted: var(--muted, #9a9186);
-  --color-line: var(--line, rgba(140, 120, 100, 0.14));
+  --color-ink: var(--ink, #292c28);
+  --color-ink-soft: var(--ink-soft, #545a53);
+  --color-muted: var(--muted, #7d847c);
+  --color-line: var(--line, rgba(56, 66, 58, 0.13));
   --color-line-strong: color-mix(in srgb, var(--ink, #2d2520) 22%, transparent);
-  --color-accent: var(--accent, #f0a04b);
-  --color-accent-ink: var(--accent-ink, #7a4518);
-  --color-accent-soft: color-mix(in srgb, var(--accent, #f0a04b) 14%, transparent);
-  --color-on-accent: var(--accent-ink, #7a4518);
+  --color-accent: var(--accent, #8b9a7e);
+  --color-accent-ink: var(--accent-ink, #22291f);
+  --color-accent-soft: color-mix(in srgb, var(--accent, #8b9a7e) 13%, transparent);
+  --color-on-accent: var(--accent-ink, #22291f);
   --color-danger: #b54e45;
   --color-danger-soft: color-mix(in srgb, #b54e45 12%, transparent);
   --font-ui: "Avenir Next", "Segoe UI Variable Text", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
@@ -27,8 +27,8 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0;
   min-width: 320px;
-  background: #fdfaf5;
-  color: #2d2520;
+  background: #f7f7f3;
+  color: #292c28;
   font-family: var(--font-ui);
   font-size: 16px;
   line-height: 1.6;
@@ -54,30 +54,30 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .acrylic-header {
-  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
-  backdrop-filter: blur(24px) saturate(145%);
-  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  background: color-mix(in srgb, var(--color-surface) 86%, transparent);
+  backdrop-filter: blur(24px) saturate(118%);
+  -webkit-backdrop-filter: blur(24px) saturate(118%);
 }
 
 .acrylic-backdrop {
-  background: color-mix(in srgb, var(--color-ink) 6%, transparent);
-  backdrop-filter: blur(30px) saturate(155%);
-  -webkit-backdrop-filter: blur(30px) saturate(155%);
+  background: color-mix(in srgb, var(--color-ink) 5%, transparent);
+  backdrop-filter: blur(34px) saturate(120%);
+  -webkit-backdrop-filter: blur(34px) saturate(120%);
 }
 
 .acrylic-surface {
   color: var(--color-ink);
-  background: color-mix(in srgb, var(--color-surface) 78%, transparent);
-  backdrop-filter: blur(46px) saturate(175%);
-  -webkit-backdrop-filter: blur(46px) saturate(175%);
-  border-left: 1px solid color-mix(in srgb, var(--color-accent) 18%, white 35%);
-  box-shadow: -18px 0 54px color-mix(in srgb, var(--color-ink) 9%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 84%, transparent);
+  backdrop-filter: blur(48px) saturate(125%);
+  -webkit-backdrop-filter: blur(48px) saturate(125%);
+  border-left: 1px solid color-mix(in srgb, var(--color-accent) 13%, white 45%);
+  box-shadow: -18px 0 54px color-mix(in srgb, var(--color-ink) 7%, transparent);
 }
 
 .acrylic-actions {
   background: color-mix(in srgb, var(--color-surface) 90%, transparent);
-  backdrop-filter: blur(32px) saturate(165%);
-  -webkit-backdrop-filter: blur(32px) saturate(165%);
+  backdrop-filter: blur(32px) saturate(120%);
+  -webkit-backdrop-filter: blur(32px) saturate(120%);
 }
 
 .primary-button,
@@ -100,7 +100,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   border-radius: 8px;
   background: var(--color-accent);
   color: var(--color-on-accent);
-  box-shadow: 0 5px 18px color-mix(in srgb, var(--color-accent) 22%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-accent) 16%, transparent);
   font-size: 14px;
   font-weight: 700;
 }
@@ -194,6 +194,63 @@ button:disabled {
   accent-color: var(--color-accent);
 }
 
+.settings-tab {
+  min-width: 0;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+.settings-tab:hover { color: var(--color-ink); background: var(--color-accent-soft); }
+.settings-tab[aria-selected="true"] { border-bottom-color: var(--color-accent); color: var(--color-accent-ink); }
+
+.theme-choice {
+  min-width: 0;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  color: var(--color-ink);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease;
+}
+.theme-choice:hover { border-color: var(--color-line-strong); transform: translateY(-1px); }
+.theme-choice:active { transform: translateY(0); }
+.theme-choice-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid;
+  border-radius: 8px;
+}
+
+.account-details {
+  border-top: 1px solid var(--color-line);
+  padding-top: 14px;
+}
+.account-details summary {
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+.account-details summary:hover { color: var(--color-accent-ink); }
+
 .status-pill {
   min-height: 22px;
   display: inline-flex;
@@ -241,7 +298,7 @@ button:disabled {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.46;
+  opacity: 0.3;
 }
 
 ::-webkit-scrollbar { width: 7px; }

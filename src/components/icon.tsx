@@ -9,20 +9,29 @@ import {
     CloudOff,
     Database,
     Download,
+    Flower2,
     Flame,
     History,
+    Leaf,
     Layers3,
     MoreHorizontal,
+    Mountain,
+    Palette,
     Pencil,
     Plus,
     RefreshCw,
+    LogIn,
     Settings,
     Sparkles,
     Star,
+    Snowflake,
+    SunMedium,
     Target,
     Trash2,
     TrendingUp,
     Upload,
+    UserRound,
+    Waves,
     X,
     type LucideIcon,
 } from "lucide-react";
@@ -31,7 +40,9 @@ export type IconName =
     | "settings" | "plus" | "download" | "pencil" | "x" | "trash" | "upload"
     | "sparkle" | "flame" | "clock" | "check" | "calendar" | "target"
     | "trending-up" | "layers" | "star" | "more-horiz" | "chevron-right"
-    | "database" | "cloud" | "cloud-off" | "history" | "refresh" | "missed";
+    | "database" | "cloud" | "cloud-off" | "history" | "refresh" | "missed"
+    | "flower" | "leaf" | "mountain" | "palette" | "snowflake" | "sun"
+    | "user" | "waves" | "log-in";
 
 const icons: Record<IconName, LucideIcon> = {
     settings: Settings,
@@ -58,6 +69,15 @@ const icons: Record<IconName, LucideIcon> = {
     history: History,
     refresh: RefreshCw,
     missed: CircleX,
+    flower: Flower2,
+    leaf: Leaf,
+    mountain: Mountain,
+    palette: Palette,
+    snowflake: Snowflake,
+    sun: SunMedium,
+    user: UserRound,
+    waves: Waves,
+    "log-in": LogIn,
 };
 
 interface Props extends Omit<ComponentProps<LucideIcon>, "ref"> {

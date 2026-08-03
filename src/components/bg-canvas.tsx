@@ -66,14 +66,14 @@ export function BgCanvas() {
                 const controlX = ((line.ax + line.bx) / 2) * width + (pointerX - 0.5) * 80 + Math.sin(line.phase) * 55;
                 const controlY = ((line.ay + line.by) / 2) * height + (pointerY - 0.5) * 80 + Math.cos(line.phase * 1.2) * 55;
 
-                context.strokeStyle = `rgba(${channels}, 0.13)`;
-                context.lineWidth = 0.7;
+                context.strokeStyle = `rgba(${channels}, 0.09)`;
+                context.lineWidth = 0.65;
                 context.beginPath();
                 context.moveTo(startX, startY);
                 context.quadraticCurveTo(controlX, controlY, endX, endY);
                 context.stroke();
 
-                context.fillStyle = `rgba(${channels}, 0.16)`;
+                context.fillStyle = `rgba(${channels}, 0.11)`;
                 context.beginPath();
                 context.arc(controlX, controlY, 1.2, 0, Math.PI * 2);
                 context.fill();

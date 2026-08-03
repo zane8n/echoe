@@ -57,12 +57,23 @@ const ensureSchema = async () => {
                     owner_id UUID PRIMARY KEY,
                     handle TEXT UNIQUE NOT NULL,
                     display_name TEXT NOT NULL,
-                    password_salt TEXT NOT NULL,
-                    password_hash TEXT NOT NULL,
+                    password_salt TEXT,
+                    password_hash TEXT,
+                    auth_provider TEXT NOT NULL DEFAULT 'password',
+                    google_sub TEXT,
+                    email TEXT,
+                    avatar_url TEXT,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 )
             `;
+            await sql`ALTER TABLE echoe_accounts ADD COLUMN IF NOT EXISTS auth_provider TEXT NOT NULL DEFAULT 'password'`;
+            await sql`ALTER TABLE echoe_accounts ADD COLUMN IF NOT EXISTS google_sub TEXT`;
+            await sql`ALTER TABLE echoe_accounts ADD COLUMN IF NOT EXISTS email TEXT`;
+            await sql`ALTER TABLE echoe_accounts ADD COLUMN IF NOT EXISTS avatar_url TEXT`;
+            await sql`ALTER TABLE echoe_accounts ALTER COLUMN password_salt DROP NOT NULL`;
+            await sql`ALTER TABLE echoe_accounts ALTER COLUMN password_hash DROP NOT NULL`;
+            await sql`CREATE UNIQUE INDEX IF NOT EXISTS echoe_accounts_google_sub_idx ON echoe_accounts (google_sub) WHERE google_sub IS NOT NULL`;
         })().catch((error) => {
             schemaPromise = null;
             throw error;
@@ -84,8 +95,18 @@ const accountFromRow = (row: Record<string, unknown>): StoredAccount => ({
     handle: String(row.handle),
     displayName: String(row.display_name),
     createdAt: new Date(row.created_at as string | Date).toISOString(),
+    authProvider: (row.auth_provider as AccountSummary["authProvider"]) ?? "password",
+    email: row.email ? String(row.email) : undefined,
     passwordSalt: row.password_salt ? String(row.password_salt) : undefined,
     passwordHash: row.password_hash ? String(row.password_hash) : undefined,
+});
+
+const publicAccount = (account: StoredAccount): AccountSummary => ({
+    displayName: account.displayName,
+    handle: account.handle,
+    createdAt: account.createdAt,
+    authProvider: account.authProvider,
+    email: account.email,
 });
 
 export class AccountConflictError extends Error {}
@@ -94,12 +115,12 @@ export async function readAccount(ownerId: string): Promise<AccountSummary | nul
     await ensureSchema();
     const sql = neon(connectionString());
     const rows = await sql`
-        SELECT owner_id, handle, display_name, created_at
+        SELECT owner_id, handle, display_name, auth_provider, email, created_at
         FROM echoe_accounts
         WHERE owner_id = ${ownerId}::uuid
         LIMIT 1
     `;
-    return rows[0] ? accountFromRow(rows[0] as Record<string, unknown>) : null;
+    return rows[0] ? publicAccount(accountFromRow(rows[0] as Record<string, unknown>)) : null;
 }
 
 export async function registerAccount(
@@ -118,24 +139,83 @@ export async function registerAccount(
             VALUES (${ownerId}::uuid, ${handle}, ${displayName}, ${salt}, ${passwordHash})
             RETURNING owner_id, handle, display_name, created_at
         `;
-        return accountFromRow(rows[0] as Record<string, unknown>);
+        return publicAccount(accountFromRow(rows[0] as Record<string, unknown>));
     } catch (error) {
         if ((error as { code?: string }).code === "23505") throw new AccountConflictError("That handle is already in use.");
         throw error;
     }
 }
 
+export interface GoogleProfile {
+    sub: string;
+    email: string;
+    name: string;
+    picture?: string;
+}
+
+export async function connectGoogleAccount(
+    currentOwnerId: string,
+    profile: GoogleProfile,
+): Promise<{ account: AccountSummary; ownerId: string; switchedOwner: boolean }> {
+    await ensureSchema();
+    const sql = neon(connectionString());
+
+    const existingGoogle = await sql`
+        SELECT owner_id, handle, display_name, auth_provider, email, created_at
+        FROM echoe_accounts
+        WHERE google_sub = ${profile.sub}
+        LIMIT 1
+    `;
+    if (existingGoogle[0]) {
+        const account = accountFromRow(existingGoogle[0] as Record<string, unknown>);
+        return { account: publicAccount(account), ownerId: account.ownerId, switchedOwner: account.ownerId !== currentOwnerId };
+    }
+
+    const existingOwner = await sql`
+        SELECT owner_id, handle, display_name, auth_provider, email, created_at
+        FROM echoe_accounts
+        WHERE owner_id = ${currentOwnerId}::uuid
+        LIMIT 1
+    `;
+    if (existingOwner[0]) {
+        const rows = await sql`
+            UPDATE echoe_accounts
+            SET google_sub = ${profile.sub},
+                email = ${profile.email},
+                avatar_url = ${profile.picture ?? null},
+                auth_provider = CASE WHEN password_hash IS NULL THEN 'google' ELSE 'password+google' END,
+                updated_at = NOW()
+            WHERE owner_id = ${currentOwnerId}::uuid
+            RETURNING owner_id, handle, display_name, auth_provider, email, created_at
+        `;
+        return { account: publicAccount(accountFromRow(rows[0] as Record<string, unknown>)), ownerId: currentOwnerId, switchedOwner: false };
+    }
+
+    const generatedHandle = `g-${currentOwnerId.replaceAll("-", "").slice(0, 18)}`;
+    const rows = await sql`
+        INSERT INTO echoe_accounts (
+            owner_id, handle, display_name, auth_provider, google_sub, email, avatar_url
+        ) VALUES (
+            ${currentOwnerId}::uuid, ${generatedHandle}, ${profile.name}, 'google',
+            ${profile.sub}, ${profile.email}, ${profile.picture ?? null}
+        )
+        RETURNING owner_id, handle, display_name, auth_provider, email, created_at
+    `;
+    return { account: publicAccount(accountFromRow(rows[0] as Record<string, unknown>)), ownerId: currentOwnerId, switchedOwner: false };
+}
+
 export async function authenticateAccount(handle: string, password: string): Promise<(AccountSummary & { ownerId: string }) | null> {
     await ensureSchema();
     const sql = neon(connectionString());
     const rows = await sql`
-        SELECT owner_id, handle, display_name, password_salt, password_hash, created_at
+        SELECT owner_id, handle, display_name, password_salt, password_hash, auth_provider, email, created_at
         FROM echoe_accounts
         WHERE handle = ${handle}
         LIMIT 1
     `;
     if (!rows[0]) return null;
     const account = accountFromRow(rows[0] as Record<string, unknown>);
+    if (!account.passwordHash || !account.passwordSalt) return null;
     const expected = Buffer.from(account.passwordHash ?? "", "base64url");
     const actual = await derivePasswordKey(password, account.passwordSalt ?? "", expected.length);
     if (!expected.length || actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
