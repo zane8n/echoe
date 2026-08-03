@@ -1,71 +1,134 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useRef, useState } from "react";
+import { THEME_ORDER, THEMES } from "@/lib/constants";
+import type { DashboardSettings, StorageSummary, ThemeName } from "@/lib/types";
 import { Icon } from "./icon";
-import { THEMES } from "@/lib/constants";
-import type { DashboardSettings, ThemeName } from "@/lib/types";
 
-interface Props { settings: DashboardSettings; onSave: (s: DashboardSettings) => void; onExport: () => void; onImport: (f: File) => void; onClose: () => void; }
+interface Props {
+    settings: DashboardSettings;
+    storage: StorageSummary;
+    onSave: (settings: DashboardSettings) => void;
+    onPreviewTheme: (theme: ThemeName) => void;
+    onExport: () => void;
+    onImport: (file: File) => void;
+    onClearData: () => Promise<void>;
+    onClose: () => void;
+}
 
-const themeNames: ThemeName[] = ["warm", "cool", "earth", "rose", "ocean", "glacier"];
+const statusDetails = {
+    local: { icon: "database" as const, label: "Saved on this device" },
+    syncing: { icon: "refresh" as const, label: "Syncing with Vercel" },
+    synced: { icon: "cloud" as const, label: "Synced with Postgres" },
+    offline: { icon: "cloud-off" as const, label: "Offline, saved locally" },
+};
 
-export function SettingsSheet({ settings, onSave, onExport, onImport, onClose }: Props) {
+export function SettingsSheet({ settings, storage, onSave, onPreviewTheme, onExport, onImport, onClearData, onClose }: Props) {
     const [theme, setTheme] = useState<ThemeName>(settings.theme ?? "warm");
-    const [showGrid, setShowGrid] = useState(settings.showLifeGrid ?? true);
+    const [showHistogram, setShowHistogram] = useState(settings.showActivityHistogram ?? true);
+    const [confirmClear, setConfirmClear] = useState(false);
     const fileInput = useRef<HTMLInputElement>(null);
 
-    useEffect(() => { setTheme(settings.theme ?? "warm"); setShowGrid(settings.showLifeGrid ?? true); }, [settings]);
+    const status = statusDetails[storage.syncStatus];
+    const chooseTheme = (next: ThemeName) => {
+        setTheme(next);
+        onPreviewTheme(next);
+    };
 
     return (
         <>
             <div className="fixed inset-0 z-60 acrylic-backdrop animate-fade-in" onClick={onClose} />
-            <aside className="fixed inset-y-0 right-0 z-70 w-[min(100%,480px)] h-dvh overflow-y-auto p-[clamp(20px,4vw,36px)] acrylic-surface animate-slide-up" role="dialog" aria-modal="true" aria-labelledby="st">
-                <div className="flex justify-between items-start mb-6">
+            <aside className="fixed inset-y-0 right-0 z-70 h-dvh w-[min(100%,500px)] overflow-y-auto acrylic-surface p-[clamp(22px,5vw,38px)] animate-slide-up" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+                <div className="mb-6 flex items-start justify-between gap-5 border-b border-[var(--color-line)] pb-5">
                     <div>
-                        <div className="text-[var(--color-muted)] text-xs font-semibold tracking-[0.14em] uppercase">Preferences</div>
-                        <h2 id="st" className="text-[32px] font-[var(--font-display)] font-normal m-0 mt-1">Settings</h2>
+                        <div className="text-xs font-semibold uppercase text-[var(--color-accent-ink)]">Preferences</div>
+                        <h2 id="settingsTitle" className="m-0 mt-1 font-[var(--font-display)] text-[34px] font-normal">Settings</h2>
                     </div>
-                    <button onClick={onClose} className="w-9 h-9 grid place-items-center rounded-xl bg-transparent border-0 cursor-pointer text-[var(--color-muted)] hover:text-[var(--color-ink)] hover:bg-[var(--color-accent)]/10 transition-all duration-200">
+                    <button onClick={onClose} className="icon-button" aria-label="Close settings" title="Close">
                         <Icon name="x" size={18} />
                     </button>
                 </div>
 
-                <form onSubmit={e => { e.preventDefault(); onSave({ theme, showLifeGrid: showGrid }); onClose(); }} className="grid gap-6">
-                    {/* Theme picker */}
-                    <fieldset className="grid gap-3 m-0 p-0 border-0">
-                        <legend className="text-[var(--color-ink-soft)] text-[13px] font-semibold mb-1">Theme</legend>
-                        <div className="grid grid-cols-2 gap-2">
-                            {themeNames.map(t => {
-                                const cfg = THEMES[t];
-                                const active = theme === t;
+                <form onSubmit={(event) => { event.preventDefault(); onSave({ theme, showActivityHistogram: showHistogram }); onClose(); }} className="grid gap-7">
+                    <fieldset className="m-0 grid gap-3 border-0 p-0">
+                        <legend className="mb-1 text-[13px] font-semibold text-[var(--color-ink-soft)]">App theme</legend>
+                        <div className="grid grid-cols-2 gap-2 max-[390px]:grid-cols-1">
+                            {THEME_ORDER.map((name) => {
+                                const config = THEMES[name];
+                                const active = theme === name;
                                 return (
-                                    <button key={t} type="button" onClick={() => setTheme(t)}
-                                        className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 text-left ${active ? "border-[var(--color-accent)]" : "border-[var(--color-line)] hover:border-[var(--color-line-strong)]"}`}>
-                                        <span className="w-7 h-7 rounded-full flex-shrink-0" style={{ background: `linear-gradient(135deg, ${cfg.accent}, ${cfg.accent}88)` }} />
-                                        <span className="text-sm font-medium text-[var(--color-ink)]">{cfg.label}</span>
+                                    <button
+                                        key={name}
+                                        type="button"
+                                        onClick={() => chooseTheme(name)}
+                                        className="flex min-h-[52px] items-center gap-3 rounded-[8px] border p-2.5 text-left transition-all duration-200"
+                                        style={{
+                                            borderColor: active ? config.accent : "var(--color-line)",
+                                            background: active ? "var(--color-accent-soft)" : "var(--color-panel)",
+                                            boxShadow: active ? `inset 0 0 0 1px ${config.accent}` : undefined,
+                                        }}
+                                        aria-pressed={active}
+                                    >
+                                        <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border" style={{ background: config.bg, borderColor: config.line }}>
+                                            <span className="absolute bottom-0 right-0 h-4 w-4 rounded-full" style={{ background: config.accent }} />
+                                        </span>
+                                        <span className="text-sm font-semibold text-[var(--color-ink)]">{config.label}</span>
                                     </button>
                                 );
                             })}
                         </div>
+                        <p className="m-0 text-xs leading-relaxed text-[var(--color-muted)]">The app theme colors the full interface. Milestone palettes remain independent.</p>
                     </fieldset>
 
-                    <label className="grid grid-cols-[auto_1fr] gap-3 items-start cursor-pointer">
-                        <input type="checkbox" checked={showGrid} onChange={e => setShowGrid(e.target.checked)} className="w-[18px] h-[18px] mt-[3px] accent-[var(--color-accent)]" />
-                        <span className="grid gap-[2px]"><strong className="text-sm font-semibold">Show time histogram</strong><small className="text-[var(--color-muted)] text-xs">Visual overview of your milestone activity.</small></span>
+                    <label className="grid cursor-pointer grid-cols-[auto_1fr] items-start gap-3">
+                        <input type="checkbox" checked={showHistogram} onChange={(event) => setShowHistogram(event.target.checked)} className="theme-checkbox mt-[3px]" />
+                        <span className="grid gap-[2px]">
+                            <strong className="text-sm font-semibold">Show activity histogram</strong>
+                            <small className="text-xs leading-relaxed text-[var(--color-muted)]">Twelve calm, two-week clusters built from milestones and check-ins.</small>
+                        </span>
                     </label>
 
-                    <hr className="border-0 border-t border-[var(--color-line)]" />
-                    <div className="grid gap-2">
-                        <span className="text-[var(--color-ink-soft)] text-[13px] font-semibold">Data</span>
-                        <small className="text-[var(--color-muted)] text-xs">Export or restore your data.</small>
-                    </div>
-                    <div className="flex gap-2">
-                        <button type="button" onClick={onExport} className="flex-1 min-h-[42px] inline-flex items-center justify-center gap-2 px-4 rounded-xl border border-[var(--color-line)] bg-white/50 text-[13px] font-semibold cursor-pointer hover:border-[var(--color-line-strong)] transition-all"><Icon name="download" size={15} /> Export</button>
-                        <button type="button" onClick={() => fileInput.current?.click()} className="flex-1 min-h-[42px] inline-flex items-center justify-center gap-2 px-4 rounded-xl border border-[var(--color-line)] bg-white/50 text-[13px] font-semibold cursor-pointer hover:border-[var(--color-line-strong)] transition-all"><Icon name="upload" size={15} /> Import</button>
-                        <input ref={fileInput} type="file" accept=".json" hidden onChange={e => { if (e.target.files?.[0]) { onImport(e.target.files[0]); e.target.value = ""; } }} />
-                    </div>
+                    <section className="border-t border-[var(--color-line)] pt-6" aria-labelledby="storageTitle">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <h3 id="storageTitle" className="m-0 text-[13px] font-semibold text-[var(--color-ink-soft)]">Data and history</h3>
+                                <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--color-muted)]">Ordered records live in IndexedDB. Vercel sync activates automatically when <code>DATABASE_URL</code> is connected.</p>
+                            </div>
+                            <span className="status-pill shrink-0 bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]">
+                                <Icon name={status.icon} size={12} /> {status.label}
+                            </span>
+                        </div>
 
-                    <button type="submit" className="min-h-[44px] inline-flex items-center justify-center gap-2 px-4 rounded-xl bg-[var(--color-accent)] text-white font-semibold text-sm cursor-pointer border-0 hover:brightness-105 active:brightness-95 transition-all duration-200 mt-2">Save</button>
+                        <dl className="my-5 grid grid-cols-3 gap-2">
+                            <div className="data-stat"><dt>Milestones</dt><dd>{storage.milestoneCount}</dd></div>
+                            <div className="data-stat"><dt>Check-ins</dt><dd>{storage.checkInCount}</dd></div>
+                            <div className="data-stat"><dt>Snapshots</dt><dd>{storage.historyCount}</dd></div>
+                        </dl>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <button type="button" onClick={onExport} className="secondary-button"><Icon name="download" size={15} /> Export</button>
+                            <button type="button" onClick={() => fileInput.current?.click()} className="secondary-button"><Icon name="upload" size={15} /> Import</button>
+                            <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={(event) => { if (event.target.files?.[0]) { onImport(event.target.files[0]); event.target.value = ""; } }} />
+                        </div>
+
+                        <div className="mt-5 border-t border-[var(--color-line)] pt-5">
+                            {!confirmClear ? (
+                                <button type="button" onClick={() => setConfirmClear(true)} className="quiet-button text-[var(--color-danger)]"><Icon name="trash" size={14} /> Clear all data</button>
+                            ) : (
+                                <div className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-[var(--color-danger-soft)] bg-[var(--color-danger-soft)] p-3">
+                                    <span className="text-xs text-[var(--color-ink-soft)]">This starts a fresh local and cloud history.</span>
+                                    <div className="flex gap-2">
+                                        <button type="button" onClick={() => setConfirmClear(false)} className="quiet-button">Cancel</button>
+                                        <button type="button" onClick={async () => { await onClearData(); onClose(); }} className="quiet-button text-[var(--color-danger)]">Clear now</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+
+                    <div className="acrylic-actions sticky -bottom-[38px] border-t border-[var(--color-line)] pb-[38px] pt-5">
+                        <button type="submit" className="primary-button w-full">Save settings</button>
+                    </div>
                 </form>
             </aside>
         </>

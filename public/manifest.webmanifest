@@ -1,18 +1,17 @@
 {
-  "name": "Echo — see how far you've come",
-  "short_name": "Echo",
-  "description": "A quiet, private space for seeing the time you've invested.",
-  "start_url": "./",
+  "name": "Echoe — build a rhythm you can trust",
+  "short_name": "Echoe",
+  "description": "A calm milestone and habit tracker for practical growth.",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#fdfaf5",
   "theme_color": "#fdfaf5",
   "icons": [
     {
-      "src": "assets/icon.svg",
+      "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ]
 }
-

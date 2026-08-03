@@ -12,12 +12,11 @@ export function Toast({ message, undoEvent, onUndo }: Props) {
     return (
         <div className="fixed z-90 left-1/2 bottom-6 -translate-x-1/2 flex flex-col items-center gap-[10px] pointer-events-none">
             {undoEvent && (
-                <div className="flex items-center gap-4 min-w-[220px] max-w-[calc(100vw-32px)] px-[18px] py-[11px] border border-[var(--color-line)] rounded-[10px] pointer-events-auto animate-slide-up"
-                    style={{ background: "rgba(32,35,31,0.92)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", boxShadow: "0 18px 50px rgba(35,34,31,0.2)" }}>
-                    <span className="text-[#fbfaf7] text-[13px]">"{undoEvent.name}" removed</span>
+                <div className="pointer-events-auto flex min-w-[220px] max-w-[calc(100vw-32px)] items-center gap-4 rounded-[8px] border border-[var(--color-line)] bg-[var(--color-panel-strong)] px-[18px] py-[11px] text-[var(--color-ink)] shadow-lg backdrop-blur-xl animate-slide-up">
+                    <span className="text-[13px]">&quot;{undoEvent.name}&quot; archived</span>
                     <button
                         onClick={onUndo}
-                        className="min-h-[34px] p-0 border-0 border-b border-transparent bg-transparent text-[var(--color-accent)] text-sm font-semibold cursor-pointer hover:brightness-110 transition-all duration-200"
+                        className="quiet-button text-[var(--color-accent-ink)]"
                     >
                         Undo
                     </button>
@@ -25,8 +24,7 @@ export function Toast({ message, undoEvent, onUndo }: Props) {
             )}
             {message && (
                 <div
-                    className="min-w-[220px] max-w-[calc(100vw-32px)] px-[18px] py-[11px] border border-[var(--color-line)] rounded-[10px] text-[#fbfaf7] text-[13px] text-center pointer-events-auto animate-slide-up"
-                    style={{ background: "rgba(32,35,31,0.92)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", boxShadow: "0 18px 50px rgba(35,34,31,0.2)" }}
+                    className="pointer-events-auto min-w-[220px] max-w-[calc(100vw-32px)] rounded-[8px] border border-[var(--color-line)] bg-[var(--color-panel-strong)] px-[18px] py-[11px] text-center text-[13px] text-[var(--color-ink)] shadow-lg backdrop-blur-xl animate-slide-up"
                     role="status"
                     aria-atomic="true"
                 >

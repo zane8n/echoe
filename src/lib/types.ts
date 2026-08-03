@@ -1,5 +1,5 @@
 export type AccentColor = "amber" | "coral" | "teal" | "lavender" | "mint" | "sky";
-export type ThemeName = "warm" | "cool" | "earth" | "rose" | "ocean" | "glacier";
+export type ThemeName = "warm" | "teal" | "blue" | "cool" | "earth" | "rose" | "ocean" | "glacier";
 
 export interface ThemeConfig {
     name: ThemeName;
@@ -17,6 +17,8 @@ export interface ThemeConfig {
 export interface HabitEntry {
     date: string;
     status: "done" | "missed";
+    note?: string;
+    recordedAt?: string;
 }
 
 export interface HabitConfig {
@@ -34,8 +36,9 @@ export interface MilestoneEvent {
     pinned: boolean;
     habit?: HabitConfig;
     achievedAt?: string;
-    /** if true, this is a countdown-style milestone (time-remaining focused) */
     isCountdown?: boolean;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface Achievement {
@@ -47,13 +50,53 @@ export interface Achievement {
 
 export interface DashboardSettings {
     theme: ThemeName;
-    showLifeGrid: boolean;
+    showActivityHistogram: boolean;
 }
 
 export interface DashboardState {
+    schemaVersion: 2;
     events: MilestoneEvent[];
     achievements: Achievement[];
     settings: DashboardSettings;
+    updatedAt: string;
+}
+
+export type AuditAction =
+    | "bootstrap"
+    | "create"
+    | "edit"
+    | "delete"
+    | "restore"
+    | "check-in"
+    | "clear-check-in"
+    | "settings"
+    | "import"
+    | "remote-pull";
+
+export interface AuditEntry {
+    seq?: number;
+    id: string;
+    occurredAt: string;
+    action: AuditAction;
+    entityId?: string;
+    summary: string;
+}
+
+export interface StateSnapshot {
+    seq?: number;
+    createdAt: string;
+    action: AuditAction;
+    state: DashboardState;
+}
+
+export type SyncStatus = "local" | "syncing" | "synced" | "offline";
+
+export interface StorageSummary {
+    milestoneCount: number;
+    checkInCount: number;
+    historyCount: number;
+    lastSavedAt: string | null;
+    syncStatus: SyncStatus;
 }
 
 export interface RemainingDisplay {
@@ -74,7 +117,4 @@ export interface HabitStats {
     missed: number;
     total: number;
     rate: number;
-}
-months: number;
-percent: number;
 }

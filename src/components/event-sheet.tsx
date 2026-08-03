@@ -58,6 +58,9 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
             pinned,
             isCountdown,
             habit: hasHabit ? { frequency: habitFreq, entries: event?.habit?.entries ?? [], target: habitTarget } : undefined,
+            achievedAt: event?.achievedAt,
+            createdAt: event?.createdAt,
+            updatedAt: event?.updatedAt,
         });
         onClose();
     };
@@ -67,21 +70,21 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
             <div className="fixed inset-0 z-60 acrylic-backdrop animate-fade-in" onClick={onClose} />
 
             <aside
-                className="fixed inset-y-0 right-0 z-70 w-[min(100%,520px)] h-dvh overflow-y-auto py-[26px] px-[clamp(22px,5vw,42px)] acrylic-surface animate-slide-up"
+                className="fixed inset-y-0 right-0 z-70 h-dvh w-[min(100%,520px)] overflow-y-auto acrylic-surface px-[clamp(22px,5vw,42px)] py-[26px] animate-slide-up"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="eventSheetTitle"
             >
                 <div className="flex justify-between gap-5 items-start pb-[22px] border-b border-[var(--color-line)]">
                     <div>
-                        <div className="text-[var(--color-muted)] text-xs font-semibold tracking-[0.13em] uppercase">
+                        <div className="text-xs font-semibold uppercase text-[var(--color-accent-ink)]">
                             {isEdit ? "Edit milestone" : "New milestone"}
                         </div>
                         <h2 id="eventSheetTitle" className="text-[38px] font-[var(--font-display)] font-normal m-0 mt-1">
-                            {isEdit ? "Edit event" : "Add event"}
+                            {isEdit ? "Edit milestone" : "Add milestone"}
                         </h2>
                     </div>
-                    <button onClick={onClose} className="w-[42px] h-[42px] grid place-items-center bg-transparent border border-transparent rounded-[10px] cursor-pointer hover:bg-white/50 hover:border-[var(--color-line)] transition-all duration-180" aria-label="Close">
+                    <button onClick={onClose} className="icon-button" aria-label="Close" title="Close">
                         <Icon name="x" />
                     </button>
                 </div>
@@ -96,7 +99,7 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
                             maxLength={48}
                             placeholder="e.g. CCNP Enterprise"
                             required
-                            className="w-full min-h-[46px] px-3 py-[10px] border border-[var(--color-line)] rounded-[10px] bg-white/60 text-[var(--color-ink)] hover:border-[var(--color-line-strong)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-[3px]"
+                            className="field"
                         />
                     </label>
 
@@ -108,7 +111,7 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
                                 value={start}
                                 onChange={(e) => setStart(e.target.value)}
                                 required
-                                className="w-full min-h-[46px] px-3 py-[10px] border border-[var(--color-line)] rounded-[10px] bg-white/60 text-[var(--color-ink)] hover:border-[var(--color-line-strong)]"
+                                className="field"
                             />
                         </label>
                         <label className="grid gap-2 min-w-0">
@@ -118,7 +121,7 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
                                 value={target}
                                 onChange={(e) => setTarget(e.target.value)}
                                 required
-                                className="w-full min-h-[46px] px-3 py-[10px] border border-[var(--color-line)] rounded-[10px] bg-white/60 text-[var(--color-ink)] hover:border-[var(--color-line-strong)]"
+                                className="field"
                             />
                         </label>
                     </div>
@@ -139,10 +142,10 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
                                             className="absolute opacity-0 pointer-events-none"
                                         />
                                         <span
-                                            className="min-h-[42px] flex items-center gap-[9px] px-3 border rounded-[10px] text-[var(--color-ink-soft)] text-[13px] bg-white/40 transition-all duration-180"
+                                            className="flex min-h-[42px] items-center gap-[9px] rounded-[8px] border px-3 text-[13px] text-[var(--color-ink-soft)] transition-all duration-180"
                                             style={{
-                                                borderColor: color === c ? "var(--color-ink-soft)" : "var(--color-line)",
-                                                background: color === c ? "rgba(255,255,255,0.8)" : undefined,
+                                                borderColor: color === c ? palette.color : "var(--color-line)",
+                                                background: color === c ? palette.glow : "var(--color-panel)",
                                             }}
                                         >
                                             <span
@@ -181,41 +184,40 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
                     </label>
 
                     {hasHabit && (
-                        <div className="grid grid-cols-2 gap-3 p-4 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)]/60">
+                        <div className="grid grid-cols-2 gap-3 rounded-[8px] border border-[var(--color-line)] bg-[var(--color-panel)] p-4">
                             <label className="grid gap-1.5">
-                                <span className="text-[var(--color-muted)] text-[11px] uppercase tracking-wider">Frequency</span>
-                                <select value={habitFreq} onChange={e => setHabitFreq(e.target.value as "daily" | "weekly")} className="min-h-[38px] px-2 rounded-lg border border-[var(--color-line)] bg-white/60 text-[var(--color-ink)] text-sm">
+                                <span className="text-[11px] uppercase text-[var(--color-muted)]">Frequency</span>
+                                <select value={habitFreq} onChange={e => setHabitFreq(e.target.value as "daily" | "weekly")} className="field min-h-[40px] py-1 text-sm">
                                     <option value="daily">Daily</option>
                                     <option value="weekly">Weekly</option>
                                 </select>
                             </label>
                             <label className="grid gap-1.5">
-                                <span className="text-[var(--color-muted)] text-[11px] uppercase tracking-wider">Target</span>
-                                <input type="number" min={7} max={365} value={habitTarget} onChange={e => setHabitTarget(Number(e.target.value))} className="min-h-[38px] px-2 rounded-lg border border-[var(--color-line)] bg-white/60 text-[var(--color-ink)] text-sm" />
+                                <span className="text-[11px] uppercase text-[var(--color-muted)]">Check-ins</span>
+                                <input type="number" min={1} max={365} value={habitTarget} onChange={e => setHabitTarget(Number(e.target.value))} className="field min-h-[40px] py-1 text-sm" />
                             </label>
                         </div>
                     )}
 
                     {error && <p className="min-h-5 -mt-2 text-[var(--color-danger)] text-[13px]" role="alert">{error}</p>}
 
-                    <div className="sticky -bottom-[34px] z-2 mt-[10px] pt-5 pb-[34px] flex justify-between gap-[14px] border-t border-[var(--color-line)] flex-wrap"
-                        style={{ background: "linear-gradient(180deg, rgba(251,249,244,0.72), var(--color-canvas-solid) 32%)" }}>
+                    <div className="acrylic-actions sticky -bottom-[34px] z-2 mt-[10px] flex flex-wrap justify-between gap-[14px] border-t border-[var(--color-line)] pb-[34px] pt-5">
                         {isEdit && (
                             <button
                                 type="button"
                                 onClick={() => { onDelete(event!.id); onClose(); }}
-                                className="min-h-[42px] inline-flex items-center justify-center gap-2 px-4 rounded-[10px] border border-[rgba(155,79,73,0.2)] bg-transparent text-[var(--color-danger)] font-semibold text-sm cursor-pointer hover:bg-[rgba(155,79,73,0.06)] transition-all duration-180"
+                                className="secondary-button text-[var(--color-danger)]"
                             >
                                 <Icon name="trash" size={16} />
                                 Delete
                             </button>
                         )}
                         <div className="flex gap-[10px] ml-auto max-[860px]:w-full max-[860px]:[&>*]:flex-1">
-                            <button type="button" onClick={onClose} className="min-h-[42px] inline-flex items-center justify-center gap-2 px-4 rounded-[10px] border border-[var(--color-line)] bg-white/50 font-semibold text-sm cursor-pointer hover:border-[var(--color-line-strong)] transition-all duration-180">
+                            <button type="button" onClick={onClose} className="secondary-button">
                                 Cancel
                             </button>
-                            <button type="submit" className="min-h-[42px] inline-flex items-center justify-center gap-2 px-4 rounded-[10px] bg-[var(--color-accent)] text-white font-semibold text-sm cursor-pointer hover:brightness-105 active:brightness-95 transition-all duration-200">
-                                Save event
+                            <button type="submit" className="primary-button">
+                                Save milestone
                             </button>
                         </div>
                     </div>

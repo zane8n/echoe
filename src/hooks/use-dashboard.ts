@@ -1,143 +1,254 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import type { DashboardState, Achievement } from "@/lib/types";
-import { STORAGE_KEY, LEGACY_STORAGE_KEY } from "@/lib/constants";
-import { seedState, localDate } from "@/lib/utils";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+    clearEchoeDatabase,
+    commitDashboardState,
+    getStorageSummary,
+    initializeLocalDatabase,
+    loadDashboardState,
+    setRemoteVersion,
+} from "@/lib/local-db";
+import { pullRemoteState, pushRemoteState } from "@/lib/remote-sync";
+import { localDate, seedState } from "@/lib/utils";
+import type {
+    Achievement,
+    AuditAction,
+    DashboardState,
+    HabitEntry,
+    MilestoneEvent,
+    StorageSummary,
+    SyncStatus,
+} from "@/lib/types";
 
-const LOG_KEY = "echoe.audit.v1";
+const EMPTY_SUMMARY: StorageSummary = {
+    milestoneCount: 0,
+    checkInCount: 0,
+    historyCount: 0,
+    lastSavedAt: null,
+    syncStatus: "local",
+};
 
-interface LogEntry { ts: string; op: string; detail: string; }
-function appendLog(op: string, detail: string) {
-    try {
-        const logs: LogEntry[] = JSON.parse(localStorage.getItem(LOG_KEY) ?? "[]");
-        logs.push({ ts: new Date().toISOString(), op, detail });
-        if (logs.length > 500) logs.splice(0, logs.length - 500);
-        localStorage.setItem(LOG_KEY, JSON.stringify(logs));
-    } catch { /* silent */ }
-}
-
-function loadState(): DashboardState {
-    // Try current storage key
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed && Array.isArray(parsed.events) && parsed.settings) {
-                return {
-                    events: parsed.events,
-                    achievements: Array.isArray(parsed.achievements) ? parsed.achievements : [],
-                    settings: {
-                        theme: parsed.settings?.theme ?? "warm",
-                        showLifeGrid: parsed.settings?.showLifeGrid ?? true,
-                    },
-                };
-            }
-        }
-    } catch { /* corrupt data — ignore */ }
-
-    // Try migration from legacy key
-    try {
-        const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
-        if (raw) {
-            const old = JSON.parse(raw);
-            if (old && Array.isArray(old.events) && old.settings) {
-                localStorage.removeItem(LEGACY_STORAGE_KEY);
-                return {
-                    events: old.events,
-                    achievements: Array.isArray(old.achievements) ? old.achievements : [],
-                    settings: {
-                        theme: "warm",
-                        showLifeGrid: old.settings?.showLifeGrid ?? true,
-                    },
-                };
-            }
-        }
-    } catch { /* */ }
-
-    return seedState();
-}
+const createId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 export function useDashboardState() {
     const [state, setState] = useState<DashboardState | null>(null);
+    const [storageSummary, setStorageSummary] = useState<StorageSummary>(EMPTY_SUMMARY);
+    const stateRef = useRef<DashboardState | null>(null);
+    const queueRef = useRef<Promise<void>>(Promise.resolve());
+    const channelRef = useRef<BroadcastChannel | null>(null);
+
+    const publishState = useCallback((next: DashboardState) => {
+        stateRef.current = next;
+        setState(next);
+    }, []);
+
+    const refreshSummary = useCallback(async (syncStatus: SyncStatus) => {
+        const summary = await getStorageSummary(syncStatus);
+        setStorageSummary(summary);
+    }, []);
 
     useEffect(() => {
-        // Always resolve — never leave the user on a loading screen
-        try {
-            setState(loadState());
-        } catch {
-            setState(seedState());
-        }
-    }, []);
+        let active = true;
 
-    const persist = useCallback((s: DashboardState) => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-        setState(s);
-    }, []);
+        const bootstrap = async () => {
+            try {
+                await initializeLocalDatabase();
+                let localState = await loadDashboardState();
+                if (!active) return;
+                publishState(localState);
+                await refreshSummary("local");
+
+                setStorageSummary((current) => ({ ...current, syncStatus: "syncing" }));
+                const remote = await pullRemoteState();
+                if (!active) return;
+
+                if (remote.mode === "local") {
+                    await refreshSummary("local");
+                    return;
+                }
+
+                const remoteTime = Date.parse(remote.updatedAt ?? remote.state?.updatedAt ?? "");
+                const localTime = Date.parse(localState.updatedAt);
+                if (remote.state && Number.isFinite(remoteTime) && remoteTime > localTime) {
+                    localState = await commitDashboardState(remote.state, "remote-pull", "Loaded newer data from the Vercel database");
+                    publishState(localState);
+                } else {
+                    const saved = await pushRemoteState(localState, "bootstrap");
+                    if (saved.version) await setRemoteVersion(saved.version);
+                }
+                if (remote.version) await setRemoteVersion(remote.version);
+                await refreshSummary("synced");
+            } catch {
+                if (!active) return;
+                if (!stateRef.current) {
+                    const fallback = seedState();
+                    publishState(fallback);
+                }
+                setStorageSummary((current) => ({ ...current, syncStatus: "offline" }));
+            }
+        };
+
+        void bootstrap();
+
+        if (typeof BroadcastChannel !== "undefined") {
+            channelRef.current = new BroadcastChannel("echoe-state-v2");
+            channelRef.current.onmessage = () => {
+                void loadDashboardState().then((next) => {
+                    if (active && next.updatedAt !== stateRef.current?.updatedAt) publishState(next);
+                });
+            };
+        }
+
+        return () => {
+            active = false;
+            channelRef.current?.close();
+            channelRef.current = null;
+        };
+    }, [publishState, refreshSummary]);
+
+    const enqueueCommit = useCallback((
+        next: DashboardState,
+        action: AuditAction,
+        summary: string,
+        entityId?: string,
+    ) => {
+        publishState(next);
+        queueRef.current = queueRef.current.then(async () => {
+            const saved = await commitDashboardState(next, action, summary, entityId);
+            if (stateRef.current?.updatedAt === next.updatedAt) publishState(saved);
+            channelRef.current?.postMessage({ updatedAt: saved.updatedAt });
+            await refreshSummary("syncing");
+            try {
+                const remote = await pushRemoteState(saved, action);
+                if (remote.mode === "cloud") {
+                    await setRemoteVersion(remote.version);
+                    await refreshSummary("synced");
+                } else {
+                    await refreshSummary("local");
+                }
+            } catch {
+                await refreshSummary("offline");
+            }
+        }).catch(() => {
+            setStorageSummary((current) => ({ ...current, syncStatus: "offline" }));
+        });
+    }, [publishState, refreshSummary]);
 
     const updateSettings = useCallback((settings: DashboardState["settings"]) => {
-        setState((prev) => { if (!prev) return prev; const n = { ...prev, settings }; localStorage.setItem(STORAGE_KEY, JSON.stringify(n)); return n; });
-    }, []);
+        const current = stateRef.current;
+        if (!current) return;
+        const next = { ...current, settings, updatedAt: new Date().toISOString() };
+        enqueueCommit(next, "settings", `Changed the app theme to ${settings.theme}`);
+    }, [enqueueCommit]);
 
-    const upsertEvent = useCallback((event: DashboardState["events"][number]) => {
-        setState((prev) => {
-            if (!prev) return prev;
-            const events = [...prev.events];
-            const idx = events.findIndex((e) => e.id === event.id);
-            if (event.pinned) events.forEach((e) => (e.pinned = false));
-            if (idx >= 0) events[idx] = event; else events.push(event);
-            if (!events.some((e) => e.pinned) && events.length) events[0].pinned = true;
-            const n = { ...prev, events }; localStorage.setItem(STORAGE_KEY, JSON.stringify(n)); appendLog(idx >= 0 ? "edit" : "create", event.name); return n;
-        });
-    }, []);
+    const upsertEvent = useCallback((event: MilestoneEvent) => {
+        const current = stateRef.current;
+        if (!current) return;
+        const now = new Date().toISOString();
+        const events = current.events.map((item) => event.pinned ? { ...item, pinned: false } : item);
+        const index = events.findIndex((item) => item.id === event.id);
+        const nextEvent = {
+            ...event,
+            createdAt: event.createdAt ?? (index >= 0 ? events[index].createdAt : now),
+            updatedAt: now,
+        };
+        if (index >= 0) events[index] = nextEvent;
+        else events.push(nextEvent);
+        if (!events.some((item) => item.pinned) && events.length) events[0] = { ...events[0], pinned: true };
+        const next = { ...current, events, updatedAt: now };
+        enqueueCommit(next, index >= 0 ? "edit" : "create", `${index >= 0 ? "Updated" : "Created"} ${event.name}`, event.id);
+    }, [enqueueCommit]);
 
     const deleteEvent = useCallback((id: string) => {
-        let deleted: DashboardState["events"][number] | null = null;
-        setState((prev) => {
-            if (!prev) return prev;
-            deleted = prev.events.find((e) => e.id === id) ?? null;
-            const events = prev.events.filter((e) => e.id !== id);
-            if (deleted?.pinned && events.length) events[0].pinned = true;
-            const n = { ...prev, events }; localStorage.setItem(STORAGE_KEY, JSON.stringify(n)); appendLog("delete", deleted?.name ?? id); return n;
-        });
+        const current = stateRef.current;
+        if (!current) return null;
+        const deleted = current.events.find((event) => event.id === id) ?? null;
+        if (!deleted) return null;
+        const events = current.events.filter((event) => event.id !== id);
+        if (deleted.pinned && events.length) events[0] = { ...events[0], pinned: true, updatedAt: new Date().toISOString() };
+        const next = { ...current, events, updatedAt: new Date().toISOString() };
+        enqueueCommit(next, "delete", `Archived ${deleted.name}`, id);
         return deleted;
-    }, []);
+    }, [enqueueCommit]);
 
-    const restoreEvent = useCallback((event: DashboardState["events"][number]) => {
-        setState((prev) => {
-            if (!prev) return prev;
-            const events = [...prev.events];
-            if (event.pinned) events.forEach((e) => (e.pinned = false));
-            events.push(event);
-            if (!events.some((e) => e.pinned) && events.length) events[0].pinned = true;
-            const n = { ...prev, events }; localStorage.setItem(STORAGE_KEY, JSON.stringify(n)); return n;
-        });
-    }, []);
+    const restoreEvent = useCallback((event: MilestoneEvent) => {
+        const current = stateRef.current;
+        if (!current) return;
+        const events = event.pinned ? current.events.map((item) => ({ ...item, pinned: false })) : [...current.events];
+        events.push({ ...event, updatedAt: new Date().toISOString() });
+        const next = { ...current, events, updatedAt: new Date().toISOString() };
+        enqueueCommit(next, "restore", `Restored ${event.name}`, event.id);
+    }, [enqueueCommit]);
 
     const addAchievement = useCallback((label: string, icon: string) => {
-        setState((prev) => {
-            if (!prev) return prev;
-            const achievement: Achievement = { id: crypto.randomUUID?.() ?? `${Date.now()}`, label, date: localDate(), icon };
-            const n = { ...prev, achievements: [achievement, ...prev.achievements] };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(n)); return n;
-        });
-    }, []);
+        const current = stateRef.current;
+        if (!current) return;
+        const achievement: Achievement = { id: createId(), label, date: localDate(), icon };
+        const next = { ...current, achievements: [achievement, ...current.achievements], updatedAt: new Date().toISOString() };
+        enqueueCommit(next, "edit", `Recorded achievement: ${label}`, achievement.id);
+    }, [enqueueCommit]);
 
-    const checkInHabit = useCallback((eventId: string, status: "done" | "missed" = "done") => {
-        setState((prev) => {
-            if (!prev) return prev;
-            const events = prev.events.map((e) => {
-                if (e.id !== eventId || !e.habit) return e;
-                const today = localDate();
-                const existing = e.habit.entries.findIndex(en => en.date === today);
-                const entries = [...e.habit.entries];
-                if (existing >= 0) entries[existing] = { date: today, status };
-                else entries.push({ date: today, status });
-                return { ...e, habit: { ...e.habit, entries } };
-            });
-            const n = { ...prev, events }; localStorage.setItem(STORAGE_KEY, JSON.stringify(n)); return n;
+    const checkInHabit = useCallback((
+        eventId: string,
+        status: HabitEntry["status"],
+        date = localDate(),
+        note?: string,
+    ) => {
+        const current = stateRef.current;
+        if (!current) return;
+        const now = new Date().toISOString();
+        const events = current.events.map((event) => {
+            if (event.id !== eventId || !event.habit) return event;
+            const entries = event.habit.entries.filter((entry) => entry.date !== date);
+            entries.push({ date, status, note: note?.trim() || undefined, recordedAt: now });
+            entries.sort((a, b) => a.date.localeCompare(b.date));
+            return { ...event, updatedAt: now, habit: { ...event.habit, entries } };
         });
-    }, []);
+        const next = { ...current, events, updatedAt: now };
+        enqueueCommit(next, "check-in", `Marked ${date} as ${status}`, eventId);
+    }, [enqueueCommit]);
 
-    return { state, updateSettings, upsertEvent, deleteEvent, restoreEvent, addAchievement, checkInHabit };
+    const clearHabitCheckIn = useCallback((eventId: string, date: string) => {
+        const current = stateRef.current;
+        if (!current) return;
+        const now = new Date().toISOString();
+        const events = current.events.map((event) => event.id === eventId && event.habit
+            ? { ...event, updatedAt: now, habit: { ...event.habit, entries: event.habit.entries.filter((entry) => entry.date !== date) } }
+            : event);
+        enqueueCommit({ ...current, events, updatedAt: now }, "clear-check-in", `Cleared the check-in for ${date}`, eventId);
+    }, [enqueueCommit]);
+
+    const importState = useCallback((incoming: DashboardState) => {
+        const now = new Date().toISOString();
+        const next: DashboardState = { ...incoming, schemaVersion: 2, updatedAt: now };
+        enqueueCommit(next, "import", "Imported an Echoe backup");
+    }, [enqueueCommit]);
+
+    const clearAllData = useCallback(async () => {
+        const next = await clearEchoeDatabase();
+        publishState(next);
+        channelRef.current?.postMessage({ updatedAt: next.updatedAt });
+        await refreshSummary("syncing");
+        try {
+            const remote = await pushRemoteState(next, "bootstrap");
+            await refreshSummary(remote.mode === "cloud" ? "synced" : "local");
+        } catch {
+            await refreshSummary("offline");
+        }
+    }, [publishState, refreshSummary]);
+
+    return {
+        state,
+        storageSummary,
+        updateSettings,
+        upsertEvent,
+        deleteEvent,
+        restoreEvent,
+        addAchievement,
+        checkInHabit,
+        clearHabitCheckIn,
+        importState,
+        clearAllData,
+    };
 }

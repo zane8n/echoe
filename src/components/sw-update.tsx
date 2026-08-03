@@ -24,8 +24,7 @@ export function SwUpdate() {
     if (!show) return null;
 
     return (
-        <div className="fixed z-85 bottom-5 right-5 flex items-center gap-[14px] px-[18px] py-3 border border-[var(--color-line)] rounded-[16px] text-[13px] font-medium animate-slide-up"
-            style={{ background: "var(--color-canvas-solid)", boxShadow: "0 24px 70px rgba(54,50,42,0.08)" }}>
+        <div className="fixed bottom-5 right-5 z-85 flex items-center gap-[14px] rounded-[8px] border border-[var(--color-line)] bg-[var(--color-panel-strong)] px-[18px] py-3 text-[13px] font-medium shadow-lg backdrop-blur-xl animate-slide-up">
             <span>Update available</span>
             <button
                 onClick={() => {
@@ -35,7 +34,7 @@ export function SwUpdate() {
                     });
                     window.location.reload();
                 }}
-                className="min-h-[40px] inline-flex items-center gap-2 px-[13px] rounded-[10px] border border-[var(--color-accent)] bg-[var(--color-accent)] text-white font-semibold text-sm cursor-pointer hover:brightness-105 active:brightness-95 transition-all duration-200 shadow-[0_2px_12px_rgba(240,160,75,0.28)]"
+                className="primary-button min-h-[40px] px-[13px]"
             >
                 Refresh
             </button>

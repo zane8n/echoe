@@ -2,74 +2,92 @@
 
 import { useEffect, useRef } from "react";
 
+interface Line {
+    ax: number;
+    ay: number;
+    bx: number;
+    by: number;
+    phase: number;
+    speed: number;
+}
+
+const colorChannels = (value: string) => {
+    const hex = value.trim().replace("#", "");
+    if (!/^[0-9a-f]{6}$/i.test(hex)) return "77, 171, 147";
+    return `${parseInt(hex.slice(0, 2), 16)}, ${parseInt(hex.slice(2, 4), 16)}, ${parseInt(hex.slice(4, 6), 16)}`;
+};
+
 export function BgCanvas() {
-  const ref = useRef<HTMLCanvasElement>(null);
-  const mouse = useRef({ x: 0.5, y: 0.5 });
-  const lines = useRef<{ ax: number; ay: number; bx: number; by: number; phase: number; speed: number }[]>([]);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const pointer = useRef({ x: 0.5, y: 0.5 });
 
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        const context = canvas?.getContext("2d");
+        if (!canvas || !context) return;
 
-    // Generate abstract lines/arcs
-    const count = 18;
-    lines.current = Array.from({ length: count }, () => ({
-      ax: Math.random(), ay: Math.random(),
-      bx: Math.random(), by: Math.random(),
-      phase: Math.random() * Math.PI * 2,
-      speed: 0.0003 + Math.random() * 0.0008,
-    }));
+        const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const lines: Line[] = Array.from({ length: 16 }, () => ({
+            ax: Math.random(),
+            ay: Math.random(),
+            bx: Math.random(),
+            by: Math.random(),
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.001 + Math.random() * 0.0015,
+        }));
 
-    const onMove = (e: MouseEvent | Touch) => {
-      mouse.current = { x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight };
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("touchmove", (e) => onMove(e.touches[0]), { passive: true });
+        const onPointerMove = (event: PointerEvent) => {
+            pointer.current = { x: event.clientX / window.innerWidth, y: event.clientY / window.innerHeight };
+        };
+        window.addEventListener("pointermove", onPointerMove, { passive: true });
 
-    let raf = 0;
-    const draw = () => {
-      const w = canvas.width = window.innerWidth;
-      const h = canvas.height = window.innerHeight;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = w * dpr; canvas.height = h * dpr;
-      ctx.scale(dpr, dpr);
-      ctx.clearRect(0, 0, w, h);
+        let frame = 0;
+        const draw = () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const ratio = Math.min(window.devicePixelRatio || 1, 2);
+            if (canvas.width !== width * ratio || canvas.height !== height * ratio) {
+                canvas.width = width * ratio;
+                canvas.height = height * ratio;
+                canvas.style.width = `${width}px`;
+                canvas.style.height = `${height}px`;
+            }
+            context.setTransform(ratio, 0, 0, ratio, 0, 0);
+            context.clearRect(0, 0, width, height);
 
-      const mx = mouse.current.x;
-      const my = mouse.current.y;
+            const channels = colorChannels(getComputedStyle(canvas).getPropertyValue("--accent"));
+            const { x: pointerX, y: pointerY } = pointer.current;
+            for (const line of lines) {
+                if (!reducedMotion) line.phase += line.speed;
+                const startX = line.ax * width;
+                const startY = line.ay * height;
+                const endX = line.bx * width;
+                const endY = line.by * height;
+                const controlX = ((line.ax + line.bx) / 2) * width + (pointerX - 0.5) * 80 + Math.sin(line.phase) * 55;
+                const controlY = ((line.ay + line.by) / 2) * height + (pointerY - 0.5) * 80 + Math.cos(line.phase * 1.2) * 55;
 
-      lines.current.forEach((l) => {
-        l.phase += l.speed;
+                context.strokeStyle = `rgba(${channels}, 0.13)`;
+                context.lineWidth = 0.7;
+                context.beginPath();
+                context.moveTo(startX, startY);
+                context.quadraticCurveTo(controlX, controlY, endX, endY);
+                context.stroke();
 
-        // Bezier control points sway with cursor
-        const cx = (l.ax + mx * 0.6 + Math.sin(l.phase) * 0.25) * w;
-        const cy = (l.ay + my * 0.6 + Math.cos(l.phase * 1.3) * 0.25) * h;
-        const ex = (l.bx + mx * 0.4 + Math.cos(l.phase * 0.7) * 0.2) * w;
-        const ey = (l.by + my * 0.4 + Math.sin(l.phase * 0.9) * 0.2) * h;
+                context.fillStyle = `rgba(${channels}, 0.16)`;
+                context.beginPath();
+                context.arc(controlX, controlY, 1.2, 0, Math.PI * 2);
+                context.fill();
+            }
 
-        ctx.strokeStyle = "rgba(140,130,120,0.10)";
-        ctx.lineWidth = 0.6;
-        ctx.beginPath();
-        ctx.moveTo(l.ax * w, l.ay * h);
-        ctx.quadraticCurveTo(cx, cy, ex, ey);
-        ctx.stroke();
+            if (!reducedMotion) frame = requestAnimationFrame(draw);
+        };
 
-        // Soft glow point at cursor-influenced intersection
-        const gx = l.ax * w + (mx - 0.5) * 120;
-        const gy = l.ay * h + (my - 0.5) * 120;
-        const grd = ctx.createRadialGradient(gx, gy, 0, gx, gy, 60);
-        grd.addColorStop(0, "rgba(180,160,140,0.06)");
-        grd.addColorStop(1, "rgba(180,160,140,0)");
-        ctx.fillStyle = grd;
-        ctx.fillRect(gx - 60, gy - 60, 120, 120);
-      });
-      raf = requestAnimationFrame(draw);
-    };
-    draw();
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("mousemove", onMove); };
-  }, []);
+        draw();
+        return () => {
+            cancelAnimationFrame(frame);
+            window.removeEventListener("pointermove", onPointerMove);
+        };
+    }, []);
 
-  return <canvas ref={ref} className="bg-canvas" aria-hidden="true" />;
+    return <canvas ref={canvasRef} className="bg-canvas" aria-hidden="true" />;
 }

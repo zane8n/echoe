@@ -2,15 +2,17 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Echo — see how far you've come",
-  description: "A quiet, private space for seeing the time you've invested — not the time you have left.",
+  title: "Echoe — build a rhythm you can trust",
+  description: "A calm, local-first milestone and habit tracker built around progress, reflection, and practical growth.",
   manifest: "/manifest.webmanifest",
   icons: { icon: [{ url: "/icon.svg", type: "image/svg+xml" }] },
   appleWebApp: { capable: true, statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#fdfaf5",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fdfaf5" },
+  ],
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",

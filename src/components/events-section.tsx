@@ -1,89 +1,102 @@
 "use client";
 
 import { useMemo } from "react";
-import { Icon } from "./icon";
 import type { MilestoneEvent } from "@/lib/types";
-import { daysUntil, parseDate, formatDate, formatRemaining, timeSpent, formatSpent, habitStreak } from "@/lib/utils";
 import { COLOR_MAP } from "@/lib/constants";
+import { daysUntil, formatDate, formatRemaining, formatSpent, habitStreak, localDate, parseDate, timeSpent } from "@/lib/utils";
+import { Icon } from "./icon";
 
-interface Props { events: MilestoneEvent[]; tick: number; onEdit: (id: string) => void; onExport: () => void; }
+interface Props {
+    events: MilestoneEvent[];
+    onEdit: (id: string) => void;
+    onExport: () => void;
+    onCheckIn: (id: string) => void;
+    onOpenHistory: (id: string) => void;
+}
 
-export function EventsSection({ events, tick, onEdit, onExport }: Props) {
+export function EventsSection({ events, onEdit, onExport, onCheckIn, onOpenHistory }: Props) {
     const sorted = useMemo(
         () => [...events].sort((a, b) => (parseDate(a.target)?.getTime() ?? 0) - (parseDate(b.target)?.getTime() ?? 0)),
-        [events, tick],
+        [events],
     );
 
     return (
-        <section className="mt-[clamp(52px,8vw,92px)] animate-soft-enter">
-            <div className="flex items-end justify-between gap-4 mb-8 flex-wrap">
+        <section className="mt-[clamp(56px,8vw,92px)] animate-soft-enter">
+            <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
                 <div>
-                    <div className="text-[var(--color-muted)] text-xs font-semibold tracking-[0.14em] uppercase flex items-center gap-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--color-accent-ink)]">
                         <Icon name="layers" size={14} /> Milestones
                     </div>
-                    <h2 className="mt-1.5 text-[clamp(28px,4vw,42px)] leading-[1.08] font-[var(--font-display)] font-normal m-0">Your path</h2>
+                    <h2 className="m-0 mt-1.5 font-[var(--font-display)] text-[clamp(28px,4vw,42px)] font-normal leading-[1.08]">Your path</h2>
                 </div>
-                <button onClick={onExport}
-                    className="text-xs font-medium text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors duration-200 flex items-center gap-1.5 bg-transparent border-0 cursor-pointer">
-                    <Icon name="download" size={13} /> Export
-                </button>
+                {sorted.length > 0 && (
+                    <button onClick={onExport} className="quiet-button text-[var(--color-muted)]">
+                        <Icon name="download" size={14} /> Export
+                    </button>
+                )}
             </div>
 
             {sorted.length === 0 ? (
-                <div className="py-12 text-center text-[var(--color-muted)]">
-                    <p className="m-0 mb-2">No milestones yet.</p>
-                    <button onClick={() => onEdit("")} className="text-sm font-medium text-[var(--color-accent)] bg-transparent border-0 cursor-pointer hover:underline">Add your first</button>
+                <div className="border-y border-[var(--color-line)] py-12 text-center">
+                    <p className="m-0 text-sm text-[var(--color-muted)]">Your timeline will grow from what you add here.</p>
+                    <button onClick={() => onEdit("")} className="quiet-button mx-auto mt-2 text-[var(--color-accent-ink)]">
+                        <Icon name="plus" size={14} /> Add your first milestone
+                    </button>
                 </div>
             ) : (
-                <div className="flex flex-col gap-0">
-                    {sorted.map((event, i) => {
+                <div className="flex flex-col">
+                    {sorted.map((event, index) => {
                         const palette = COLOR_MAP[event.color] ?? COLOR_MAP.amber;
                         const remaining = daysUntil(event.target);
-                        const fmt = formatRemaining(remaining);
+                        const remainingDisplay = formatRemaining(remaining);
                         const spent = timeSpent(event.start, event.target);
                         const streak = habitStreak(event);
+                        const today = event.habit?.entries.find((entry) => entry.date === localDate());
 
                         return (
-                            <div key={event.id}
-                                role="button" tabIndex={0}
-                                onClick={() => onEdit(event.id)}
-                                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onEdit(event.id); } }}
-                                className="animate-row-enter group flex items-center gap-4 py-5 cursor-pointer border-b border-[var(--color-line)] hover:bg-[var(--color-accent)]/5 hover:-translate-y-[1px] transition-all duration-300 -mx-4 px-4 rounded-lg"
-                                style={{ animationDelay: `${Math.min(i, 5) * 50}ms` }}>
-                                {/* Visual bar */}
-                                <div className="w-1 self-stretch rounded-full flex-shrink-0 transition-shadow duration-300 group-hover:shadow-[0_0_12px_var(--glow)]" style={{ background: `linear-gradient(180deg, ${palette.color}, ${palette.color}44)`, "--glow": palette.glow } as React.CSSProperties} />
-
-                                {/* Content */}
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="font-[var(--font-display)] text-xl transition-colors duration-200"
-                                            style={{ color: `${palette.ink}` }}>{event.name}</span>
-                                        {event.pinned && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--color-accent)]/20 text-[var(--color-accent-ink)]">Focus</span>}
-                                        {streak > 0 && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-0.5" style={{ background: palette.glow, color: palette.ink }}><Icon name="flame" size={10} />{streak}</span>}
+                            <article key={event.id} className="group -mx-3 flex items-center gap-2 border-b border-[var(--color-line)] px-3 transition-colors duration-200 hover:bg-[var(--color-accent-soft)]" style={{ animationDelay: `${Math.min(index, 5) * 50}ms` }}>
+                                <button onClick={() => onEdit(event.id)} className="min-w-0 flex-1 border-0 bg-transparent py-5 text-left text-[var(--color-ink)]" aria-label={`Edit ${event.name}`}>
+                                    <div className="flex items-stretch gap-4">
+                                        <span className="w-1 shrink-0 rounded-full" style={{ background: palette.color }} aria-hidden="true" />
+                                        <span className="min-w-0 flex-1">
+                                            <span className="flex flex-wrap items-center gap-2">
+                                                <span className="[overflow-wrap:anywhere] font-[var(--font-display)] text-xl" style={{ color: palette.ink }}>{event.name}</span>
+                                                {event.pinned && <span className="status-pill bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]">Focus</span>}
+                                                {streak > 0 && <span className="status-pill" style={{ background: palette.glow, color: palette.ink }}><Icon name="flame" size={10} />{streak}</span>}
+                                            </span>
+                                            <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[var(--color-muted)]">
+                                                <span className="flex items-center gap-1"><Icon name="calendar" size={12} />{formatDate(event.target)}</span>
+                                                <span className="flex items-center gap-1"><Icon name="clock" size={12} />{formatSpent(spent)}</span>
+                                            </span>
+                                        </span>
+                                        <span className="flex w-[78px] shrink-0 flex-col items-end justify-center gap-1.5 text-right">
+                                            <span className="flex items-baseline gap-1">
+                                                <span className="font-[var(--font-display)] text-2xl font-normal leading-none tabular-nums">{remainingDisplay.value}</span>
+                                                <span className="text-[10px] text-[var(--color-muted)]">{remainingDisplay.unit}</span>
+                                            </span>
+                                            <span className="h-1 w-16 overflow-hidden rounded-full bg-[var(--color-line)]">
+                                                <span className="progress-fill block h-full rounded-full" style={{ width: `${spent.percent}%`, background: palette.color }} />
+                                            </span>
+                                        </span>
                                     </div>
-                                    <div className="flex items-center gap-3 mt-1 text-[13px] text-[var(--color-muted)]">
-                                        <span className="flex items-center gap-1"><Icon name="calendar" size={12} />{formatDate(event.target)}</span>
-                                        <span className="flex items-center gap-1"><Icon name="clock" size={12} />{formatSpent(spent)}</span>
-                                    </div>
-                                </div>
-
-                                {/* Right: remaining + progress */}
-                                <div className="text-right flex-shrink-0 flex flex-col items-end gap-1.5">
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="font-[var(--font-display)] text-2xl tabular-nums font-normal leading-none">{fmt.value}</span>
-                                        <span className="text-[11px] text-[var(--color-muted)]">{fmt.unit}</span>
-                                    </div>
-                                    <div className="w-16 h-1 rounded-full bg-[var(--color-line)] overflow-hidden">
-                                        <div className="progress-fill h-full rounded-full" style={{ width: `${Math.min(100, Math.max(0, spent.percent))}%`, background: palette.color }} />
-                                    </div>
-                                </div>
-
-                                {/* Edit button */}
-                                <button onClick={(e) => { e.stopPropagation(); onEdit(event.id); }}
-                                    className="w-8 h-8 grid place-items-center rounded-full bg-transparent border-0 cursor-pointer text-[var(--color-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--color-ink)] hover:bg-[var(--color-accent)]/10 transition-all duration-200 flex-shrink-0">
-                                    <Icon name="more-horiz" size={16} />
                                 </button>
-                            </div>
+
+                                <div className="flex shrink-0 items-center gap-1">
+                                    {event.habit && (
+                                        <>
+                                            <button onClick={() => onCheckIn(event.id)} className="icon-button" style={today?.status === "done" ? { background: palette.glow, color: palette.ink } : undefined} aria-label={`Mark ${event.name} done today`} title="Done today">
+                                                <Icon name="check" size={15} />
+                                            </button>
+                                            <button onClick={() => onOpenHistory(event.id)} className="icon-button" aria-label={`Open ${event.name} check-in history`} title="Check-in history">
+                                                <Icon name="history" size={15} />
+                                            </button>
+                                        </>
+                                    )}
+                                    <button onClick={() => onEdit(event.id)} className="icon-button" aria-label={`Edit ${event.name}`} title="Edit milestone">
+                                        <Icon name="more-horiz" size={16} />
+                                    </button>
+                                </div>
+                            </article>
                         );
                     })}
                 </div>

@@ -1,44 +1,70 @@
 "use client";
 
-import { useMemo, useRef, useEffect } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { MilestoneEvent } from "@/lib/types";
-import { getPinnedEvent, timeSpent, formatDate, formatSpent, formatRemaining, daysUntil, habitStreak, habitStats } from "@/lib/utils";
-import { Icon } from "./icon";
+import {
+    addDays,
+    daysUntil,
+    formatDate,
+    formatRemaining,
+    formatSpent,
+    getPinnedEvent,
+    habitInsight,
+    habitStats,
+    habitStreak,
+    localDate,
+    startOfDay,
+    timeSpent,
+} from "@/lib/utils";
 import { COLOR_MAP } from "@/lib/constants";
+import { Icon } from "./icon";
 
-interface Props { events: MilestoneEvent[]; tick: number; onEdit: (id: string) => void; onConfetti: () => void; onCheckIn: (id: string) => void; onMiss: (id: string) => void; }
+interface Props {
+    events: MilestoneEvent[];
+    tick: number;
+    onEdit: (id: string) => void;
+    onConfetti: () => void;
+    onCheckIn: (id: string) => void;
+    onMiss: (id: string) => void;
+    onOpenHistory: (id: string) => void;
+}
 
-export function FocusSection({ events, tick, onEdit, onConfetti, onCheckIn, onMiss }: Props) {
+export function FocusSection({ events, tick, onEdit, onConfetti, onCheckIn, onMiss, onOpenHistory }: Props) {
     const event = getPinnedEvent(events);
-    const prevRemaining = useRef<number | null>(null);
+    const previousRemaining = useRef<number | null>(null);
 
     const display = useMemo(() => {
         if (!event) return null;
         const spent = timeSpent(event.start, event.target);
         const remaining = daysUntil(event.target);
-        const fmt = formatRemaining(remaining);
-        const streak = habitStreak(event);
-        const stats = habitStats(event);
-        const palette = COLOR_MAP[event.color] ?? COLOR_MAP.amber;
-        return { event, spent, remaining, progress: spent.percent, fmt, streak, stats, palette };
+        return {
+            event,
+            spent,
+            remaining,
+            remainingDisplay: formatRemaining(remaining),
+            streak: habitStreak(event),
+            stats: habitStats(event),
+            palette: COLOR_MAP[event.color] ?? COLOR_MAP.amber,
+        };
+        // tick keeps date-driven milestones live without recalculating every render.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [events, tick]);
 
     useEffect(() => {
-        if (display && prevRemaining.current !== null && prevRemaining.current > 0 && display.remaining === 0) onConfetti();
-        prevRemaining.current = display?.remaining ?? null;
+        if (display && previousRemaining.current !== null && previousRemaining.current > 0 && display.remaining === 0) onConfetti();
+        previousRemaining.current = display?.remaining ?? null;
     }, [display, onConfetti]);
 
     if (!display) {
         return (
-            <section className="animate-soft-enter py-[clamp(32px,6vw,60px)]">
-                <div className="text-[var(--color-muted)] text-xs font-semibold tracking-[0.14em] uppercase mb-3 flex items-center gap-2">
+            <section id="top" className="animate-soft-enter py-[clamp(34px,6vw,64px)]">
+                <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase text-[var(--color-accent-ink)]">
                     <Icon name="target" size={14} /> Focus
                 </div>
-                <div className="flex flex-col gap-3">
-                    <h1 className="text-[clamp(40px,7vw,80px)] leading-[1.02] font-[var(--font-display)] font-normal m-0 text-[var(--color-muted)]">Start something</h1>
-                    <p className="text-[var(--color-muted)]/70 text-base m-0">Add a milestone to begin tracking your time invested.</p>
-                    <button onClick={() => onEdit("")} className="self-start mt-2 h-9 inline-flex items-center gap-1.5 px-3.5 rounded-xl bg-[var(--color-accent)] text-white font-semibold text-[13px] cursor-pointer border-0 hover:brightness-105 active:brightness-95 transition-all duration-200 shadow-[0_2px_12px_var(--color-accent)]/30">
+                <div className="flex max-w-2xl flex-col gap-3">
+                    <h1 className="m-0 font-[var(--font-display)] text-[clamp(40px,7vw,78px)] font-normal leading-[1.02] text-[var(--color-ink)]">Start with one meaningful step</h1>
+                    <p className="m-0 max-w-xl text-base text-[var(--color-muted)]">Add your first milestone. Echoe will build the timeline from real check-ins and dates as you go.</p>
+                    <button onClick={() => onEdit("")} className="primary-button mt-2 self-start">
                         <Icon name="plus" size={16} /> Add milestone
                     </button>
                 </div>
@@ -46,90 +72,83 @@ export function FocusSection({ events, tick, onEdit, onConfetti, onCheckIn, onMi
         );
     }
 
-    const { event: ev, spent, remaining, progress, fmt, streak, stats, palette } = display;
+    const { event: current, spent, remaining, remainingDisplay, streak, stats, palette } = display;
+    const todayEntry = current.habit?.entries.find((entry) => entry.date === localDate());
+    const historyDays = Array.from({ length: 21 }, (_, index) => localDate(addDays(startOfDay(), index - 20)));
+    const metric = current.isCountdown
+        ? remaining > 0 ? String(remaining) : remaining === 0 ? "Today" : "Reached"
+        : `${spent.percent.toFixed(0)}%`;
+    const metricLabel = current.isCountdown
+        ? remaining > 0 ? `days until ${formatDate(current.target, { month: "short", day: "numeric" })}` : "target date"
+        : remaining > 0 ? `${remainingDisplay.value} ${remainingDisplay.unit} until target` : "target reached";
 
     return (
-        <section className="animate-soft-enter py-[clamp(32px,6vw,60px)]">
-            {/* Kicker */}
-            <div className="flex items-center gap-3 mb-4 flex-wrap">
-                <span className="text-[var(--color-muted)] text-xs font-semibold tracking-[0.14em] uppercase flex items-center gap-1.5">
+        <section id="top" className="animate-soft-enter py-[clamp(34px,6vw,64px)]">
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase text-[var(--color-accent-ink)]">
                     <Icon name="target" size={14} /> Focus
                 </span>
-                {ev.habit && streak > 0 && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: palette.glow, color: palette.ink }}>
-                        <Icon name="flame" size={12} className="animate-streak-flame" /> {streak}d
+                {current.habit && streak > 0 && (
+                    <span className="status-pill" style={{ background: palette.glow, color: palette.ink }}>
+                        <Icon name="flame" size={12} /> {streak}{current.habit.frequency === "daily" ? "d" : "w"} rhythm
                     </span>
                 )}
-                {ev.habit && stats.total > 0 && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: stats.rate >= 70 ? "rgba(125,191,142,0.2)" : "rgba(232,115,90,0.15)", color: stats.rate >= 70 ? "var(--color-mint-ink)" : "var(--color-coral-ink)" }}>
-                        {stats.rate}% consistency
-                    </span>
+                {current.habit && stats.total > 0 && (
+                    <span className="status-pill bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]">{stats.rate}% consistency</span>
                 )}
-                {ev.achievedAt && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--color-mint)]/20 text-[var(--color-mint-ink)]">
-                        <Icon name="check" size={12} /> Done
-                    </span>
+                {current.achievedAt && (
+                    <span className="status-pill bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"><Icon name="check" size={12} /> Complete</span>
                 )}
             </div>
 
-            {/* Hero */}
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 sm:gap-8">
-                <div className="flex-1">
-                    <h1 className="text-[clamp(40px,7vw,80px)] leading-[1.02] font-[var(--font-display)] font-normal m-0">{ev.name}</h1>
-                    <p className="mt-2 text-[var(--color-muted)] text-sm">
-                        {formatDate(ev.target)} · <span className="font-medium" style={{ color: palette.ink }}>{formatSpent(spent)}</span>
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between sm:gap-10">
+                <div className="min-w-0 flex-1">
+                    <h1 className="m-0 [overflow-wrap:anywhere] font-[var(--font-display)] text-[clamp(42px,7vw,80px)] font-normal leading-[1.02]">{current.name}</h1>
+                    <p className="mt-2 text-sm text-[var(--color-muted)]">
+                        {formatDate(current.target)} <span aria-hidden="true">·</span> <span className="font-medium" style={{ color: palette.ink }}>{formatSpent(spent)}</span>
                     </p>
                 </div>
-                <div className="flex flex-col items-start sm:items-end gap-1" aria-live="polite">
-                    <div className="text-[clamp(60px,10vw,120px)] leading-[0.76] font-[var(--font-display)] tabular-nums animate-breathe" style={{ color: palette.color }}>
-                        {progress.toFixed(0)}%
-                    </div>
-                    <div className="text-[var(--color-muted)] text-sm">
-                        {remaining > 0 ? `${fmt.value} ${fmt.unit} to go` : remaining === 0 ? "today!" : `${fmt.value} ${fmt.unit}`}
-                    </div>
+                <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end" aria-live="polite">
+                    <div className="font-[var(--font-display)] text-[clamp(56px,9vw,108px)] leading-[0.82] tabular-nums" style={{ color: palette.color }}>{metric}</div>
+                    <div className="text-sm text-[var(--color-muted)]">{metricLabel}</div>
                 </div>
             </div>
 
-            {/* Progress + Actions */}
-            <div className="mt-8 flex items-center gap-4 flex-wrap">
-                <div className="flex-1 min-w-[200px]">
-                    <div className="relative h-2 overflow-hidden rounded-full bg-[var(--color-line)]" role="progressbar" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}>
-                        <span className="progress-fill shimmer absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.min(100, Math.max(0, progress))}%`, background: palette.color }} />
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+                <div className="min-w-[200px] flex-1">
+                    <div className="relative h-2 overflow-hidden rounded-full bg-[var(--color-line)]" role="progressbar" aria-label={`${current.name} progress`} aria-valuenow={Math.round(spent.percent)} aria-valuemin={0} aria-valuemax={100}>
+                        <span className="progress-fill absolute inset-y-0 left-0 rounded-full" style={{ width: `${spent.percent}%`, background: palette.color }} />
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    {ev.habit && (
+                <div className="flex flex-wrap items-center gap-2">
+                    {current.habit && (
                         <>
-                            <button onClick={() => onCheckIn(ev.id)}
-                                className="h-9 px-3 rounded-xl text-xs font-semibold cursor-pointer border transition-all duration-200 flex items-center gap-1.5 hover:scale-105 active:scale-95"
-                                style={{ borderColor: palette.color, color: palette.ink, background: palette.glow }}>
-                                <Icon name="check" size={13} /> Done
+                            <button onClick={() => onCheckIn(current.id)} className="compact-button" style={{ borderColor: palette.color, color: palette.ink, background: palette.glow }} aria-pressed={todayEntry?.status === "done"}>
+                                <Icon name="check" size={14} /> Done
                             </button>
-                            <button onClick={() => onMiss(ev.id)}
-                                className="h-9 px-3 rounded-xl text-xs font-semibold cursor-pointer border border-[var(--color-line)] text-[var(--color-muted)] bg-transparent hover:border-[var(--color-coral)]/40 hover:text-[var(--color-coral-ink)] transition-all duration-200 flex items-center gap-1.5">
-                                <Icon name="x" size={12} /> Missed
+                            <button onClick={() => onMiss(current.id)} className="compact-button text-[var(--color-muted)]" aria-pressed={todayEntry?.status === "missed"}>
+                                <Icon name="missed" size={14} /> Missed
+                            </button>
+                            <button onClick={() => onOpenHistory(current.id)} className="icon-button" aria-label="Open check-in history" title="Check-in history">
+                                <Icon name="calendar" size={16} />
                             </button>
                         </>
                     )}
-                    <button onClick={() => onEdit(ev.id)}
-                        className="h-9 px-3 rounded-xl text-xs font-semibold cursor-pointer border border-[var(--color-line)] text-[var(--color-ink-soft)] bg-transparent hover:border-[var(--color-line-strong)] hover:text-[var(--color-ink)] transition-all duration-200 flex items-center gap-1.5">
-                        <Icon name="pencil" size={13} /> Edit
+                    <button onClick={() => onEdit(current.id)} className="compact-button text-[var(--color-ink-soft)]">
+                        <Icon name="pencil" size={14} /> Edit
                     </button>
                 </div>
             </div>
 
-            {/* Habit mini-grid */}
-            {ev.habit && (
-                <div className="mt-4 flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[11px] text-[var(--color-muted)] uppercase tracking-wider">Habit</span>
-                    <div className="flex gap-1 flex-wrap">
-                        {Array.from({ length: Math.min(ev.habit.target, 40) }).map((_, i) => {
-                            const entry = ev.habit!.entries[i];
-                            const bg = !entry ? "var(--color-line)" : entry.status === "done" ? palette.color : "rgba(232,115,90,0.35)";
-                            return <span key={i} className="w-2 h-2 rounded-sm transition-colors duration-200" style={{ background: bg }} />;
+            {current.habit && (
+                <div className="mt-5 flex flex-col gap-3 border-l-2 pl-4" style={{ borderColor: palette.color }}>
+                    <div className="flex items-center gap-1.5" aria-label="Recent habit history">
+                        {historyDays.map((date) => {
+                            const entry = current.habit?.entries.find((item) => item.date === date);
+                            return <span key={date} title={`${date}: ${entry?.status ?? "not recorded"}`} className="h-2.5 min-w-1 flex-1 rounded-[2px]" style={{ background: entry?.status === "done" ? palette.color : entry?.status === "missed" ? "var(--color-danger)" : "var(--color-line)" }} />;
                         })}
                     </div>
-                    <span className="text-[11px] font-semibold ml-1" style={{ color: palette.ink }}>{stats.done}/{stats.total || ev.habit.target}</span>
+                    <p className="m-0 flex items-start gap-2 text-xs text-[var(--color-muted)]"><Icon name="sparkle" size={13} className="mt-0.5 shrink-0 text-[var(--color-accent)]" /> {habitInsight(current)}</p>
                 </div>
             )}
         </section>

@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Echoe
 
-## Getting Started
+Echoe is a calm, local-first milestone and habit tracker. It records milestones, dated check-ins, missed days, settings, ordered audit events, and state snapshots without framing progress around a lifetime countdown.
 
-First, run the development server:
+## Data Storage
+
+The browser database is IndexedDB, named `echoe-core-v2`. It contains normalized milestone, check-in, settings, achievement, audit, snapshot, and sync metadata stores. Mutations are committed in order, deletes are soft-archived, the latest 1,000 audit entries and 120 snapshots are retained, and exports include the state plus recent history.
+
+On the first v2 launch, stale `echoe.v1`, `echo.dashboard.v1`, and `echoe.audit.v1` localStorage blobs are deleted. New data starts empty and is added dynamically.
+
+## Vercel Database
+
+The app works offline from IndexedDB. For durable Vercel-backed sync, connect a Postgres provider such as Neon in the Vercel Marketplace and expose its `DATABASE_URL` to the project. The Next.js route at `/api/sync` then creates and uses:
+
+- `echoe_state` for the latest versioned state per private browser installation
+- `echoe_history` for append-only, sequential state history
+
+The browser installation is identified by a random, HttpOnly, same-site cookie. Mutations remain optimistic and local-first; when cloud sync is unavailable the UI reports that state and keeps working. The reference schema is in `database/schema.sql`, and the route also initializes it safely on first use.
+
+## Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Verification
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Tests cover empty-state removal, time calculations, dynamic countdowns and progress bars, dated success/missed check-ins, growth prompts, acrylic add/edit/settings surfaces, app and milestone themes, clustered histograms, IndexedDB ordering and history, stale-data cleanup, and the Vercel sync API contract.
