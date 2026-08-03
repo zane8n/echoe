@@ -17,7 +17,7 @@ export function Toast({ message, undoEvent, onUndo }: Props) {
                     <span className="text-[#fbfaf7] text-[13px]">"{undoEvent.name}" removed</span>
                     <button
                         onClick={onUndo}
-                        className="min-h-[34px] p-0 border-0 border-b border-transparent bg-transparent text-[#b7c8b1] text-sm font-semibold cursor-pointer hover:text-[#d4e0cf] hover:border-[#b7c8b1] transition-all duration-180"
+                        className="min-h-[34px] p-0 border-0 border-b border-transparent bg-transparent text-[var(--color-accent)] text-sm font-semibold cursor-pointer hover:brightness-110 transition-all duration-200"
                     >
                         Undo
                     </button>
