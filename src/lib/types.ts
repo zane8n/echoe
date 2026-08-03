@@ -27,6 +27,23 @@ export interface HabitConfig {
     target: number;
 }
 
+export type MilestoneKind = "project" | "habit" | "ongoing";
+
+export interface ProjectEntry {
+    id: string;
+    date: string;
+    hours: number;
+    readiness: number;
+    note?: string;
+    recordedAt?: string;
+}
+
+export interface ProjectConfig {
+    plannedHours: number;
+    readiness: number;
+    entries: ProjectEntry[];
+}
+
 export interface MilestoneEvent {
     id: string;
     name: string;
@@ -34,7 +51,9 @@ export interface MilestoneEvent {
     target: string;
     color: AccentColor;
     pinned: boolean;
+    kind?: MilestoneKind;
     habit?: HabitConfig;
+    project?: ProjectConfig;
     achievedAt?: string;
     isCountdown?: boolean;
     createdAt?: string;
@@ -87,6 +106,7 @@ export type AuditAction =
     | "restore"
     | "check-in"
     | "clear-check-in"
+    | "progress"
     | "settings"
     | "import"
     | "remote-pull";
@@ -114,7 +134,23 @@ export interface StorageSummary {
     checkInCount: number;
     historyCount: number;
     lastSavedAt: string | null;
+    lastSyncedAt: string | null;
+    isOnline: boolean;
     syncStatus: SyncStatus;
+}
+
+export type ProjectRisk = "on-track" | "watch" | "at-risk" | "complete";
+
+export interface ProjectProgress {
+    investedHours: number;
+    plannedHours: number;
+    remainingHours: number;
+    readiness: number;
+    effortPercent: number;
+    elapsedPercent: number;
+    overallPercent: number;
+    requiredHoursPerWeek: number;
+    risk: ProjectRisk;
 }
 
 export interface RemainingDisplay {

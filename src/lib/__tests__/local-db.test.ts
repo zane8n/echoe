@@ -7,6 +7,7 @@ import {
     getStorageSummary,
     initializeLocalDatabase,
     loadDashboardState,
+    setRemoteVersion,
 } from "@/lib/local-db";
 import { seedState } from "@/lib/utils";
 
@@ -79,6 +80,34 @@ describe("ordered IndexedDB repository", () => {
         const loaded = await loadDashboardState();
         expect(personalized.settings.profile.displayName).toBe("Kikandi");
         expect(loaded.settings).toMatchObject({ theme: "teal", profile: { displayName: "Kikandi", supportStyle: "direct" } });
+    });
+
+    it("keeps project investment updates ordered and permanent", async () => {
+        await initializeLocalDatabase();
+        const state = seedState();
+        await commitDashboardState({
+            ...state,
+            events: [{
+                id: "project-1", name: "CCNP Core", kind: "project", start: "2026-08-01", target: "2026-12-01", color: "sky", pinned: true,
+                project: { plannedHours: 120, readiness: 42, entries: [
+                    { id: "later", date: "2026-08-03", hours: 2, readiness: 42 },
+                    { id: "first", date: "2026-08-01", hours: 1.5, readiness: 30 },
+                ] },
+            }],
+        }, "progress", "Logged project work", "project-1");
+        const loaded = await loadDashboardState();
+        expect(loaded.events[0].project).toMatchObject({ plannedHours: 120, readiness: 42 });
+        expect(loaded.events[0].project?.entries.map((entry) => entry.id)).toEqual(["first", "later"]);
+        expect((await getAuditLog())[0]).toMatchObject({ action: "progress", entityId: "project-1" });
+    });
+
+    it("records the last verified cloud exchange separately from local saves", async () => {
+        await initializeLocalDatabase();
+        await setRemoteVersion(7);
+        const summary = await getStorageSummary("synced");
+        expect(summary.lastSyncedAt).toBeTruthy();
+        expect(summary.isOnline).toBe(true);
+        expect(summary.syncStatus).toBe("synced");
     });
 
     it("soft-archives removed milestones and can start a genuinely fresh history", async () => {

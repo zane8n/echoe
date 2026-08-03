@@ -188,6 +188,13 @@ export async function commitDashboardState(
     const state: DashboardState = {
         ...input,
         schemaVersion: 2,
+        events: input.events.map((event) => event.project ? {
+            ...event,
+            project: {
+                ...event.project,
+                entries: [...event.project.entries].sort((a, b) => a.date.localeCompare(b.date) || (a.recordedAt ?? "").localeCompare(b.recordedAt ?? "")),
+            },
+        } : event),
         settings: normalizeSettings(input.settings),
         updatedAt: now,
     };
@@ -256,11 +263,12 @@ export async function commitDashboardState(
 export async function getStorageSummary(syncStatus: SyncStatus): Promise<StorageSummary> {
     const database = await getDatabase();
     const transaction = database.transaction(["milestones", "checkins", "snapshots", "meta"], "readonly");
-    const [milestones, checkInCount, historyCount, lastSaved] = await Promise.all([
+    const [milestones, checkInCount, historyCount, lastSaved, lastSynced] = await Promise.all([
         transaction.objectStore("milestones").getAll(),
         transaction.objectStore("checkins").count(),
         transaction.objectStore("snapshots").count(),
         transaction.objectStore("meta").get("last-saved-at"),
+        transaction.objectStore("meta").get("last-synced-at"),
     ]);
     await transaction.done;
     return {
@@ -268,6 +276,8 @@ export async function getStorageSummary(syncStatus: SyncStatus): Promise<Storage
         checkInCount,
         historyCount,
         lastSavedAt: typeof lastSaved?.value === "string" ? lastSaved.value : null,
+        lastSyncedAt: typeof lastSynced?.value === "string" ? lastSynced.value : null,
+        isOnline: typeof navigator === "undefined" ? true : navigator.onLine,
         syncStatus,
     };
 }
@@ -280,7 +290,10 @@ export async function getAuditLog(limit = 200): Promise<AuditEntry[]> {
 
 export async function setRemoteVersion(version: number): Promise<void> {
     const database = await getDatabase();
-    await database.put("meta", { key: "remote-version", value: version });
+    const transaction = database.transaction("meta", "readwrite");
+    await transaction.store.put({ key: "remote-version", value: version });
+    await transaction.store.put({ key: "last-synced-at", value: new Date().toISOString() });
+    await transaction.done;
 }
 
 export async function clearEchoeDatabase(): Promise<DashboardState> {

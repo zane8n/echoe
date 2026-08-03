@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import type { MilestoneEvent } from "@/lib/types";
 import { COLOR_MAP } from "@/lib/constants";
-import { addDays, formatDate, parseDate, startOfDay } from "@/lib/utils";
+import { addDays, formatDate, milestoneKind, parseDate, projectProgress, startOfDay } from "@/lib/utils";
 import { Icon } from "./icon";
 
 interface Props { events: MilestoneEvent[]; show: boolean; tick: number; }
@@ -21,7 +21,7 @@ export function WeeksGrid({ events, show, tick }: Props) {
             for (const event of events) {
                 const eventStart = parseDate(event.start);
                 const eventTarget = parseDate(event.target);
-                const overlaps = eventStart && eventTarget && eventStart <= end && eventTarget >= start;
+                const overlaps = eventStart && eventStart <= end && (!eventTarget || eventTarget >= start);
                 if (overlaps) score += 0.35;
                 if (eventStart && eventStart >= start && eventStart <= end) score += 2;
                 if (eventTarget && eventTarget >= start && eventTarget <= end) score += 2;
@@ -31,7 +31,12 @@ export function WeeksGrid({ events, show, tick }: Props) {
                     return date && date >= start && date <= end;
                 }) ?? [];
                 score += checkIns.length;
-                if (overlaps || checkIns.length) colors.push(COLOR_MAP[event.color]?.color ?? "var(--color-accent)");
+                const progressEntries = event.project?.entries.filter((entry) => {
+                    const date = parseDate(entry.date);
+                    return date && date >= start && date <= end;
+                }) ?? [];
+                score += progressEntries.reduce((total, entry) => total + Math.min(4, entry.hours), 0);
+                if (overlaps || checkIns.length || progressEntries.length) colors.push(COLOR_MAP[event.color]?.color ?? "var(--color-accent)");
             }
 
             return { start, end, score, colors: [...new Set(colors)] };
@@ -42,13 +47,17 @@ export function WeeksGrid({ events, show, tick }: Props) {
 
     if (!show || !events.length) return null;
     const maximum = Math.max(1, ...buckets.map((bucket) => bucket.score));
+    const checkIns = events.reduce((total, event) => total + (event.habit?.entries.filter((entry) => entry.status === "done").length ?? 0), 0);
+    const projectHours = Math.round(events.reduce((total, event) => total + (event.project?.entries.reduce((sum, entry) => sum + entry.hours, 0) ?? 0), 0) * 10) / 10;
+    const attention = events.filter((event) => milestoneKind(event) === "project" && ["watch", "at-risk"].includes(projectProgress(event).risk)).length;
 
     return (
-        <section className="mt-[clamp(56px,8vw,92px)] animate-soft-enter">
+        <section id="activity" className="dashboard-disclosure mt-5 animate-soft-enter">
             <div className="mb-5">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--color-accent-ink)]"><Icon name="trending-up" size={14} /> Momentum</div>
                 <h2 className="m-0 mt-1.5 font-[var(--font-display)] text-[clamp(24px,3vw,34px)] font-normal leading-[1.08]">Your activity rhythm</h2>
-                <p className="mt-1 text-sm text-[var(--color-muted)]">Twelve two-week clusters, shaped by active milestones and check-ins.</p>
+                <p className="mt-1 text-sm text-[var(--color-muted)]">Twelve two-week clusters, shaped by your actual check-ins and project work.</p>
+                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-[var(--color-ink-soft)]"><span><strong>{checkIns}</strong> completed</span><span><strong>{projectHours}h</strong> invested</span><span><strong>{attention}</strong> {attention === 1 ? "path needs" : "paths need"} attention</span></div>
             </div>
 
             <div className="histogram" role="img" aria-label="Milestone and check-in activity over the last 24 weeks">

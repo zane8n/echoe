@@ -10,7 +10,8 @@ interface Props {
     settings: DashboardSettings;
     storage: StorageSummary;
     onSave: (settings: DashboardSettings) => void;
-    onPreviewTheme: (theme: ThemeName) => void;
+    onThemeChange: (theme: ThemeName) => void;
+    onSync: () => Promise<void> | void;
     onExport: () => void;
     onImport: (file: File) => void;
     onClearData: () => Promise<void>;
@@ -41,10 +42,10 @@ const statusDetails = {
     local: { icon: "database" as const, label: "Saved on this device" },
     syncing: { icon: "refresh" as const, label: "Saving securely" },
     synced: { icon: "cloud" as const, label: "Synced securely" },
-    offline: { icon: "cloud-off" as const, label: "Offline, saved locally" },
+    offline: { icon: "cloud-off" as const, label: "Cloud unavailable, saved locally" },
 };
 
-export function SettingsSheet({ settings, storage, onSave, onPreviewTheme, onExport, onImport, onClearData, onAccountChange, onClose }: Props) {
+export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync, onExport, onImport, onClearData, onAccountChange, onClose }: Props) {
     const [tab, setTab] = useState<SettingsTab>("appearance");
     const [theme, setTheme] = useState<ThemeName>(settings.theme ?? "warm");
     const [showHistogram, setShowHistogram] = useState(settings.showActivityHistogram ?? true);
@@ -61,8 +62,9 @@ export function SettingsSheet({ settings, storage, onSave, onPreviewTheme, onExp
     const [accountError, setAccountError] = useState("");
     const [handle, setHandle] = useState("");
     const [password, setPassword] = useState("");
+    const [badgePermission, setBadgePermission] = useState<NotificationPermission | "unsupported">("unsupported");
     const fileInput = useRef<HTMLInputElement>(null);
-    const status = statusDetails[storage.syncStatus];
+    const status = storage.isOnline ? statusDetails[storage.syncStatus] : { icon: "cloud-off" as const, label: "Device offline, changes queued" };
 
     const buildSettings = (selectedTheme = theme): DashboardSettings => ({
         theme: selectedTheme,
@@ -77,8 +79,7 @@ export function SettingsSheet({ settings, storage, onSave, onPreviewTheme, onExp
 
     const chooseTheme = (next: ThemeName) => {
         setTheme(next);
-        onPreviewTheme(next);
-        onSave({ ...settings, theme: next });
+        onThemeChange(next);
     };
 
     useEffect(() => {
@@ -101,6 +102,19 @@ export function SettingsSheet({ settings, storage, onSave, onPreviewTheme, onExp
             });
         return () => { active = false; };
     }, []);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            if ("setAppBadge" in navigator && "Notification" in window) setBadgePermission(Notification.permission);
+        }, 0);
+        return () => window.clearTimeout(timer);
+    }, []);
+
+    const enableBadge = async () => {
+        if (!("Notification" in window)) return;
+        const permission = await Notification.requestPermission();
+        setBadgePermission(permission);
+    };
 
     const submitAccount = async () => {
         setAccountError("");
@@ -139,7 +153,7 @@ export function SettingsSheet({ settings, storage, onSave, onPreviewTheme, onExp
     return (
         <>
             <div className="fixed inset-0 z-60 acrylic-backdrop animate-fade-in" onClick={onClose} />
-            <aside className="fixed inset-y-0 right-0 z-70 flex h-dvh w-[min(100%,520px)] flex-col overflow-hidden acrylic-surface animate-slide-up" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+            <aside className="sheet-surface fixed inset-y-0 right-0 z-70 flex h-dvh w-[min(100%,520px)] flex-col overflow-hidden acrylic-surface animate-slide-up" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
                 <div className="shrink-0 px-[clamp(22px,5vw,38px)] pt-7">
                     <div className="flex items-start justify-between gap-5">
                         <div>
@@ -174,7 +188,7 @@ export function SettingsSheet({ settings, storage, onSave, onPreviewTheme, onExp
                             <section id="settings-appearance" role="tabpanel" className="grid gap-7" aria-labelledby="appearanceTitle">
                                 <div>
                                     <h3 id="appearanceTitle" className="m-0 text-sm font-semibold text-[var(--color-ink)]">Choose the atmosphere</h3>
-                                    <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--color-muted)]">Themes now apply immediately across every surface and control.</p>
+                                    <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--color-muted)]">Bright, calm color across every surface and control.</p>
                                 </div>
                                 <fieldset className="m-0 grid gap-3 border-0 p-0">
                                     <legend className="sr-only">App theme</legend>
@@ -302,7 +316,7 @@ export function SettingsSheet({ settings, storage, onSave, onPreviewTheme, onExp
                                 <div className="flex items-start justify-between gap-4">
                                     <div>
                                         <h3 id="storageTitle" className="m-0 text-sm font-semibold text-[var(--color-ink)]">Data and history</h3>
-                                        <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--color-muted)]">Ordered history is kept locally first and synced privately when cloud storage is available.</p>
+                                        <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--color-muted)]">Every change is saved locally first, then reconciled with your private cloud copy when reachable.</p>
                                     </div>
                                     <span className="status-pill shrink-0 bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]">
                                         <Icon name={status.icon} size={12} /> {status.label}
@@ -314,6 +328,17 @@ export function SettingsSheet({ settings, storage, onSave, onPreviewTheme, onExp
                                     <div className="data-stat"><dt>Check-ins</dt><dd>{storage.checkInCount}</dd></div>
                                     <div className="data-stat"><dt>Snapshots</dt><dd>{storage.historyCount}</dd></div>
                                 </dl>
+
+                                <div className="flex items-center justify-between gap-4 border-y border-[var(--color-line)] py-4">
+                                    <div className="min-w-0"><strong className="block text-sm">Cloud sync</strong><span className="block truncate text-xs text-[var(--color-muted)]">{storage.lastSyncedAt ? `Last synced ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(storage.lastSyncedAt))}` : storage.isOnline ? "Waiting for the first cloud sync" : "Will retry when this device reconnects"}</span></div>
+                                    <button type="button" onClick={() => void onSync()} disabled={!storage.isOnline || storage.syncStatus === "syncing"} className="compact-button shrink-0"><Icon name="refresh" size={14} />Sync now</button>
+                                </div>
+
+                                <div className="flex items-start justify-between gap-4 text-xs text-[var(--color-muted)]">
+                                    <div className="flex items-start gap-3"><Icon name="sun" size={15} className="mt-0.5 shrink-0 text-[var(--color-accent-ink)]" /><p className="m-0">Ready for iPhone Home Screen use with standalone display, safe-area spacing, offline shell access, and attention badges where iOS supports them.</p></div>
+                                    {badgePermission === "default" && <button type="button" onClick={() => void enableBadge()} className="compact-button shrink-0">Enable badge</button>}
+                                    {badgePermission === "granted" && <span className="status-pill shrink-0 bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"><Icon name="check" size={11} />Badge on</span>}
+                                </div>
 
                                 <div className="grid grid-cols-2 gap-2">
                                     <button type="button" onClick={onExport} className="secondary-button"><Icon name="download" size={15} /> Export</button>

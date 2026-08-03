@@ -12,8 +12,9 @@ export function Header({ displayName, onAddEvent, onOpenSettings }: Props) {
 
     return (
         <header className="acrylic-header sticky top-0 z-30 border-b border-[var(--color-line)]">
-            <div className="w-[min(calc(100%-40px),1120px)] mx-auto h-16 flex items-center justify-between gap-4">
-                <a href="#top" className="inline-flex items-center text-lg font-semibold text-[var(--color-ink)] no-underline" aria-label="Echoe home">
+            <div className="w-[min(calc(100%-40px),920px)] mx-auto h-16 flex items-center justify-between gap-4">
+                <a href="#paths" className="inline-flex items-center gap-2.5 text-lg font-semibold text-[var(--color-ink)] no-underline" aria-label="Echoe home">
+                    <span className="echo-orb" aria-hidden="true" />
                     <span className="hover:text-[var(--color-accent)] transition-colors duration-300">Echoe</span>
                 </a>
                 <div className="hidden text-center text-[13px] text-[var(--color-muted)] sm:block" aria-live="polite">

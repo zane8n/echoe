@@ -1,5 +1,5 @@
-const CACHE = "echoe-shell-v5";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/icon.svg"];
+const CACHE = "echoe-shell-v6";
+const APP_SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/apple-touch-icon.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)));

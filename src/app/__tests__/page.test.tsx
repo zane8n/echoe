@@ -7,12 +7,15 @@ const dashboardMock = vi.hoisted(() => ({
     state: undefined as unknown,
     storageSummary: undefined as unknown,
     updateSettings: vi.fn(),
+    updateTheme: vi.fn(),
     upsertEvent: vi.fn(),
     deleteEvent: vi.fn(),
     restoreEvent: vi.fn(),
     addAchievement: vi.fn(),
     checkInHabit: vi.fn(),
     clearHabitCheckIn: vi.fn(),
+    logProjectProgress: vi.fn(),
+    syncNow: vi.fn(),
     importState: vi.fn(),
     clearAllData: vi.fn().mockResolvedValue(undefined),
     resetForAccountSwitch: vi.fn().mockResolvedValue(undefined),
@@ -39,12 +42,11 @@ describe("Echoe app shell", () => {
 
     it("previews a general theme across the app and opens frosted add/edit surfaces", async () => {
         const user = userEvent.setup();
-        const { container } = render(<Home />);
-        const shell = container.querySelector(".app-shell");
+        render(<Home />);
 
         await user.click(screen.getByRole("button", { name: "Settings" }));
-        await user.click(screen.getByRole("button", { name: "Still water" }));
-        expect(shell).toHaveStyle({ "--accent": "#7fa69d", "--bg": "#f3f7f6" });
+        await user.click(screen.getByRole("button", { name: "Fresh teal" }));
+        expect(dashboardMock.updateTheme).toHaveBeenCalledWith("teal");
         expect(screen.getByRole("dialog", { name: "Settings" })).toHaveClass("acrylic-surface");
         await user.click(screen.getByRole("button", { name: "Close settings" }));
 

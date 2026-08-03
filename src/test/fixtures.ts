@@ -34,5 +34,7 @@ export const storageSummary: StorageSummary = {
     checkInCount: 2,
     historyCount: 4,
     lastSavedAt: "2026-08-03T08:00:00.000Z",
+    lastSyncedAt: "2026-08-03T08:00:00.000Z",
+    isOnline: true,
     syncStatus: "synced",
 };

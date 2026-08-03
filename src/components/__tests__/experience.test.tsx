@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { CheckInSheet } from "@/components/check-in-sheet";
 import { EventSheet } from "@/components/event-sheet";
 import { FocusSection } from "@/components/focus-section";
+import { ProgressSheet } from "@/components/progress-sheet";
 import { SettingsSheet } from "@/components/settings-sheet";
 import { WeeksGrid } from "@/components/weeks-grid";
 import { habitMilestone, storageSummary } from "@/test/fixtures";
@@ -63,14 +64,15 @@ describe("Echoe milestone experience", () => {
     it("offers independent app themes, including teal and blue, in frosted settings", async () => {
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ mode: "local", account: null }), { status: 503 })));
         const user = userEvent.setup();
-        const onPreviewTheme = vi.fn();
+        const onThemeChange = vi.fn();
         const onSave = vi.fn();
         render(
             <SettingsSheet
                 settings={{ theme: "warm", showActivityHistogram: true, profile: { displayName: "", intention: "", supportStyle: "gentle" } }}
                 storage={storageSummary}
                 onSave={onSave}
-                onPreviewTheme={onPreviewTheme}
+                onThemeChange={onThemeChange}
+                onSync={vi.fn()}
                 onExport={vi.fn()}
                 onImport={vi.fn()}
                 onClearData={vi.fn().mockResolvedValue(undefined)}
@@ -81,13 +83,14 @@ describe("Echoe milestone experience", () => {
 
         expect(screen.getByRole("dialog", { name: "Settings" })).toHaveClass("acrylic-surface");
         expect(document.querySelector(".acrylic-backdrop")).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Still water" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Morning mist" })).toBeInTheDocument();
-        await user.click(screen.getByRole("button", { name: "Still water" }));
-        expect(onPreviewTheme).toHaveBeenCalledWith("teal");
+        expect(screen.getByRole("button", { name: "Fresh teal" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Open blue" })).toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: "Fresh teal" }));
+        expect(onThemeChange).toHaveBeenCalledWith("teal");
+        await user.click(screen.getByRole("button", { name: "Save changes" }));
         expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ theme: "teal" }));
         await user.click(screen.getByRole("tab", { name: "Data" }));
-        expect(screen.getByText(/ordered history is kept locally first/i)).toBeInTheDocument();
+        expect(screen.getByText(/every change is saved locally first/i)).toBeInTheDocument();
         expect(screen.getByText(/synced securely/i)).toBeInTheDocument();
     });
 
@@ -100,7 +103,8 @@ describe("Echoe milestone experience", () => {
                 settings={{ theme: "blue", showActivityHistogram: true, profile: { displayName: "", intention: "", supportStyle: "gentle" } }}
                 storage={storageSummary}
                 onSave={onSave}
-                onPreviewTheme={vi.fn()}
+                onThemeChange={vi.fn()}
+                onSync={vi.fn()}
                 onExport={vi.fn()}
                 onImport={vi.fn()}
                 onClearData={vi.fn().mockResolvedValue(undefined)}
@@ -129,7 +133,8 @@ describe("Echoe milestone experience", () => {
                 settings={{ theme: "warm", showActivityHistogram: true, profile: { displayName: "Kikandi", intention: "", supportStyle: "gentle" } }}
                 storage={storageSummary}
                 onSave={vi.fn()}
-                onPreviewTheme={vi.fn()}
+                onThemeChange={vi.fn()}
+                onSync={vi.fn()}
                 onExport={vi.fn()}
                 onImport={vi.fn()}
                 onClearData={vi.fn().mockResolvedValue(undefined)}
@@ -154,18 +159,45 @@ describe("Echoe milestone experience", () => {
         expect(screen.getByRole("radio", { name: "Sky" })).toHaveAttribute("aria-checked", "true");
         await user.click(screen.getByRole("button", { name: "Save milestone" }));
 
-        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ color: "sky", name: "Write the first chapter" }));
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ color: "sky", name: "Write the first chapter", kind: "project", project: expect.objectContaining({ plannedHours: 40 }) }));
+    });
+
+    it("creates open-ended paths without a fake end date or ambiguous check-in count", async () => {
+        const user = userEvent.setup();
+        const onSave = vi.fn();
+        render(<EventSheet eventId={null} events={[]} onSave={onSave} onDelete={vi.fn()} onClose={vi.fn()} />);
+        await user.type(screen.getByRole("textbox", { name: "Name" }), "My time at Kikandi");
+        await user.click(screen.getByRole("radio", { name: "Ongoing" }));
+        expect(screen.queryByText("Target date")).not.toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: "Save milestone" }));
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ kind: "ongoing", target: "", habit: undefined }));
+    });
+
+    it("logs project hours, readiness, date, and notes through one compact update", async () => {
+        const user = userEvent.setup();
+        const onLog = vi.fn();
+        const project = { ...habitMilestone, kind: "project" as const, habit: undefined, project: { plannedHours: 80, readiness: 25, entries: [] } };
+        render(<ProgressSheet event={project} onLog={onLog} onClose={vi.fn()} />);
+        await user.clear(screen.getByRole("spinbutton", { name: /hours invested/i }));
+        await user.type(screen.getByRole("spinbutton", { name: /hours invested/i }), "2.5");
+        await user.clear(screen.getByRole("spinbutton", { name: /readiness now/i }));
+        await user.type(screen.getByRole("spinbutton", { name: /readiness now/i }), "40");
+        await user.type(screen.getByRole("textbox", { name: /a useful note/i }), "Finished the routing lab");
+        await user.click(screen.getByRole("button", { name: /log progress/i }));
+        expect(onLog).toHaveBeenCalledWith("habit-1", 2.5, 40, "2026-08-03", "Finished the routing lab");
     });
 
     it("uses the same acrylic treatment for adding and editing milestones", () => {
-        const { rerender } = render(<EventSheet eventId={null} events={[]} onSave={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()} />);
+        const { unmount } = render(<EventSheet eventId={null} events={[]} onSave={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()} />);
         expect(screen.getByRole("dialog", { name: "Add milestone" })).toHaveClass("acrylic-surface");
         expect(document.querySelector(".acrylic-backdrop")).toBeInTheDocument();
 
-        rerender(<EventSheet eventId="habit-1" events={[habitMilestone]} onSave={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()} />);
+        unmount();
+        render(<EventSheet eventId="habit-1" events={[habitMilestone]} onSave={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()} />);
         expect(screen.getByRole("dialog", { name: "Edit milestone" })).toHaveClass("acrylic-surface");
-        expect(screen.getByText("Countdown mode")).toBeInTheDocument();
-        expect(screen.getByText("Track as habit")).toBeInTheDocument();
+        expect(screen.getByRole("radio", { name: "Habit" })).toBeInTheDocument();
+        expect(screen.getByText("Check-in rhythm")).toBeInTheDocument();
+        expect(screen.queryByText(/Check-ins$/i)).not.toBeInTheDocument();
     });
 
     it("clusters activity into twelve accessible two-week histogram bars", () => {

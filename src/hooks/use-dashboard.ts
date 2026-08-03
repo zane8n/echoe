@@ -27,6 +27,8 @@ const EMPTY_SUMMARY: StorageSummary = {
     checkInCount: 0,
     historyCount: 0,
     lastSavedAt: null,
+    lastSyncedAt: null,
+    isOnline: typeof navigator === "undefined" ? true : navigator.onLine,
     syncStatus: "local",
 };
 
@@ -150,6 +152,17 @@ export function useDashboardState() {
         enqueueCommit(next, "settings", `Changed the app theme to ${settings.theme}`);
     }, [enqueueCommit]);
 
+    const updateTheme = useCallback((theme: DashboardState["settings"]["theme"]) => {
+        const current = stateRef.current;
+        if (!current || current.settings.theme === theme) return;
+        const now = new Date().toISOString();
+        enqueueCommit({
+            ...current,
+            settings: { ...current.settings, theme },
+            updatedAt: now,
+        }, "settings", `Changed the app theme to ${theme}`);
+    }, [enqueueCommit]);
+
     const upsertEvent = useCallback((event: MilestoneEvent) => {
         const current = stateRef.current;
         if (!current) return;
@@ -227,6 +240,86 @@ export function useDashboardState() {
         enqueueCommit({ ...current, events, updatedAt: now }, "clear-check-in", `Cleared the check-in for ${date}`, eventId);
     }, [enqueueCommit]);
 
+    const logProjectProgress = useCallback((
+        eventId: string,
+        hours: number,
+        readiness: number,
+        date = localDate(),
+        note?: string,
+    ) => {
+        const current = stateRef.current;
+        if (!current) return;
+        const now = new Date().toISOString();
+        const events = current.events.map((event) => {
+            if (event.id !== eventId || !event.project) return event;
+            const entry = {
+                id: createId(),
+                date,
+                hours: Math.max(0, Math.round(hours * 10) / 10),
+                readiness: Math.max(0, Math.min(100, Math.round(readiness))),
+                note: note?.trim() || undefined,
+                recordedAt: now,
+            };
+            return {
+                ...event,
+                updatedAt: now,
+                project: {
+                    ...event.project,
+                    readiness: entry.readiness,
+                    entries: [...event.project.entries, entry].sort((a, b) => (a.date.localeCompare(b.date) || (a.recordedAt ?? "").localeCompare(b.recordedAt ?? ""))),
+                },
+            };
+        });
+        enqueueCommit({ ...current, events, updatedAt: now }, "progress", `Logged ${hours} hours and ${readiness}% readiness`, eventId);
+    }, [enqueueCommit]);
+
+    const syncNow = useCallback(async () => {
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+            await refreshSummary("offline");
+            return;
+        }
+        await queueRef.current;
+        const current = stateRef.current;
+        if (!current) return;
+        setStorageSummary((summary) => ({ ...summary, isOnline: true, syncStatus: "syncing" }));
+        try {
+            const remote = await pullRemoteState();
+            if (remote.mode === "local") {
+                await refreshSummary("local");
+                return;
+            }
+            const remoteTime = Date.parse(remote.updatedAt ?? remote.state?.updatedAt ?? "");
+            const localTime = Date.parse(current.updatedAt);
+            if (remote.state && Number.isFinite(remoteTime) && remoteTime > localTime) {
+                const saved = await commitDashboardState(remote.state, "remote-pull", "Reconciled newer cloud data after reconnecting");
+                publishState(saved);
+                if (remote.version) await setRemoteVersion(remote.version);
+            } else {
+                const saved = await pushRemoteState(current, "bootstrap");
+                if (saved.version) await setRemoteVersion(saved.version);
+            }
+            await refreshSummary("synced");
+        } catch {
+            await refreshSummary("offline");
+        }
+    }, [publishState, refreshSummary]);
+
+    useEffect(() => {
+        const handleOnline = () => { void syncNow(); };
+        const handleOffline = () => { void refreshSummary("offline"); };
+        const handleVisible = () => {
+            if (document.visibilityState === "visible" && navigator.onLine) void syncNow();
+        };
+        window.addEventListener("online", handleOnline);
+        window.addEventListener("offline", handleOffline);
+        document.addEventListener("visibilitychange", handleVisible);
+        return () => {
+            window.removeEventListener("online", handleOnline);
+            window.removeEventListener("offline", handleOffline);
+            document.removeEventListener("visibilitychange", handleVisible);
+        };
+    }, [refreshSummary, syncNow]);
+
     const importState = useCallback((incoming: DashboardState) => {
         const now = new Date().toISOString();
         const next: DashboardState = { ...incoming, schemaVersion: 2, updatedAt: now };
@@ -255,12 +348,15 @@ export function useDashboardState() {
         state,
         storageSummary,
         updateSettings,
+        updateTheme,
         upsertEvent,
         deleteEvent,
         restoreEvent,
         addAchievement,
         checkInHabit,
         clearHabitCheckIn,
+        logProjectProgress,
+        syncNow,
         importState,
         clearAllData,
         resetForAccountSwitch,

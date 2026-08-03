@@ -1,17 +1,43 @@
 {
   "name": "Echoe: build a rhythm you can trust",
   "short_name": "Echoe",
+  "id": "/",
   "description": "A calm milestone and habit tracker for practical growth.",
-  "start_url": "/",
+  "start_url": "/?source=homescreen",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#f7f7f3",
-  "theme_color": "#f7f7f3",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "lang": "en",
+  "categories": ["productivity", "lifestyle"],
+  "background_color": "#fffdf8",
+  "theme_color": "#fffdf8",
   "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add a path",
+      "short_name": "Add path",
+      "url": "/?action=add",
+      "icons": [{ "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }]
+    },
+    {
+      "name": "Open paths",
+      "short_name": "Paths",
+      "url": "/#paths",
+      "icons": [{ "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }]
     }
   ]
 }

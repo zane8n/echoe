@@ -4,10 +4,12 @@ import type {
     DashboardState,
     HabitStats,
     MilestoneEvent,
+    MilestoneKind,
     PersonalProfile,
     RemainingDisplay,
     SupportStyle,
     TimeSpent,
+    ProjectProgress,
 } from "./types";
 
 // ── Date helpers ──
@@ -66,6 +68,44 @@ export const progressBetween = (startValue: string, targetValue: string): number
     return timeSpent(startValue, targetValue).percent;
 };
 
+export const milestoneKind = (event: MilestoneEvent): MilestoneKind =>
+    event.kind ?? (event.habit ? "habit" : "project");
+
+export const projectProgress = (event: MilestoneEvent): ProjectProgress => {
+    const plannedHours = Math.max(1, event.project?.plannedHours ?? 40);
+    const investedHours = Math.round((event.project?.entries.reduce((total, entry) => total + Math.max(0, entry.hours), 0) ?? 0) * 10) / 10;
+    const readiness = clamp(event.project?.readiness ?? 0);
+    const effortPercent = clamp((investedHours / plannedHours) * 100);
+    const elapsedPercent = progressBetween(event.start, event.target);
+    const overallPercent = Math.round((effortPercent * 0.35) + (readiness * 0.65));
+    const remainingHours = Math.max(0, Math.round((plannedHours - investedHours) * 10) / 10);
+    const remainingDays = Math.max(0, daysUntil(event.target));
+    const requiredHoursPerWeek = remainingHours === 0
+        ? 0
+        : Math.round((remainingHours / Math.max(1, remainingDays / 7)) * 10) / 10;
+    const scheduleGap = elapsedPercent - overallPercent;
+    const risk = event.achievedAt || (readiness >= 100 && remainingHours === 0)
+        ? "complete"
+        : remainingDays === 0 || scheduleGap >= 25
+            ? "at-risk"
+            : scheduleGap >= 10
+                ? "watch"
+                : "on-track";
+    return { investedHours, plannedHours, remainingHours, readiness, effortPercent, elapsedPercent, overallPercent, requiredHoursPerWeek, risk };
+};
+
+export const formatOpenDuration = (startValue: string): string => {
+    const days = Math.max(0, daysSince(startValue));
+    if (days >= 365) {
+        const years = Math.floor(days / 365);
+        const months = Math.floor((days % 365) / 30.44);
+        return `${years}y${months ? ` ${months}mo` : ""}`;
+    }
+    if (days >= 30) return `${Math.floor(days / 30.44)}mo`;
+    if (days >= 7) return `${Math.floor(days / 7)}w`;
+    return `${days}d`;
+};
+
 // ── Formatting ──
 export const formatDate = (value: string | Date, options: Intl.DateTimeFormatOptions = {}): string => {
     const date = typeof value === "string" ? parseDate(value) : value;
@@ -90,7 +130,7 @@ export const formatRemaining = (days: number): RemainingDisplay => {
 // ── Event helpers ──
 export const getPinnedEvent = (events: MilestoneEvent[]): MilestoneEvent | null => {
     const future = [...events]
-        .filter((e) => daysUntil(e.target) >= 0)
+        .filter((e) => milestoneKind(e) !== "ongoing" && daysUntil(e.target) >= 0)
         .sort((a, b) => (parseDate(a.target)?.getTime() ?? 0) - (parseDate(b.target)?.getTime() ?? 0));
     return events.find((e) => e.pinned) ?? future[0] ?? events[0] ?? null;
 };

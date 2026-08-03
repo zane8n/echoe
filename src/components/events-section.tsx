@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
-import type { MilestoneEvent } from "@/lib/types";
+import { useMemo, useState } from "react";
 import { COLOR_MAP } from "@/lib/constants";
-import { daysUntil, formatDate, formatRemaining, formatSpent, habitStreak, localDate, parseDate, timeSpent } from "@/lib/utils";
+import type { MilestoneEvent, MilestoneKind } from "@/lib/types";
+import { daysUntil, formatOpenDuration, formatRemaining, habitStats, localDate, milestoneKind, parseDate, projectProgress } from "@/lib/utils";
 import { Icon } from "./icon";
 
 interface Props {
@@ -12,93 +12,86 @@ interface Props {
     onExport: () => void;
     onCheckIn: (id: string) => void;
     onOpenHistory: (id: string) => void;
+    onProgress: (id: string) => void;
 }
 
-export function EventsSection({ events, onEdit, onExport, onCheckIn, onOpenHistory }: Props) {
-    const sorted = useMemo(
-        () => [...events].sort((a, b) => (parseDate(a.target)?.getTime() ?? 0) - (parseDate(b.target)?.getTime() ?? 0)),
-        [events],
-    );
+type Filter = "all" | MilestoneKind;
+const filters: Array<{ id: Filter; label: string }> = [
+    { id: "all", label: "All" },
+    { id: "project", label: "Projects" },
+    { id: "habit", label: "Habits" },
+    { id: "ongoing", label: "Ongoing" },
+];
+
+export function EventsSection({ events, onEdit, onExport, onCheckIn, onOpenHistory, onProgress }: Props) {
+    const [filter, setFilter] = useState<Filter>("all");
+    const [showAll, setShowAll] = useState(false);
+    const sorted = useMemo(() => [...events]
+        .filter((event) => filter === "all" || milestoneKind(event) === filter)
+        .sort((a, b) => Number(b.pinned) - Number(a.pinned) || ((parseDate(a.target)?.getTime() ?? Number.MAX_SAFE_INTEGER) - (parseDate(b.target)?.getTime() ?? Number.MAX_SAFE_INTEGER))), [events, filter]);
+    const visible = showAll ? sorted : sorted.slice(0, 6);
 
     return (
-        <section className="mt-[clamp(56px,8vw,92px)] animate-soft-enter">
-            <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
-                <div>
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--color-accent-ink)]">
-                        <Icon name="layers" size={14} /> Milestones
-                    </div>
-                    <h2 className="m-0 mt-1.5 font-[var(--font-display)] text-[clamp(28px,4vw,42px)] font-normal leading-[1.08]">Your path</h2>
-                </div>
-                {sorted.length > 0 && (
-                    <button onClick={onExport} className="quiet-button text-[var(--color-muted)]">
-                        <Icon name="download" size={14} /> Export
-                    </button>
-                )}
+        <section id="paths" className="scroll-mt-24 animate-soft-enter">
+            <div className="mb-5 flex items-end justify-between gap-4">
+                <div><div className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--color-accent-ink)]"><Icon name="layers" size={14} />Paths</div><h1 className="m-0 mt-1 font-[var(--font-display)] text-[clamp(30px,5vw,44px)] font-normal leading-none">What you&apos;re building</h1></div>
+                {events.length > 0 && <button onClick={onExport} className="icon-button" aria-label="Export paths" title="Export"><Icon name="download" size={16} /></button>}
             </div>
 
-            {sorted.length === 0 ? (
-                <div className="border-y border-[var(--color-line)] py-12 text-center">
-                    <p className="m-0 text-sm text-[var(--color-muted)]">Your timeline will grow from what you add here.</p>
-                    <button onClick={() => onEdit("")} className="quiet-button mx-auto mt-2 text-[var(--color-accent-ink)]">
-                        <Icon name="plus" size={14} /> Add your first milestone
-                    </button>
+            {events.length > 0 && (
+                <div className="path-filters mb-3" role="tablist" aria-label="Filter paths">
+                    {filters.map((item) => <button key={item.id} type="button" role="tab" aria-selected={filter === item.id} onClick={() => { setFilter(item.id); setShowAll(false); }}>{item.label}</button>)}
                 </div>
+            )}
+
+            {events.length === 0 ? (
+                <div className="empty-paths py-10 text-center">
+                    <span className="echo-orb mx-auto mb-4 block" aria-hidden="true" />
+                    <p className="m-0 text-sm text-[var(--color-muted)]">Start with something that deserves your attention.</p>
+                    <button onClick={() => onEdit("")} className="primary-button mx-auto mt-4"><Icon name="plus" size={15} />Add your first milestone</button>
+                </div>
+            ) : sorted.length === 0 ? (
+                <p className="border-y border-[var(--color-line)] py-8 text-center text-sm text-[var(--color-muted)]">No paths in this view yet.</p>
             ) : (
-                <div className="flex flex-col">
-                    {sorted.map((event, index) => {
-                        const palette = COLOR_MAP[event.color] ?? COLOR_MAP.amber;
-                        const remaining = daysUntil(event.target);
-                        const remainingDisplay = formatRemaining(remaining);
-                        const spent = timeSpent(event.start, event.target);
-                        const streak = habitStreak(event);
+                <div className="path-list">
+                    {visible.map((event) => {
+                        const palette = COLOR_MAP[event.color] ?? COLOR_MAP.teal;
+                        const kind = milestoneKind(event);
+                        const project = kind === "project" ? projectProgress(event) : null;
+                        const habit = event.habit ? habitStats(event) : null;
                         const today = event.habit?.entries.find((entry) => entry.date === localDate());
+                        const remaining = kind === "ongoing" ? null : formatRemaining(daysUntil(event.target));
+                        const percent = project?.overallPercent ?? (habit?.rate ?? 0);
+                        const statusText = kind === "project"
+                            ? `${project!.investedHours}h invested, ${project!.readiness}% ready`
+                            : kind === "ongoing"
+                                ? event.habit ? `${habit!.rate}% consistency` : `${formatOpenDuration(event.start)} in motion`
+                                : habit?.total ? `${habit.rate}% consistency` : "Ready for your first check-in";
 
                         return (
-                            <article key={event.id} className="group -mx-3 flex items-center gap-2 border-b border-[var(--color-line)] px-3 transition-colors duration-200 hover:bg-[var(--color-accent-soft)]" style={{ animationDelay: `${Math.min(index, 5) * 50}ms` }}>
-                                <button onClick={() => onEdit(event.id)} className="min-w-0 flex-1 border-0 bg-transparent py-5 text-left text-[var(--color-ink)]" aria-label={`Edit ${event.name}`}>
-                                    <div className="flex items-stretch gap-4">
-                                        <span className="w-1 shrink-0 rounded-full" style={{ background: palette.color }} aria-hidden="true" />
-                                        <span className="min-w-0 flex-1">
-                                            <span className="flex flex-wrap items-center gap-2">
-                                                <span className="[overflow-wrap:anywhere] font-[var(--font-display)] text-xl" style={{ color: palette.ink }}>{event.name}</span>
-                                                {event.pinned && <span className="status-pill bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]">Focus</span>}
-                                                {streak > 0 && <span className="status-pill" style={{ background: palette.glow, color: palette.ink }}><Icon name="flame" size={10} />{streak}</span>}
-                                            </span>
-                                            <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[var(--color-muted)]">
-                                                <span className="flex items-center gap-1"><Icon name="calendar" size={12} />{formatDate(event.target)}</span>
-                                                <span className="flex items-center gap-1"><Icon name="clock" size={12} />{formatSpent(spent)}</span>
-                                            </span>
-                                        </span>
-                                        <span className="flex w-[78px] shrink-0 flex-col items-end justify-center gap-1.5 text-right">
-                                            <span className="flex items-baseline gap-1">
-                                                <span className="font-[var(--font-display)] text-2xl font-normal leading-none tabular-nums">{remainingDisplay.value}</span>
-                                                <span className="text-[10px] text-[var(--color-muted)]">{remainingDisplay.unit}</span>
-                                            </span>
-                                            <span className="h-1 w-16 overflow-hidden rounded-full bg-[var(--color-line)]">
-                                                <span className="progress-fill block h-full rounded-full" style={{ width: `${spent.percent}%`, background: palette.color }} />
-                                            </span>
-                                        </span>
-                                    </div>
+                            <article key={event.id} className="path-row" style={{ "--path-color": palette.color, "--path-glow": palette.glow } as React.CSSProperties}>
+                                <button onClick={() => onEdit(event.id)} className="path-main" aria-label={`Edit ${event.name}`}>
+                                    <span className="path-marker" aria-hidden="true" />
+                                    <span className="min-w-0 flex-1">
+                                        <span className="flex min-w-0 items-center gap-2"><strong className="truncate font-[var(--font-display)] text-[19px] font-normal">{event.name}</strong>{event.pinned && <span className="status-pill bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]">Focus</span>}</span>
+                                        <span className="mt-0.5 block truncate text-xs text-[var(--color-muted)]">{statusText}</span>
+                                        {(project || event.habit) && <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-[var(--color-line)]"><span className="progress-fill block h-full rounded-full" style={{ width: `${percent}%`, background: palette.color }} /></span>}
+                                    </span>
+                                    <span className="path-metric">
+                                        {kind === "ongoing" ? <><strong>{event.habit ? habit?.streak ?? 0 : formatOpenDuration(event.start)}</strong><small>{event.habit ? `${event.habit.frequency} streak` : "ongoing"}</small></> : <><strong>{remaining?.value}</strong><small>{remaining?.unit}</small></>}
+                                    </span>
                                 </button>
-
-                                <div className="flex shrink-0 items-center gap-1">
-                                    {event.habit && (
-                                        <>
-                                            <button onClick={() => onCheckIn(event.id)} className="icon-button" style={today?.status === "done" ? { background: palette.glow, color: palette.ink } : undefined} aria-label={`Mark ${event.name} done today`} title="Done today">
-                                                <Icon name="check" size={15} />
-                                            </button>
-                                            <button onClick={() => onOpenHistory(event.id)} className="icon-button" aria-label={`Open ${event.name} check-in history`} title="Check-in history">
-                                                <Icon name="history" size={15} />
-                                            </button>
-                                        </>
-                                    )}
-                                    <button onClick={() => onEdit(event.id)} className="icon-button" aria-label={`Edit ${event.name}`} title="Edit milestone">
-                                        <Icon name="more-horiz" size={16} />
-                                    </button>
+                                <div className="path-actions">
+                                    {kind === "project" && <button onClick={() => onProgress(event.id)} className="compact-button" aria-label={`Log progress for ${event.name}`}><Icon name="trending-up" size={14} /><span>Update</span></button>}
+                                    {event.habit && <button onClick={() => onCheckIn(event.id)} className="compact-button" aria-pressed={today?.status === "done"} aria-label={`Check in to ${event.name}`}><Icon name="check" size={14} /><span>{today?.status === "done" ? "Done" : "Check in"}</span></button>}
+                                    {event.habit && <button onClick={() => onOpenHistory(event.id)} className="icon-button" aria-label={`Open ${event.name} check-in history`} title="History"><Icon name="history" size={15} /></button>}
+                                    <button onClick={() => onEdit(event.id)} className="icon-button" aria-label={`More options for ${event.name}`} title="Edit"><Icon name="more-horiz" size={16} /></button>
                                 </div>
+                                {project && <span className={`risk-line risk-${project.risk}`}>{project.risk === "on-track" ? "On track" : project.risk === "watch" ? "Needs attention" : project.risk === "at-risk" ? `${project.requiredHoursPerWeek}h/week needed` : "Complete"}</span>}
                             </article>
                         );
                     })}
+                    {sorted.length > 6 && <button type="button" className="quiet-button mx-auto mt-3" onClick={() => setShowAll((value) => !value)}>{showAll ? "Show fewer" : `Show ${sorted.length - 6} more`}</button>}
                 </div>
             )}
         </section>
