@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "Echo — see how far you've come",
   description: "A quiet, private space for seeing the time you've invested — not the time you have left.",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon.svg", type: "image/svg+xml" },
+  icons: { icon: [{ url: "/icon.svg", type: "image/svg+xml" }] },
   appleWebApp: { capable: true, statusBarStyle: "default" },
 };
 

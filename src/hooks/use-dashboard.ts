@@ -18,22 +18,57 @@ function appendLog(op: string, detail: string) {
 }
 
 function loadState(): DashboardState {
+    // Try current storage key
     try {
-        const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "");
-        if (parsed?.events && parsed?.settings) return { achievements: parsed.achievements ?? [], ...parsed };
-    } catch { /* */ }
-    // migrate from v2
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && Array.isArray(parsed.events) && parsed.settings) {
+                return {
+                    events: parsed.events,
+                    achievements: Array.isArray(parsed.achievements) ? parsed.achievements : [],
+                    settings: {
+                        theme: parsed.settings?.theme ?? "warm",
+                        showLifeGrid: parsed.settings?.showLifeGrid ?? true,
+                    },
+                };
+            }
+        }
+    } catch { /* corrupt data — ignore */ }
+
+    // Try migration from legacy key
     try {
-        const old = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) ?? "");
-        if (old?.events && old?.settings) { localStorage.removeItem(LEGACY_STORAGE_KEY); return { ...old, achievements: old.achievements ?? [], settings: { theme: "warm", showLifeGrid: old.settings?.showLifeGrid ?? true } }; }
+        const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (raw) {
+            const old = JSON.parse(raw);
+            if (old && Array.isArray(old.events) && old.settings) {
+                localStorage.removeItem(LEGACY_STORAGE_KEY);
+                return {
+                    events: old.events,
+                    achievements: Array.isArray(old.achievements) ? old.achievements : [],
+                    settings: {
+                        theme: "warm",
+                        showLifeGrid: old.settings?.showLifeGrid ?? true,
+                    },
+                };
+            }
+        }
     } catch { /* */ }
+
     return seedState();
 }
 
 export function useDashboardState() {
     const [state, setState] = useState<DashboardState | null>(null);
 
-    useEffect(() => { setState(loadState()); }, []);
+    useEffect(() => {
+        // Always resolve — never leave the user on a loading screen
+        try {
+            setState(loadState());
+        } catch {
+            setState(seedState());
+        }
+    }, []);
 
     const persist = useCallback((s: DashboardState) => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
