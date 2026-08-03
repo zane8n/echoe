@@ -21,7 +21,11 @@ export const dashboardState: DashboardState = {
     schemaVersion: 2,
     events: [habitMilestone],
     achievements: [],
-    settings: { theme: "warm", showActivityHistogram: true },
+    settings: {
+        theme: "warm",
+        showActivityHistogram: true,
+        profile: { displayName: "Mika", intention: "Build a life with room to breathe.", supportStyle: "gentle" },
+    },
     updatedAt: "2026-08-03T08:00:00.000Z",
 };
 

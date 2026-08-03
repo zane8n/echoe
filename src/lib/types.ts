@@ -48,9 +48,25 @@ export interface Achievement {
     icon: string;
 }
 
+export type SupportStyle = "gentle" | "direct" | "reflective";
+
+export interface PersonalProfile {
+    displayName: string;
+    intention: string;
+    supportStyle: SupportStyle;
+    personalizedAt?: string;
+}
+
 export interface DashboardSettings {
     theme: ThemeName;
     showActivityHistogram: boolean;
+    profile: PersonalProfile;
+}
+
+export interface AccountSummary {
+    displayName: string;
+    handle: string;
+    createdAt: string;
 }
 
 export interface DashboardState {

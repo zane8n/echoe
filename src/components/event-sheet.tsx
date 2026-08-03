@@ -128,33 +128,34 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
 
                     <fieldset className="grid gap-2 m-0 p-0 border-0">
                         <legend className="text-[var(--color-ink-soft)] text-[13px] font-semibold">Quiet accent</legend>
-                        <div className="grid grid-cols-2 gap-[10px] max-[860px]:grid-cols-1" role="radiogroup" aria-label="Event accent">
+                        <div className="grid grid-cols-2 gap-[10px] max-[860px]:grid-cols-1" role="radiogroup" aria-label="Milestone color">
                             {COLORS.map((c) => {
                                 const palette = COLOR_MAP[c];
+                                const active = color === c;
+                                const label = c.charAt(0).toUpperCase() + c.slice(1);
                                 return (
-                                    <label key={c} className="relative cursor-pointer">
-                                        <input
-                                            type="radio"
-                                            name="eventColor"
-                                            value={c}
-                                            checked={color === c}
-                                            onChange={() => setColor(c)}
-                                            className="absolute opacity-0 pointer-events-none"
-                                        />
+                                    <button
+                                        key={c}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={active}
+                                        aria-label={label}
+                                        onClick={() => setColor(c)}
+                                        className="flex min-h-[42px] items-center gap-[9px] rounded-[8px] border px-3 text-left text-[13px] text-[var(--color-ink-soft)] transition-all duration-180"
+                                        style={{
+                                            borderColor: active ? palette.color : "var(--color-line)",
+                                            background: active ? palette.glow : "var(--color-panel)",
+                                            boxShadow: active ? `inset 0 0 0 1px ${palette.color}` : undefined,
+                                        }}
+                                    >
                                         <span
-                                            className="flex min-h-[42px] items-center gap-[9px] rounded-[8px] border px-3 text-[13px] text-[var(--color-ink-soft)] transition-all duration-180"
-                                            style={{
-                                                borderColor: color === c ? palette.color : "var(--color-line)",
-                                                background: color === c ? palette.glow : "var(--color-panel)",
-                                            }}
+                                            className="h-3 w-3 shrink-0 rounded-full"
+                                            style={{ background: palette.color }}
                                         >
-                                            <span
-                                                className="w-3 h-3 rounded-full"
-                                                style={{ background: palette.color }}
-                                            />
-                                            {c.charAt(0).toUpperCase() + c.slice(1)}
                                         </span>
-                                    </label>
+                                        <span className="flex-1">{label}</span>
+                                        {active && <Icon name="check" size={14} style={{ color: palette.ink }} />}
+                                    </button>
                                 );
                             })}
                         </div>

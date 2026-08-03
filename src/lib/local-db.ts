@@ -1,6 +1,6 @@
 import { deleteDB, openDB, type DBSchema, type IDBPDatabase } from "idb";
 import { LEGACY_STORAGE_KEYS, LOCAL_DB_NAME, STALE_DATA_RESET_KEY } from "./constants";
-import { seedState } from "./utils";
+import { normalizeSettings, seedState } from "./utils";
 import type {
     Achievement,
     AuditAction,
@@ -172,7 +172,7 @@ export async function loadDashboardState(): Promise<DashboardState> {
         schemaVersion: 2,
         events,
         achievements: achievements.sort((a, b) => b.date.localeCompare(a.date)),
-        settings: settings?.value ?? fallback.settings,
+        settings: normalizeSettings(settings?.value ?? fallback.settings),
         updatedAt: typeof lastSaved?.value === "string" ? lastSaved.value : fallback.updatedAt,
     };
 }
@@ -185,7 +185,12 @@ export async function commitDashboardState(
 ): Promise<DashboardState> {
     const database = await getDatabase();
     const now = new Date().toISOString();
-    const state: DashboardState = { ...input, schemaVersion: 2, updatedAt: now };
+    const state: DashboardState = {
+        ...input,
+        schemaVersion: 2,
+        settings: normalizeSettings(input.settings),
+        updatedAt: now,
+    };
     const transaction = database.transaction(
         ["milestones", "checkins", "achievements", "settings", "audit", "snapshots", "meta"],
         "readwrite",
@@ -305,6 +310,12 @@ export async function clearEchoeDatabase(): Promise<DashboardState> {
 }
 
 export async function deleteLocalDatabaseForTests(): Promise<void> {
+    if (databasePromise) (await databasePromise).close();
+    databasePromise = null;
+    await deleteDB(LOCAL_DB_NAME);
+}
+
+export async function resetLocalDatabaseForAccountSwitch(): Promise<void> {
     if (databasePromise) (await databasePromise).close();
     databasePromise = null;
     await deleteDB(LOCAL_DB_NAME);

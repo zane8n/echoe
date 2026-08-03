@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { getAccount, registerAccount, signIn, signOut } from "@/lib/account-client";
 import { THEME_ORDER, THEMES } from "@/lib/constants";
-import type { DashboardSettings, StorageSummary, ThemeName } from "@/lib/types";
+import type { AccountSummary, DashboardSettings, StorageSummary, SupportStyle, ThemeName } from "@/lib/types";
 import { Icon } from "./icon";
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
     onExport: () => void;
     onImport: (file: File) => void;
     onClearData: () => Promise<void>;
+    onAccountChange: () => Promise<void>;
     onClose: () => void;
 }
 
@@ -23,16 +25,89 @@ const statusDetails = {
     offline: { icon: "cloud-off" as const, label: "Offline, saved locally" },
 };
 
-export function SettingsSheet({ settings, storage, onSave, onPreviewTheme, onExport, onImport, onClearData, onClose }: Props) {
+export function SettingsSheet({ settings, storage, onSave, onPreviewTheme, onExport, onImport, onClearData, onAccountChange, onClose }: Props) {
     const [theme, setTheme] = useState<ThemeName>(settings.theme ?? "warm");
     const [showHistogram, setShowHistogram] = useState(settings.showActivityHistogram ?? true);
+    const [displayName, setDisplayName] = useState(settings.profile.displayName);
+    const [intention, setIntention] = useState(settings.profile.intention);
+    const [supportStyle, setSupportStyle] = useState<SupportStyle>(settings.profile.supportStyle);
     const [confirmClear, setConfirmClear] = useState(false);
+    const [account, setAccount] = useState<AccountSummary | null>(null);
+    const [accountMode, setAccountMode] = useState<"register" | "sign-in">("register");
+    const [accountLoading, setAccountLoading] = useState(true);
+    const [accountBusy, setAccountBusy] = useState(false);
+    const [accountAvailable, setAccountAvailable] = useState(true);
+    const [accountError, setAccountError] = useState("");
+    const [handle, setHandle] = useState("");
+    const [password, setPassword] = useState("");
     const fileInput = useRef<HTMLInputElement>(null);
 
     const status = statusDetails[storage.syncStatus];
     const chooseTheme = (next: ThemeName) => {
         setTheme(next);
         onPreviewTheme(next);
+    };
+
+    const nextSettings = (): DashboardSettings => ({
+        theme,
+        showActivityHistogram: showHistogram,
+        profile: {
+            displayName: displayName.trim(),
+            intention: intention.trim(),
+            supportStyle,
+            personalizedAt: displayName.trim() ? settings.profile.personalizedAt ?? new Date().toISOString() : undefined,
+        },
+    });
+
+    useEffect(() => {
+        let active = true;
+        void getAccount()
+            .then((response) => {
+                if (!active) return;
+                setAccountAvailable(response.mode === "cloud");
+                setAccount(response.account);
+            })
+            .catch(() => {
+                if (active) setAccountAvailable(false);
+            })
+            .finally(() => {
+                if (active) setAccountLoading(false);
+            });
+        return () => { active = false; };
+    }, []);
+
+    const submitAccount = async () => {
+        setAccountError("");
+        setAccountBusy(true);
+        try {
+            if (accountMode === "register") {
+                const response = await registerAccount(displayName.trim(), handle, password);
+                if (response.mode !== "cloud" || !response.account) throw new Error("Connect the Vercel database before creating an account.");
+                setAccount(response.account);
+                onSave(nextSettings());
+                setPassword("");
+            } else {
+                const response = await signIn(handle, password);
+                if (!response.account) throw new Error("Unable to sign in.");
+                await onAccountChange();
+            }
+        } catch (error) {
+            setAccountError(error instanceof Error ? error.message : "Account request failed.");
+        } finally {
+            setAccountBusy(false);
+        }
+    };
+
+    const handleSignOut = async () => {
+        setAccountBusy(true);
+        setAccountError("");
+        try {
+            await signOut();
+            await onAccountChange();
+        } catch (error) {
+            setAccountError(error instanceof Error ? error.message : "Unable to sign out.");
+            setAccountBusy(false);
+        }
     };
 
     return (
@@ -49,7 +124,75 @@ export function SettingsSheet({ settings, storage, onSave, onPreviewTheme, onExp
                     </button>
                 </div>
 
-                <form onSubmit={(event) => { event.preventDefault(); onSave({ theme, showActivityHistogram: showHistogram }); onClose(); }} className="grid gap-7">
+                <form onSubmit={(event) => { event.preventDefault(); onSave(nextSettings()); onClose(); }} className="grid gap-7">
+                    <section className="grid gap-4" aria-labelledby="profileTitle">
+                        <div>
+                            <h3 id="profileTitle" className="m-0 text-[13px] font-semibold text-[var(--color-ink-soft)]">Your Echoe</h3>
+                            <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--color-muted)]">Give this space your name and the direction you want it to quietly hold.</p>
+                        </div>
+                        <label className="grid gap-2">
+                            <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Your name</span>
+                            <input className="field" value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={40} autoComplete="name" placeholder="The name Echoe should use" />
+                        </label>
+                        <label className="grid gap-2">
+                            <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">What are you building toward?</span>
+                            <textarea className="field min-h-[84px] resize-y" value={intention} onChange={(event) => setIntention(event.target.value)} maxLength={140} placeholder="A private intention, in your own words" />
+                        </label>
+                        <label className="grid gap-2">
+                            <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">How Echoe should encourage you</span>
+                            <select className="field" value={supportStyle} onChange={(event) => setSupportStyle(event.target.value as SupportStyle)}>
+                                <option value="gentle">Gentle and steady</option>
+                                <option value="direct">Clear and practical</option>
+                                <option value="reflective">Reflective and thoughtful</option>
+                            </select>
+                        </label>
+                    </section>
+
+                    <section className="grid gap-4 border-t border-[var(--color-line)] pt-6" aria-labelledby="accountTitle">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <h3 id="accountTitle" className="m-0 text-[13px] font-semibold text-[var(--color-ink-soft)]">Permanence</h3>
+                                <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--color-muted)]">A private account reconnects this Echoe to you across browsers.</p>
+                            </div>
+                            {account && <span className="status-pill shrink-0 bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"><Icon name="check" size={12} /> @{account.handle}</span>}
+                        </div>
+
+                        {accountLoading ? (
+                            <div className="h-12 animate-pulse rounded-[8px] bg-[var(--color-accent-soft)]" aria-label="Checking account" />
+                        ) : account ? (
+                            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-[var(--color-line)] bg-[var(--color-panel)] p-3">
+                                <div>
+                                    <div className="text-sm font-semibold text-[var(--color-ink)]">Registered as {account.displayName}</div>
+                                    <div className="text-xs text-[var(--color-muted)]">Your cloud history stays attached to this account.</div>
+                                </div>
+                                <button type="button" onClick={handleSignOut} disabled={accountBusy} className="quiet-button">Sign out</button>
+                            </div>
+                        ) : (
+                            <div className="grid gap-3">
+                                <div className="grid grid-cols-2 gap-2" aria-label="Account action">
+                                    <button type="button" className="secondary-button" aria-pressed={accountMode === "register"} onClick={() => { setAccountMode("register"); setAccountError(""); }}>Create account</button>
+                                    <button type="button" className="secondary-button" aria-pressed={accountMode === "sign-in"} onClick={() => { setAccountMode("sign-in"); setAccountError(""); }}>Sign in</button>
+                                </div>
+                                {!accountAvailable && <p className="m-0 text-xs text-[var(--color-muted)]">Cloud accounts become available when <code>DATABASE_URL</code> is connected on Vercel. Your profile still saves on this device.</p>}
+                                <label className="grid gap-2">
+                                    <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Private handle</span>
+                                    <input className="field" value={handle} onChange={(event) => setHandle(event.target.value.toLowerCase())} minLength={3} maxLength={24} autoComplete="username" placeholder="your-handle" />
+                                </label>
+                                <label className="grid gap-2">
+                                    <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Password</span>
+                                    <input className="field" type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} maxLength={128} autoComplete={accountMode === "register" ? "new-password" : "current-password"} placeholder="At least 8 characters" />
+                                </label>
+                                {accountError && <p className="m-0 text-xs text-[var(--color-danger)]" role="alert">{accountError}</p>}
+                                <button type="button" disabled={accountBusy || !handle || !password || (accountMode === "register" && !displayName.trim())} onClick={submitAccount} className="secondary-button">
+                                    <Icon name={accountMode === "register" ? "database" : "cloud"} size={15} />
+                                    {accountBusy ? "Please wait" : accountMode === "register" ? "Create my account" : "Sign in to my Echoe"}
+                                </button>
+                                {accountMode === "register" && <p className="m-0 text-xs text-[var(--color-muted)]">No email is collected. Keep your handle and password somewhere safe.</p>}
+                            </div>
+                        )}
+                        {account && accountError && <p className="m-0 text-xs text-[var(--color-danger)]" role="alert">{accountError}</p>}
+                    </section>
+
                     <fieldset className="m-0 grid gap-3 border-0 p-0">
                         <legend className="mb-1 text-[13px] font-semibold text-[var(--color-ink-soft)]">App theme</legend>
                         <div className="grid grid-cols-2 gap-2 max-[390px]:grid-cols-1">

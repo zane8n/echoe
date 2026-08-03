@@ -1,5 +1,14 @@
 import { DAY_MS } from "./constants";
-import type { DashboardState, HabitStats, MilestoneEvent, RemainingDisplay, TimeSpent } from "./types";
+import type {
+    DashboardSettings,
+    DashboardState,
+    HabitStats,
+    MilestoneEvent,
+    PersonalProfile,
+    RemainingDisplay,
+    SupportStyle,
+    TimeSpent,
+} from "./types";
 
 // ── Date helpers ──
 export const localDate = (date = new Date()): string => {
@@ -125,22 +134,43 @@ export const habitStats = (event: MilestoneEvent): HabitStats => {
     return { streak: habitStreak(event), done, missed, total, rate: total > 0 ? Math.round((done / total) * 100) : 0 };
 };
 
-export const habitInsight = (event: MilestoneEvent): string => {
+const missedDayCopy: Record<SupportStyle, string> = {
+    gentle: "A missed day is information. Make the next step smaller and restart.",
+    direct: "Review the obstacle, reduce the next step, and resume today.",
+    reflective: "Keep what the missed day taught you, then begin again with one clear step.",
+};
+
+export const habitInsight = (event: MilestoneEvent, supportStyle: SupportStyle = "gentle"): string => {
     const stats = habitStats(event);
     if (!event.habit || stats.total === 0) return "Begin with the smallest version you can repeat.";
     if (stats.streak >= 7) return "This rhythm is holding. Protect the conditions that make it easy.";
     const latest = [...event.habit.entries].sort((a, b) => b.date.localeCompare(a.date))[0];
-    if (latest?.status === "missed") return "A missed day is information. Make the next step smaller and restart.";
+    if (latest?.status === "missed") return missedDayCopy[supportStyle];
     if (stats.rate >= 70) return "Consistency is growing. Keep the next action obvious and light.";
     return "Notice what interrupts the pattern, then adjust one condition at a time.";
 };
 
-// ── Seed data (empty — user builds from scratch) ──
+export const defaultProfile = (): PersonalProfile => ({
+    displayName: "",
+    intention: "",
+    supportStyle: "gentle",
+});
+
+export const normalizeSettings = (settings?: Partial<DashboardSettings> | null): DashboardSettings => ({
+    theme: settings?.theme ?? "warm",
+    showActivityHistogram: settings?.showActivityHistogram ?? true,
+    profile: {
+        ...defaultProfile(),
+        ...(settings?.profile ?? {}),
+    },
+});
+
+// Seed data is intentionally empty so each person builds from real input.
 export const seedState = (): DashboardState => ({
     schemaVersion: 2,
     events: [],
     achievements: [],
-    settings: { theme: "warm", showActivityHistogram: true },
+    settings: normalizeSettings(),
     updatedAt: new Date().toISOString(),
 });
 

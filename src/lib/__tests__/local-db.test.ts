@@ -57,10 +57,28 @@ describe("ordered IndexedDB repository", () => {
         const audit = await getAuditLog();
 
         expect(loaded.events[0].habit?.entries).toHaveLength(2);
+        expect(loaded.events[0].color).toBe("sky");
         expect(loaded.events[0].habit?.entries[1]).toMatchObject({ status: "missed", note: "Travel day" });
         expect(summary).toMatchObject({ milestoneCount: 1, checkInCount: 2, historyCount: 1 });
         expect(audit.map((entry) => entry.action)).toEqual(["create", "bootstrap"]);
         expect(audit[0].seq).toBeGreaterThan(audit[1].seq ?? 0);
+    });
+
+    it("migrates and persists a personal profile without disturbing existing data", async () => {
+        await initializeLocalDatabase();
+        const state = seedState();
+        const personalized = await commitDashboardState({
+            ...state,
+            settings: {
+                ...state.settings,
+                theme: "teal",
+                profile: { displayName: "Kikandi", intention: "Build deliberately.", supportStyle: "direct" },
+            },
+        }, "settings", "Personalized Echoe");
+
+        const loaded = await loadDashboardState();
+        expect(personalized.settings.profile.displayName).toBe("Kikandi");
+        expect(loaded.settings).toMatchObject({ theme: "teal", profile: { displayName: "Kikandi", supportStyle: "direct" } });
     });
 
     it("soft-archives removed milestones and can start a genuinely fresh history", async () => {

@@ -19,7 +19,7 @@ import { useKeyboard } from "@/hooks/use-keyboard";
 import { THEMES } from "@/lib/constants";
 import { getAuditLog } from "@/lib/local-db";
 import type { DashboardState, HabitEntry, MilestoneEvent, ThemeConfig, ThemeName } from "@/lib/types";
-import { isDashboardState, seedState } from "@/lib/utils";
+import { isDashboardState, normalizeSettings, seedState } from "@/lib/utils";
 
 export default function Home() {
     const {
@@ -33,6 +33,7 @@ export default function Home() {
         clearHabitCheckIn,
         importState,
         clearAllData,
+        resetForAccountSwitch,
     } = useDashboardState();
     const [activeSheet, setActiveSheet] = useState<"event" | "settings" | null>(null);
     const [editingEventId, setEditingEventId] = useState<string | null>(null);
@@ -113,10 +114,11 @@ export default function Home() {
                     ...seedState(),
                     ...legacy,
                     schemaVersion: 2,
-                    settings: {
+                    settings: normalizeSettings({
                         theme: THEMES[legacy.settings.theme] ? legacy.settings.theme : "warm",
                         showActivityHistogram: legacy.settings.showActivityHistogram ?? legacy.settings.showLifeGrid ?? true,
-                    },
+                        profile: legacy.settings.profile,
+                    }),
                     updatedAt: new Date().toISOString(),
                 });
                 showToast("Backup imported");
@@ -134,6 +136,10 @@ export default function Home() {
         clearHabitCheckIn(id, date);
         showToast("Check-in cleared");
     }, [clearHabitCheckIn, showToast]);
+    const handleAccountChange = useCallback(async () => {
+        await resetForAccountSwitch();
+        window.location.reload();
+    }, [resetForAccountSwitch]);
 
     useKeyboard({
         Escape: () => {
@@ -168,7 +174,7 @@ export default function Home() {
     return (
         <div className="app-shell min-h-screen bg-[var(--color-bg)] text-[var(--color-ink)]" style={themeStyle}>
             <BgCanvas />
-            <Header onAddEvent={() => openEventEditor()} onOpenSettings={openSettings} />
+            <Header displayName={state.settings.profile.displayName} onAddEvent={() => openEventEditor()} onOpenSettings={openSettings} />
             <main className="relative z-10 mx-auto w-[min(calc(100%-40px),1120px)] pt-[clamp(42px,7vw,82px)]">
                 <FocusSection
                     events={state.events}
@@ -178,6 +184,7 @@ export default function Home() {
                     onCheckIn={(id) => handleCheckIn(id, "done")}
                     onMiss={(id) => handleCheckIn(id, "missed")}
                     onOpenHistory={setCheckInEventId}
+                    profile={state.settings.profile}
                 />
                 <TimeSection tick={tick} />
                 <EventsSection
@@ -189,12 +196,12 @@ export default function Home() {
                 />
                 <WeeksGrid events={state.events} show={state.settings.showActivityHistogram} tick={tick} />
                 <footer className="mt-[84px] flex flex-wrap justify-between gap-5 border-t border-[var(--color-line)] pb-9 pt-7 text-xs text-[var(--color-muted)]">
-                    <span>{storageSummary.syncStatus === "synced" ? "Local-first, backed by your Vercel database" : "Local-first, stored in this browser"}</span>
+                    <span>{state.settings.profile.displayName ? `${state.settings.profile.displayName}'s Echoe` : "Your Echoe"} is {storageSummary.syncStatus === "synced" ? "backed by your Vercel database" : "stored in this browser"}</span>
                     <span>Designed by <span className="font-semibold text-[var(--color-accent-ink)]">Kikandi</span></span>
                 </footer>
             </main>
 
-            {activeSheet === "event" && <EventSheet eventId={editingEventId} events={state.events} onSave={upsertEvent} onDelete={handleDelete} onClose={closeSheet} />}
+            {activeSheet === "event" && <EventSheet key={editingEventId ?? "new"} eventId={editingEventId} events={state.events} onSave={upsertEvent} onDelete={handleDelete} onClose={closeSheet} />}
             {activeSheet === "settings" && (
                 <SettingsSheet
                     settings={state.settings}
@@ -204,6 +211,7 @@ export default function Home() {
                     onExport={handleExport}
                     onImport={handleImport}
                     onClearData={clearAllData}
+                    onAccountChange={handleAccountChange}
                     onClose={closeSheet}
                 />
             )}

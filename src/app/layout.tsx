@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Echoe — build a rhythm you can trust",
+  title: "Echoe: build a rhythm you can trust",
   description: "A calm, local-first milestone and habit tracker built around progress, reflection, and practical growth.",
   manifest: "/manifest.webmanifest",
   icons: { icon: [{ url: "/icon.svg", type: "image/svg+xml" }] },

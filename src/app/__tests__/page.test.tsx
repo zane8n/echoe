@@ -15,6 +15,7 @@ const dashboardMock = vi.hoisted(() => ({
     clearHabitCheckIn: vi.fn(),
     importState: vi.fn(),
     clearAllData: vi.fn().mockResolvedValue(undefined),
+    resetForAccountSwitch: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/hooks/use-dashboard", () => ({ useDashboardState: () => dashboardMock }));

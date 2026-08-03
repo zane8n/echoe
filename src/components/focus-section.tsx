@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import type { MilestoneEvent } from "@/lib/types";
+import type { MilestoneEvent, PersonalProfile } from "@/lib/types";
 import {
     addDays,
     daysUntil,
@@ -27,11 +27,13 @@ interface Props {
     onCheckIn: (id: string) => void;
     onMiss: (id: string) => void;
     onOpenHistory: (id: string) => void;
+    profile?: PersonalProfile;
 }
 
-export function FocusSection({ events, tick, onEdit, onConfetti, onCheckIn, onMiss, onOpenHistory }: Props) {
+export function FocusSection({ events, tick, onEdit, onConfetti, onCheckIn, onMiss, onOpenHistory, profile }: Props) {
     const event = getPinnedEvent(events);
     const previousRemaining = useRef<number | null>(null);
+    const firstName = profile?.displayName.trim().split(/\s+/)[0];
 
     const display = useMemo(() => {
         if (!event) return null;
@@ -62,8 +64,8 @@ export function FocusSection({ events, tick, onEdit, onConfetti, onCheckIn, onMi
                     <Icon name="target" size={14} /> Focus
                 </div>
                 <div className="flex max-w-2xl flex-col gap-3">
-                    <h1 className="m-0 font-[var(--font-display)] text-[clamp(40px,7vw,78px)] font-normal leading-[1.02] text-[var(--color-ink)]">Start with one meaningful step</h1>
-                    <p className="m-0 max-w-xl text-base text-[var(--color-muted)]">Add your first milestone. Echoe will build the timeline from real check-ins and dates as you go.</p>
+                    <h1 className="m-0 font-[var(--font-display)] text-[clamp(40px,7vw,78px)] font-normal leading-[1.02] text-[var(--color-ink)]">{firstName ? `${firstName}, start with one meaningful step` : "Start with one meaningful step"}</h1>
+                    <p className="m-0 max-w-xl text-base text-[var(--color-muted)]">{profile?.intention || "Add your first milestone. Echoe will build the timeline from real check-ins and dates as you go."}</p>
                     <button onClick={() => onEdit("")} className="primary-button mt-2 self-start">
                         <Icon name="plus" size={16} /> Add milestone
                     </button>
@@ -86,7 +88,7 @@ export function FocusSection({ events, tick, onEdit, onConfetti, onCheckIn, onMi
         <section id="top" className="animate-soft-enter py-[clamp(34px,6vw,64px)]">
             <div className="mb-4 flex flex-wrap items-center gap-3">
                 <span className="flex items-center gap-1.5 text-xs font-semibold uppercase text-[var(--color-accent-ink)]">
-                    <Icon name="target" size={14} /> Focus
+                    <Icon name="target" size={14} /> {firstName ? `${firstName}'s focus` : "Focus"}
                 </span>
                 {current.habit && streak > 0 && (
                     <span className="status-pill" style={{ background: palette.glow, color: palette.ink }}>
@@ -148,7 +150,7 @@ export function FocusSection({ events, tick, onEdit, onConfetti, onCheckIn, onMi
                             return <span key={date} title={`${date}: ${entry?.status ?? "not recorded"}`} className="h-2.5 min-w-1 flex-1 rounded-[2px]" style={{ background: entry?.status === "done" ? palette.color : entry?.status === "missed" ? "var(--color-danger)" : "var(--color-line)" }} />;
                         })}
                     </div>
-                    <p className="m-0 flex items-start gap-2 text-xs text-[var(--color-muted)]"><Icon name="sparkle" size={13} className="mt-0.5 shrink-0 text-[var(--color-accent)]" /> {habitInsight(current)}</p>
+                    <p className="m-0 flex items-start gap-2 text-xs text-[var(--color-muted)]"><Icon name="sparkle" size={13} className="mt-0.5 shrink-0 text-[var(--color-accent)]" /> {habitInsight(current, profile?.supportStyle)}</p>
                 </div>
             )}
         </section>

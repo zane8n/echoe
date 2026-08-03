@@ -2,10 +2,13 @@
 
 import { Icon } from "./icon";
 
-interface Props { onAddEvent: () => void; onOpenSettings: () => void; }
+interface Props { displayName?: string; onAddEvent: () => void; onOpenSettings: () => void; }
 
-export function Header({ onAddEvent, onOpenSettings }: Props) {
+export function Header({ displayName, onAddEvent, onOpenSettings }: Props) {
     const today = new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "long" }).format(new Date());
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+    const firstName = displayName?.trim().split(/\s+/)[0];
 
     return (
         <header className="acrylic-header sticky top-0 z-30 border-b border-[var(--color-line)]">
@@ -14,9 +17,11 @@ export function Header({ onAddEvent, onOpenSettings }: Props) {
                     <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[var(--color-accent)] animate-breathe" />
                     <span className="hover:text-[var(--color-accent)] transition-colors duration-300">Echoe</span>
                 </a>
-                <div className="hidden text-[13px] text-[var(--color-muted)] sm:block" aria-live="polite">{today}</div>
+                <div className="hidden text-center text-[13px] text-[var(--color-muted)] sm:block" aria-live="polite">
+                    {firstName ? <><span className="font-semibold text-[var(--color-accent-ink)]">{greeting}, {firstName}</span><span className="mx-2 text-[var(--color-line-strong)]">/</span></> : null}{today}
+                </div>
                 <nav className="flex items-center gap-1.5" aria-label="Application actions">
-                    <button onClick={onOpenSettings} className="icon-button" aria-label="Settings" title="Settings">
+                    <button onClick={onOpenSettings} className="icon-button" aria-label="Settings" title={firstName ? `Settings for ${firstName}` : "Settings"}>
                         <Icon name="settings" size={17} />
                     </button>
                     <button onClick={onAddEvent} className="primary-button h-9 min-h-9 px-3.5 text-[13px]">

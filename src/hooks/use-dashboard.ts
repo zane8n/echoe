@@ -7,6 +7,7 @@ import {
     getStorageSummary,
     initializeLocalDatabase,
     loadDashboardState,
+    resetLocalDatabaseForAccountSwitch,
     setRemoteVersion,
 } from "@/lib/local-db";
 import { pullRemoteState, pushRemoteState } from "@/lib/remote-sync";
@@ -70,7 +71,10 @@ export function useDashboardState() {
 
                 const remoteTime = Date.parse(remote.updatedAt ?? remote.state?.updatedAt ?? "");
                 const localTime = Date.parse(localState.updatedAt);
-                if (remote.state && Number.isFinite(remoteTime) && remoteTime > localTime) {
+                const localIsPristine = localState.events.length === 0
+                    && localState.achievements.length === 0
+                    && !localState.settings.profile.displayName;
+                if (remote.state && (localIsPristine || (Number.isFinite(remoteTime) && remoteTime > localTime))) {
                     localState = await commitDashboardState(remote.state, "remote-pull", "Loaded newer data from the Vercel database");
                     publishState(localState);
                 } else {
@@ -238,6 +242,11 @@ export function useDashboardState() {
         }
     }, [publishState, refreshSummary]);
 
+    const resetForAccountSwitch = useCallback(async () => {
+        await queueRef.current;
+        await resetLocalDatabaseForAccountSwitch();
+    }, []);
+
     return {
         state,
         storageSummary,
@@ -250,5 +259,6 @@ export function useDashboardState() {
         clearHabitCheckIn,
         importState,
         clearAllData,
+        resetForAccountSwitch,
     };
 }

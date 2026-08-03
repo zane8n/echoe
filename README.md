@@ -8,14 +8,17 @@ The browser database is IndexedDB, named `echoe-core-v2`. It contains normalized
 
 On the first v2 launch, stale `echoe.v1`, `echo.dashboard.v1`, and `echoe.audit.v1` localStorage blobs are deleted. New data starts empty and is added dynamically.
 
-## Vercel Database
+## Vercel Database And Accounts
 
 The app works offline from IndexedDB. For durable Vercel-backed sync, connect a Postgres provider such as Neon in the Vercel Marketplace and expose its `DATABASE_URL` to the project. The Next.js route at `/api/sync` then creates and uses:
 
-- `echoe_state` for the latest versioned state per private browser installation
+- `echoe_state` for the latest versioned state per private owner
 - `echoe_history` for append-only, sequential state history
+- `echoe_accounts` for named account handles and scrypt password hashes
 
-The browser installation is identified by a random, HttpOnly, same-site cookie. Mutations remain optimistic and local-first; when cloud sync is unavailable the UI reports that state and keeps working. The reference schema is in `database/schema.sql`, and the route also initializes it safely on first use.
+Before registration, the browser installation is identified by a random, HttpOnly, same-site cookie. Creating an account binds the current history to a private handle; signing in on another browser restores that owner state. Passwords are salted and hashed server-side with scrypt and are never stored in the dashboard state. Mutations remain optimistic and local-first; when cloud sync is unavailable the UI reports that state and keeps working. The reference schema is in `database/schema.sql`, and the route also initializes it safely on first use.
+
+The personal profile (name, intention, and preferred encouragement style) is part of the versioned state, so it is included in IndexedDB, exports, snapshots, and cloud sync. Existing v2 installations are migrated additively without clearing milestones or check-ins.
 
 ## Development
 
@@ -35,4 +38,4 @@ pnpm test
 pnpm build
 ```
 
-Tests cover empty-state removal, time calculations, dynamic countdowns and progress bars, dated success/missed check-ins, growth prompts, acrylic add/edit/settings surfaces, app and milestone themes, clustered histograms, IndexedDB ordering and history, stale-data cleanup, and the Vercel sync API contract.
+Tests cover empty-state removal, time calculations, dynamic countdowns and progress bars, dated success/missed check-ins, growth prompts, acrylic add/edit/settings surfaces, app and milestone themes, milestone color selection, profile persistence, account registration and sign-in, clustered histograms, IndexedDB ordering and history, stale-data cleanup, and the Vercel sync API contract.

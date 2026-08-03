@@ -13,7 +13,10 @@ describe("Echoe milestone experience", () => {
         vi.useFakeTimers({ toFake: ["Date"] });
         vi.setSystemTime(new Date(2026, 7, 3, 12));
     });
-    afterEach(() => vi.useRealTimers());
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+    });
 
     it("keeps empty-state language constructive and theme-colored", () => {
         render(<FocusSection events={[]} tick={1} onEdit={vi.fn()} onConfetti={vi.fn()} onCheckIn={vi.fn()} onMiss={vi.fn()} onOpenHistory={vi.fn()} />);
@@ -58,17 +61,19 @@ describe("Echoe milestone experience", () => {
     });
 
     it("offers independent app themes, including teal and blue, in frosted settings", async () => {
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ mode: "local", account: null }), { status: 503 })));
         const user = userEvent.setup();
         const onPreviewTheme = vi.fn();
         render(
             <SettingsSheet
-                settings={{ theme: "warm", showActivityHistogram: true }}
+                settings={{ theme: "warm", showActivityHistogram: true, profile: { displayName: "", intention: "", supportStyle: "gentle" } }}
                 storage={storageSummary}
                 onSave={vi.fn()}
                 onPreviewTheme={onPreviewTheme}
                 onExport={vi.fn()}
                 onImport={vi.fn()}
                 onClearData={vi.fn().mockResolvedValue(undefined)}
+                onAccountChange={vi.fn().mockResolvedValue(undefined)}
                 onClose={vi.fn()}
             />,
         );
@@ -81,6 +86,48 @@ describe("Echoe milestone experience", () => {
         expect(screen.getByText(/synced with Postgres/i)).toBeInTheDocument();
         await user.click(screen.getByRole("button", { name: "Quiet teal" }));
         expect(onPreviewTheme).toHaveBeenCalledWith("teal");
+    });
+
+    it("saves a personal profile and preferred encouragement style", async () => {
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ mode: "local", account: null }), { status: 503 })));
+        const user = userEvent.setup();
+        const onSave = vi.fn();
+        render(
+            <SettingsSheet
+                settings={{ theme: "blue", showActivityHistogram: true, profile: { displayName: "", intention: "", supportStyle: "gentle" } }}
+                storage={storageSummary}
+                onSave={onSave}
+                onPreviewTheme={vi.fn()}
+                onExport={vi.fn()}
+                onImport={vi.fn()}
+                onClearData={vi.fn().mockResolvedValue(undefined)}
+                onAccountChange={vi.fn().mockResolvedValue(undefined)}
+                onClose={vi.fn()}
+            />,
+        );
+
+        await user.type(screen.getByRole("textbox", { name: "Your name" }), "Kikandi");
+        await user.type(screen.getByRole("textbox", { name: /what are you building toward/i }), "Move with purpose and patience.");
+        await user.selectOptions(screen.getByRole("combobox", { name: /how Echoe should encourage you/i }), "reflective");
+        await user.click(screen.getByRole("button", { name: "Save settings" }));
+
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+            theme: "blue",
+            profile: expect.objectContaining({ displayName: "Kikandi", intention: "Move with purpose and patience.", supportStyle: "reflective" }),
+        }));
+    });
+
+    it("selects and saves a milestone color with an explicit active state", async () => {
+        const user = userEvent.setup();
+        const onSave = vi.fn();
+        render(<EventSheet eventId={null} events={[]} onSave={onSave} onDelete={vi.fn()} onClose={vi.fn()} />);
+
+        await user.type(screen.getByRole("textbox", { name: "Name" }), "Write the first chapter");
+        await user.click(screen.getByRole("radio", { name: "Sky" }));
+        expect(screen.getByRole("radio", { name: "Sky" })).toHaveAttribute("aria-checked", "true");
+        await user.click(screen.getByRole("button", { name: "Save milestone" }));
+
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ color: "sky", name: "Write the first chapter" }));
     });
 
     it("uses the same acrylic treatment for adding and editing milestones", () => {
