@@ -197,8 +197,9 @@ export const defaultProfile = (): PersonalProfile => ({
 });
 
 export const normalizeSettings = (settings?: Partial<DashboardSettings> | null): DashboardSettings => ({
-    theme: settings?.theme ?? "warm",
+    theme: settings?.theme ?? "blue",
     showActivityHistogram: settings?.showActivityHistogram ?? true,
+    readNotificationIds: settings?.readNotificationIds ?? [],
     profile: {
         ...defaultProfile(),
         ...(settings?.profile ?? {}),

@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import {
     CalendarDays,
+    Bell,
     Check,
     ChevronRight,
     CircleX,
@@ -42,7 +43,7 @@ export type IconName =
     | "trending-up" | "layers" | "star" | "more-horiz" | "chevron-right"
     | "database" | "cloud" | "cloud-off" | "history" | "refresh" | "missed"
     | "flower" | "leaf" | "mountain" | "palette" | "snowflake" | "sun"
-    | "user" | "waves" | "log-in";
+    | "user" | "waves" | "log-in" | "bell";
 
 const icons: Record<IconName, LucideIcon> = {
     settings: Settings,
@@ -78,6 +79,7 @@ const icons: Record<IconName, LucideIcon> = {
     user: UserRound,
     waves: Waves,
     "log-in": LogIn,
+    bell: Bell,
 };
 
 interface Props extends Omit<ComponentProps<LucideIcon>, "ref"> {

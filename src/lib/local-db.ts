@@ -122,11 +122,24 @@ export async function initializeLocalDatabase(): Promise<void> {
     clearStaleBrowserData();
     const database = await getDatabase();
     const initialized = await database.get("meta", "initialized-at");
-    if (initialized) return;
+    if (initialized) {
+        const themeMigrated = await database.get("meta", "blue-default-v3");
+        if (!themeMigrated) {
+            const transaction = database.transaction(["meta", "settings"], "readwrite");
+            const settings = await transaction.objectStore("settings").get("current");
+            if (settings?.value.theme === "warm") {
+                await transaction.objectStore("settings").put({ ...settings, value: { ...settings.value, theme: "blue" } });
+            }
+            await transaction.objectStore("meta").put({ key: "blue-default-v3", value: new Date().toISOString() });
+            await transaction.done;
+        }
+        return;
+    }
 
     const now = new Date().toISOString();
     const transaction = database.transaction(["meta", "settings", "audit"], "readwrite");
     await transaction.objectStore("meta").put({ key: "initialized-at", value: now });
+    await transaction.objectStore("meta").put({ key: "blue-default-v3", value: now });
     await transaction.objectStore("settings").put({ id: "current", value: seedState().settings, updatedAt: now });
     await transaction.objectStore("audit").add({
         id: createId(),
@@ -193,6 +206,7 @@ export async function commitDashboardState(
             project: {
                 ...event.project,
                 entries: [...event.project.entries].sort((a, b) => a.date.localeCompare(b.date) || (a.recordedAt ?? "").localeCompare(b.recordedAt ?? "")),
+                checkIns: [...(event.project.checkIns ?? [])].sort((a, b) => a.date.localeCompare(b.date)),
             },
         } : event),
         settings: normalizeSettings(input.settings),
@@ -273,7 +287,7 @@ export async function getStorageSummary(syncStatus: SyncStatus): Promise<Storage
     await transaction.done;
     return {
         milestoneCount: milestones.filter((event) => !event.deletedAt).length,
-        checkInCount,
+        checkInCount: checkInCount + milestones.reduce((total, event) => total + (event.project?.checkIns?.length ?? 0), 0),
         historyCount,
         lastSavedAt: typeof lastSaved?.value === "string" ? lastSaved.value : null,
         lastSyncedAt: typeof lastSynced?.value === "string" ? lastSynced.value : null,

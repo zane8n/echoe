@@ -22,21 +22,23 @@ export function WeeksGrid({ events, show, tick }: Props) {
                 const eventStart = parseDate(event.start);
                 const eventTarget = parseDate(event.target);
                 const overlaps = eventStart && eventStart <= end && (!eventTarget || eventTarget >= start);
-                if (overlaps) score += 0.35;
-                if (eventStart && eventStart >= start && eventStart <= end) score += 2;
-                if (eventTarget && eventTarget >= start && eventTarget <= end) score += 2;
 
-                const checkIns = event.habit?.entries.filter((entry) => {
+                const habitCheckIns = event.habit?.entries.filter((entry) => {
                     const date = parseDate(entry.date);
                     return date && date >= start && date <= end;
                 }) ?? [];
-                score += checkIns.length;
+                const projectCheckIns = event.project?.checkIns?.filter((entry) => {
+                    const date = parseDate(entry.date);
+                    return date && date >= start && date <= end;
+                }) ?? [];
+                const completedCheckIns = [...habitCheckIns, ...projectCheckIns].filter((entry) => entry.status === "done");
+                score += completedCheckIns.length;
                 const progressEntries = event.project?.entries.filter((entry) => {
                     const date = parseDate(entry.date);
                     return date && date >= start && date <= end;
                 }) ?? [];
                 score += progressEntries.reduce((total, entry) => total + Math.min(4, entry.hours), 0);
-                if (overlaps || checkIns.length || progressEntries.length) colors.push(COLOR_MAP[event.color]?.color ?? "var(--color-accent)");
+                if (overlaps || completedCheckIns.length || progressEntries.length) colors.push(COLOR_MAP[event.color]?.color ?? "var(--color-accent)");
             }
 
             return { start, end, score, colors: [...new Set(colors)] };
@@ -46,8 +48,10 @@ export function WeeksGrid({ events, show, tick }: Props) {
     }, [events, tick]);
 
     if (!show || !events.length) return null;
-    const maximum = Math.max(1, ...buckets.map((bucket) => bucket.score));
-    const checkIns = events.reduce((total, event) => total + (event.habit?.entries.filter((entry) => entry.status === "done").length ?? 0), 0);
+    const maximum = Math.max(4, ...buckets.map((bucket) => bucket.score));
+    const checkIns = events.reduce((total, event) => total
+        + (event.habit?.entries.filter((entry) => entry.status === "done").length ?? 0)
+        + (event.project?.checkIns?.filter((entry) => entry.status === "done").length ?? 0), 0);
     const projectHours = Math.round(events.reduce((total, event) => total + (event.project?.entries.reduce((sum, entry) => sum + entry.hours, 0) ?? 0), 0) * 10) / 10;
     const attention = events.filter((event) => milestoneKind(event) === "project" && ["watch", "at-risk"].includes(projectProgress(event).risk)).length;
 

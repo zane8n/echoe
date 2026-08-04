@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CheckInSheet } from "@/components/check-in-sheet";
 import { EventSheet } from "@/components/event-sheet";
 import { FocusSection } from "@/components/focus-section";
 import { ProgressSheet } from "@/components/progress-sheet";
+import { PathCarousel } from "@/components/path-carousel";
 import { SettingsSheet } from "@/components/settings-sheet";
 import { WeeksGrid } from "@/components/weeks-grid";
 import { habitMilestone, storageSummary } from "@/test/fixtures";
@@ -68,7 +69,7 @@ describe("Echoe milestone experience", () => {
         const onSave = vi.fn();
         render(
             <SettingsSheet
-                settings={{ theme: "warm", showActivityHistogram: true, profile: { displayName: "", intention: "", supportStyle: "gentle" } }}
+                settings={{ theme: "warm", showActivityHistogram: true, readNotificationIds: [], profile: { displayName: "", intention: "", supportStyle: "gentle" } }}
                 storage={storageSummary}
                 onSave={onSave}
                 onThemeChange={onThemeChange}
@@ -100,7 +101,7 @@ describe("Echoe milestone experience", () => {
         const onSave = vi.fn();
         render(
             <SettingsSheet
-                settings={{ theme: "blue", showActivityHistogram: true, profile: { displayName: "", intention: "", supportStyle: "gentle" } }}
+                settings={{ theme: "blue", showActivityHistogram: true, readNotificationIds: [], profile: { displayName: "", intention: "", supportStyle: "gentle" } }}
                 storage={storageSummary}
                 onSave={onSave}
                 onThemeChange={vi.fn()}
@@ -130,7 +131,7 @@ describe("Echoe milestone experience", () => {
         const user = userEvent.setup();
         render(
             <SettingsSheet
-                settings={{ theme: "warm", showActivityHistogram: true, profile: { displayName: "Kikandi", intention: "", supportStyle: "gentle" } }}
+                settings={{ theme: "warm", showActivityHistogram: true, readNotificationIds: [], profile: { displayName: "Kikandi", intention: "", supportStyle: "gentle" } }}
                 storage={storageSummary}
                 onSave={vi.fn()}
                 onThemeChange={vi.fn()}
@@ -173,18 +174,26 @@ describe("Echoe milestone experience", () => {
         expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ kind: "ongoing", target: "", habit: undefined }));
     });
 
-    it("logs project hours, readiness, date, and notes through one compact update", async () => {
+    it("updates project readiness without requiring a check-in or effort", async () => {
         const user = userEvent.setup();
-        const onLog = vi.fn();
+        const onReadiness = vi.fn();
         const project = { ...habitMilestone, kind: "project" as const, habit: undefined, project: { plannedHours: 80, readiness: 25, entries: [] } };
-        render(<ProgressSheet event={project} onLog={onLog} onClose={vi.fn()} />);
-        await user.clear(screen.getByRole("spinbutton", { name: /hours invested/i }));
-        await user.type(screen.getByRole("spinbutton", { name: /hours invested/i }), "2.5");
-        await user.clear(screen.getByRole("spinbutton", { name: /readiness now/i }));
-        await user.type(screen.getByRole("spinbutton", { name: /readiness now/i }), "40");
-        await user.type(screen.getByRole("textbox", { name: /a useful note/i }), "Finished the routing lab");
-        await user.click(screen.getByRole("button", { name: /log progress/i }));
-        expect(onLog).toHaveBeenCalledWith("habit-1", 2.5, 40, "2026-08-03", "Finished the routing lab");
+        render(<ProgressSheet event={project} onEffort={vi.fn()} onReadiness={onReadiness} onClose={vi.fn()} />);
+        expect(screen.queryByRole("spinbutton", { name: /hours invested/i })).not.toBeInTheDocument();
+        fireEvent.change(screen.getByRole("slider", { name: /readiness now/i }), { target: { value: "40" } });
+        await user.type(screen.getByRole("textbox", { name: /what changed/i }), "Finished the routing lab");
+        await user.click(screen.getByRole("button", { name: /update readiness/i }));
+        expect(onReadiness).toHaveBeenCalledWith("habit-1", 40, "Finished the routing lab");
+    });
+
+    it("keeps project check-in separate from readiness on the home carousel", async () => {
+        const user = userEvent.setup();
+        const onProjectCheckIn = vi.fn();
+        const project = { ...habitMilestone, kind: "project" as const, habit: undefined, project: { plannedHours: 80, readiness: 25, entries: [], checkInFrequency: "daily" as const, checkIns: [] } };
+        render(<PathCarousel events={[project]} profile={{ displayName: "Kikandi", intention: "", supportStyle: "gentle" }} onHabitCheckIn={vi.fn()} onProjectCheckIn={onProjectCheckIn} onOpenHistory={vi.fn()} onProgress={vi.fn()} />);
+        expect(screen.queryByRole("slider", { name: /readiness/i })).not.toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: "Check in" }));
+        expect(onProjectCheckIn).toHaveBeenCalledWith("habit-1");
     });
 
     it("uses the same acrylic treatment for adding and editing milestones", () => {
@@ -205,5 +214,16 @@ describe("Echoe milestone experience", () => {
         expect(screen.getByRole("img", { name: /last 24 weeks/i })).toBeInTheDocument();
         expect(screen.getByText(/twelve two-week clusters/i)).toBeInTheDocument();
         expect(screen.getAllByTitle(/activity points/i)).toHaveLength(12);
+    });
+
+    it("includes independent project check-ins in momentum", () => {
+        const project = {
+            ...habitMilestone,
+            kind: "project" as const,
+            habit: undefined,
+            project: { plannedHours: 80, readiness: 0, entries: [], checkIns: [{ date: "2026-08-03", status: "done" as const }] },
+        };
+        render(<WeeksGrid events={[project]} show tick={1} />);
+        expect(screen.getByText(/completed/i)).toHaveTextContent("1 completed");
     });
 });

@@ -20,6 +20,7 @@ describe("Echoe time and habit logic", () => {
         const state = seedState();
         expect(state.events).toEqual([]);
         expect(state.schemaVersion).toBe(2);
+        expect(state.settings.theme).toBe("blue");
         expect(state.settings.showActivityHistogram).toBe(true);
     });
 

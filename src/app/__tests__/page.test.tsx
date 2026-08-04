@@ -14,7 +14,10 @@ const dashboardMock = vi.hoisted(() => ({
     addAchievement: vi.fn(),
     checkInHabit: vi.fn(),
     clearHabitCheckIn: vi.fn(),
-    logProjectProgress: vi.fn(),
+    checkInProject: vi.fn(),
+    logProjectEffort: vi.fn(),
+    updateProjectReadiness: vi.fn(),
+    markNotificationsRead: vi.fn(),
     syncNow: vi.fn(),
     importState: vi.fn(),
     clearAllData: vi.fn().mockResolvedValue(undefined),
@@ -31,13 +34,18 @@ describe("Echoe app shell", () => {
         dashboardMock.storageSummary = { ...storageSummary, milestoneCount: 0, checkInCount: 0, historyCount: 0, syncStatus: "local" };
     });
 
-    it("brands the app as Echoe, removes mortality framing, and credits Kikandi", () => {
+    it("uses a focused app shell with one settings action and a three-item bottom navigation", async () => {
+        const user = userEvent.setup();
         render(<Home />);
-        expect(screen.getByRole("link", { name: "Echoe home" })).toHaveTextContent("Echoe");
+        expect(screen.getByRole("button", { name: "Echoe home" })).toHaveTextContent("Echoe");
+        expect(screen.getAllByRole("button", { name: "Settings" })).toHaveLength(1);
+        expect(screen.getByRole("navigation", { name: "Primary navigation" }).querySelectorAll("button")).toHaveLength(3);
+        expect(screen.getByRole("button", { name: "Add a path" })).toBeInTheDocument();
+        expect(screen.queryByRole("heading", { name: /what you're building/i })).not.toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: "Momentum" }));
         expect(screen.getByText("Designed by").parentElement).toHaveTextContent("Designed by Kikandi");
         expect(screen.queryByText(/where you stand/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/life.*ending/i)).not.toBeInTheDocument();
-        expect(screen.getByText(/stored on this device/i)).toBeInTheDocument();
     });
 
     it("previews a general theme across the app and opens frosted add/edit surfaces", async () => {
@@ -47,10 +55,20 @@ describe("Echoe app shell", () => {
         await user.click(screen.getByRole("button", { name: "Settings" }));
         await user.click(screen.getByRole("button", { name: "Fresh teal" }));
         expect(dashboardMock.updateTheme).toHaveBeenCalledWith("teal");
+        expect(document.documentElement).toHaveAttribute("data-theme", "teal");
         expect(screen.getByRole("dialog", { name: "Settings" })).toHaveClass("acrylic-surface");
         await user.click(screen.getByRole("button", { name: "Close settings" }));
 
-        await user.click(screen.getByRole("button", { name: "Add" }));
+        await user.click(screen.getByRole("button", { name: "Add a path" }));
         expect(screen.getByRole("dialog", { name: "Add milestone" })).toHaveClass("acrylic-surface");
+    });
+
+    it("shows a meaningful notification behind an actionable badge", async () => {
+        const user = userEvent.setup();
+        dashboardMock.state = dashboardState;
+        render(<Home />);
+        await user.click(screen.getByRole("button", { name: /notifications, 1 unread/i }));
+        expect(screen.getByRole("dialog", { name: "Notifications" })).toBeInTheDocument();
+        expect(screen.getByText(/Practice deliberately is ready/i)).toBeInTheDocument();
     });
 });

@@ -24,6 +24,7 @@ export const dashboardState: DashboardState = {
     settings: {
         theme: "warm",
         showActivityHistogram: true,
+        readNotificationIds: [],
         profile: { displayName: "Mika", intention: "Build a life with room to breathe.", supportStyle: "gentle" },
     },
     updatedAt: "2026-08-03T08:00:00.000Z",

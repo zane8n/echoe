@@ -16,7 +16,7 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
     glacier: { name: "glacier", label: "Blue glass", bg: "#f6fbff", surface: "#ffffff", ink: "#19262d", inkSoft: "#4b606b", muted: "#778a93", line: "rgba(47,93,117,0.12)", accent: "#87bfe4", accentInk: "#244d68" },
 };
 
-export const THEME_ORDER: ThemeName[] = ["warm", "teal", "blue", "cool", "ocean", "glacier", "rose", "earth"];
+export const THEME_ORDER: ThemeName[] = ["blue", "glacier", "ocean", "teal", "cool", "warm", "rose", "earth"];
 
 export const COLOR_MAP: Record<AccentColor, { color: string; ink: string; glow: string }> = {
     amber: { color: "#f1b45e", ink: "#6a4109", glow: "rgba(241,180,94,0.14)" },

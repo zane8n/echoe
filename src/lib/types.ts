@@ -33,7 +33,7 @@ export interface ProjectEntry {
     id: string;
     date: string;
     hours: number;
-    readiness: number;
+    readiness?: number;
     note?: string;
     recordedAt?: string;
 }
@@ -42,6 +42,8 @@ export interface ProjectConfig {
     plannedHours: number;
     readiness: number;
     entries: ProjectEntry[];
+    checkInFrequency?: "daily" | "weekly";
+    checkIns?: HabitEntry[];
 }
 
 export interface MilestoneEvent {
@@ -79,7 +81,20 @@ export interface PersonalProfile {
 export interface DashboardSettings {
     theme: ThemeName;
     showActivityHistogram: boolean;
+    readNotificationIds: string[];
     profile: PersonalProfile;
+}
+
+export type NotificationKind = "check-in" | "risk" | "progress" | "encouragement";
+
+export interface EchoeNotification {
+    id: string;
+    kind: NotificationKind;
+    title: string;
+    body: string;
+    createdAt: string;
+    actionable: boolean;
+    eventId?: string;
 }
 
 export interface AccountSummary {
@@ -107,6 +122,7 @@ export type AuditAction =
     | "check-in"
     | "clear-check-in"
     | "progress"
+    | "notification"
     | "settings"
     | "import"
     | "remote-pull";

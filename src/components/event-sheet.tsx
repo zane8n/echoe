@@ -36,6 +36,7 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
     const [trackOngoing, setTrackOngoing] = useState(Boolean(event?.habit));
     const [plannedHours, setPlannedHours] = useState(event?.project?.plannedHours ?? 40);
     const [readiness, setReadiness] = useState(event?.project?.readiness ?? 0);
+    const [projectFreq, setProjectFreq] = useState<"daily" | "weekly">(event?.project?.checkInFrequency ?? "daily");
     const [error, setError] = useState("");
     const firstInput = useRef<HTMLInputElement>(null);
 
@@ -67,7 +68,7 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
                 ? { frequency: habitFreq, entries: event?.habit?.entries ?? [], target: event?.habit?.target ?? 1 }
                 : undefined,
             project: kind === "project"
-                ? { plannedHours: Math.max(1, plannedHours), readiness, entries: event?.project?.entries ?? [] }
+                ? { plannedHours: Math.max(1, plannedHours), readiness, entries: event?.project?.entries ?? [], checkInFrequency: projectFreq, checkIns: event?.project?.checkIns ?? [] }
                 : undefined,
             achievedAt: event?.achievedAt,
             createdAt: event?.createdAt,
@@ -127,10 +128,14 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
                                 <span className="field-with-unit"><input type="number" min={1} max={10000} step={1} value={plannedHours} onChange={(input) => setPlannedHours(Number(input.target.value))} aria-label="Planned effort hours" /><span>hours</span></span>
                             </label>
                             <label className="grid gap-2">
-                                <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Readiness now</span>
+                                <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Starting readiness <small className="font-normal text-[var(--color-muted)]">optional</small></span>
                                 <span className="field-with-unit"><input type="number" min={0} max={100} value={readiness} onChange={(input) => setReadiness(Number(input.target.value))} aria-label="Current readiness" /><span>%</span></span>
                             </label>
-                            <p className="col-span-2 m-0 text-xs leading-relaxed text-[var(--color-muted)]">Echoe weighs readiness more than hours, then compares both with time elapsed.</p>
+                            <label className="col-span-2 grid gap-2">
+                                <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Project check-in rhythm</span>
+                                <select value={projectFreq} onChange={(input) => setProjectFreq(input.target.value as "daily" | "weekly")} className="field"><option value="daily">Once each day</option><option value="weekly">Once each week</option></select>
+                            </label>
+                            <p className="col-span-2 m-0 text-xs leading-relaxed text-[var(--color-muted)]">Check-ins, effort, and readiness stay separate. Update only what is useful.</p>
                         </div>
                     )}
 

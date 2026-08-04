@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getAccount, registerAccount, signIn, signOut } from "@/lib/account-client";
 import { THEME_ORDER, THEMES } from "@/lib/constants";
+import { applyTheme } from "@/lib/theme";
 import type { AccountSummary, DashboardSettings, StorageSummary, SupportStyle, ThemeName } from "@/lib/types";
 import { Icon, type IconName } from "./icon";
 
@@ -47,7 +48,7 @@ const statusDetails = {
 
 export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync, onExport, onImport, onClearData, onAccountChange, onClose }: Props) {
     const [tab, setTab] = useState<SettingsTab>("appearance");
-    const [theme, setTheme] = useState<ThemeName>(settings.theme ?? "warm");
+    const [theme, setTheme] = useState<ThemeName>(settings.theme ?? "blue");
     const [showHistogram, setShowHistogram] = useState(settings.showActivityHistogram ?? true);
     const [displayName, setDisplayName] = useState(settings.profile.displayName);
     const [intention, setIntention] = useState(settings.profile.intention);
@@ -69,6 +70,7 @@ export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync
     const buildSettings = (selectedTheme = theme): DashboardSettings => ({
         theme: selectedTheme,
         showActivityHistogram: showHistogram,
+        readNotificationIds: settings.readNotificationIds ?? [],
         profile: {
             displayName: displayName.trim(),
             intention: intention.trim(),
@@ -79,6 +81,7 @@ export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync
 
     const chooseTheme = (next: ThemeName) => {
         setTheme(next);
+        applyTheme(next);
         onThemeChange(next);
     };
 
@@ -225,7 +228,7 @@ export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync
                                     <input type="checkbox" checked={showHistogram} onChange={(event) => setShowHistogram(event.target.checked)} className="theme-checkbox mt-[3px]" />
                                     <span className="grid gap-[2px]">
                                         <strong className="text-sm font-semibold">Show activity rhythm</strong>
-                                        <small className="text-xs leading-relaxed text-[var(--color-muted)]">Keep the quiet two-week activity clusters on the main view.</small>
+                                        <small className="text-xs leading-relaxed text-[var(--color-muted)]">Keep the quiet two-week activity clusters in Momentum.</small>
                                     </span>
                                 </label>
                             </section>

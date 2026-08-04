@@ -11,6 +11,7 @@ interface Props {
     onEdit: (id: string) => void;
     onExport: () => void;
     onCheckIn: (id: string) => void;
+    onProjectCheckIn: (id: string) => void;
     onOpenHistory: (id: string) => void;
     onProgress: (id: string) => void;
 }
@@ -23,13 +24,11 @@ const filters: Array<{ id: Filter; label: string }> = [
     { id: "ongoing", label: "Ongoing" },
 ];
 
-export function EventsSection({ events, onEdit, onExport, onCheckIn, onOpenHistory, onProgress }: Props) {
+export function EventsSection({ events, onEdit, onExport, onCheckIn, onProjectCheckIn, onOpenHistory, onProgress }: Props) {
     const [filter, setFilter] = useState<Filter>("all");
-    const [showAll, setShowAll] = useState(false);
     const sorted = useMemo(() => [...events]
         .filter((event) => filter === "all" || milestoneKind(event) === filter)
         .sort((a, b) => Number(b.pinned) - Number(a.pinned) || ((parseDate(a.target)?.getTime() ?? Number.MAX_SAFE_INTEGER) - (parseDate(b.target)?.getTime() ?? Number.MAX_SAFE_INTEGER))), [events, filter]);
-    const visible = showAll ? sorted : sorted.slice(0, 6);
 
     return (
         <section id="paths" className="scroll-mt-24 animate-soft-enter">
@@ -40,7 +39,7 @@ export function EventsSection({ events, onEdit, onExport, onCheckIn, onOpenHisto
 
             {events.length > 0 && (
                 <div className="path-filters mb-3" role="tablist" aria-label="Filter paths">
-                    {filters.map((item) => <button key={item.id} type="button" role="tab" aria-selected={filter === item.id} onClick={() => { setFilter(item.id); setShowAll(false); }}>{item.label}</button>)}
+                    {filters.map((item) => <button key={item.id} type="button" role="tab" aria-selected={filter === item.id} onClick={() => setFilter(item.id)}>{item.label}</button>)}
                 </div>
             )}
 
@@ -48,18 +47,18 @@ export function EventsSection({ events, onEdit, onExport, onCheckIn, onOpenHisto
                 <div className="empty-paths py-10 text-center">
                     <span className="echo-orb mx-auto mb-4 block" aria-hidden="true" />
                     <p className="m-0 text-sm text-[var(--color-muted)]">Start with something that deserves your attention.</p>
-                    <button onClick={() => onEdit("")} className="primary-button mx-auto mt-4"><Icon name="plus" size={15} />Add your first milestone</button>
+                    <p className="m-0 mt-2 text-xs text-[var(--color-accent-ink)]">There is room here for what matters next.</p>
                 </div>
             ) : sorted.length === 0 ? (
                 <p className="border-y border-[var(--color-line)] py-8 text-center text-sm text-[var(--color-muted)]">No paths in this view yet.</p>
             ) : (
                 <div className="path-list">
-                    {visible.map((event) => {
+                    {sorted.map((event) => {
                         const palette = COLOR_MAP[event.color] ?? COLOR_MAP.teal;
                         const kind = milestoneKind(event);
                         const project = kind === "project" ? projectProgress(event) : null;
                         const habit = event.habit ? habitStats(event) : null;
-                        const today = event.habit?.entries.find((entry) => entry.date === localDate());
+                        const today = (event.project?.checkIns ?? event.habit?.entries ?? []).find((entry) => entry.date === localDate());
                         const remaining = kind === "ongoing" ? null : formatRemaining(daysUntil(event.target));
                         const percent = project?.overallPercent ?? (habit?.rate ?? 0);
                         const statusText = kind === "project"
@@ -83,6 +82,7 @@ export function EventsSection({ events, onEdit, onExport, onCheckIn, onOpenHisto
                                 </button>
                                 <div className="path-actions">
                                     {kind === "project" && <button onClick={() => onProgress(event.id)} className="compact-button" aria-label={`Log progress for ${event.name}`}><Icon name="trending-up" size={14} /><span>Update</span></button>}
+                                    {kind === "project" && <button onClick={() => onProjectCheckIn(event.id)} className="compact-button" aria-pressed={today?.status === "done"} aria-label={`Check in to ${event.name}`}><Icon name="check" size={14} /><span>{today?.status === "done" ? "Done" : "Check in"}</span></button>}
                                     {event.habit && <button onClick={() => onCheckIn(event.id)} className="compact-button" aria-pressed={today?.status === "done"} aria-label={`Check in to ${event.name}`}><Icon name="check" size={14} /><span>{today?.status === "done" ? "Done" : "Check in"}</span></button>}
                                     {event.habit && <button onClick={() => onOpenHistory(event.id)} className="icon-button" aria-label={`Open ${event.name} check-in history`} title="History"><Icon name="history" size={15} /></button>}
                                     <button onClick={() => onEdit(event.id)} className="icon-button" aria-label={`More options for ${event.name}`} title="Edit"><Icon name="more-horiz" size={16} /></button>
@@ -91,7 +91,6 @@ export function EventsSection({ events, onEdit, onExport, onCheckIn, onOpenHisto
                             </article>
                         );
                     })}
-                    {sorted.length > 6 && <button type="button" className="quiet-button mx-auto mt-3" onClick={() => setShowAll((value) => !value)}>{showAll ? "Show fewer" : `Show ${sorted.length - 6} more`}</button>}
                 </div>
             )}
         </section>

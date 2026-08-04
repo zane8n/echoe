@@ -27,6 +27,7 @@ describe("ordered IndexedDB repository", () => {
         expect(window.localStorage.getItem("echoe.audit.v1")).toBeNull();
         expect(window.localStorage.getItem("echoe.stale-data-cleared.v2")).toBeTruthy();
         expect(state.events).toEqual([]);
+        expect(state.settings.theme).toBe("blue");
     });
 
     it("stores milestones, dated outcomes, sequential logs, and historical snapshots", async () => {

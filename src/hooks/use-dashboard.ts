@@ -240,10 +240,28 @@ export function useDashboardState() {
         enqueueCommit({ ...current, events, updatedAt: now }, "clear-check-in", `Cleared the check-in for ${date}`, eventId);
     }, [enqueueCommit]);
 
-    const logProjectProgress = useCallback((
+    const checkInProject = useCallback((
+        eventId: string,
+        status: HabitEntry["status"] = "done",
+        date = localDate(),
+        note?: string,
+    ) => {
+        const current = stateRef.current;
+        if (!current) return;
+        const now = new Date().toISOString();
+        const events = current.events.map((event) => {
+            if (event.id !== eventId || !event.project) return event;
+            const checkIns = (event.project.checkIns ?? []).filter((entry) => entry.date !== date);
+            checkIns.push({ date, status, note: note?.trim() || undefined, recordedAt: now });
+            checkIns.sort((a, b) => a.date.localeCompare(b.date));
+            return { ...event, updatedAt: now, project: { ...event.project, checkIns } };
+        });
+        enqueueCommit({ ...current, events, updatedAt: now }, "check-in", `Checked in to project on ${date}`, eventId);
+    }, [enqueueCommit]);
+
+    const logProjectEffort = useCallback((
         eventId: string,
         hours: number,
-        readiness: number,
         date = localDate(),
         note?: string,
     ) => {
@@ -256,7 +274,6 @@ export function useDashboardState() {
                 id: createId(),
                 date,
                 hours: Math.max(0, Math.round(hours * 10) / 10),
-                readiness: Math.max(0, Math.min(100, Math.round(readiness))),
                 note: note?.trim() || undefined,
                 recordedAt: now,
             };
@@ -265,12 +282,32 @@ export function useDashboardState() {
                 updatedAt: now,
                 project: {
                     ...event.project,
-                    readiness: entry.readiness,
                     entries: [...event.project.entries, entry].sort((a, b) => (a.date.localeCompare(b.date) || (a.recordedAt ?? "").localeCompare(b.recordedAt ?? ""))),
                 },
             };
         });
-        enqueueCommit({ ...current, events, updatedAt: now }, "progress", `Logged ${hours} hours and ${readiness}% readiness`, eventId);
+        enqueueCommit({ ...current, events, updatedAt: now }, "progress", `Logged ${hours} hours of project effort`, eventId);
+    }, [enqueueCommit]);
+
+    const updateProjectReadiness = useCallback((eventId: string, readiness: number, note?: string) => {
+        const current = stateRef.current;
+        if (!current) return;
+        const now = new Date().toISOString();
+        const normalized = Math.max(0, Math.min(100, Math.round(readiness)));
+        const events = current.events.map((event) => {
+            if (event.id !== eventId || !event.project) return event;
+            const entry = { id: createId(), date: localDate(), hours: 0, readiness: normalized, note: note?.trim() || undefined, recordedAt: now };
+            return { ...event, updatedAt: now, project: { ...event.project, readiness: normalized, entries: [...event.project.entries, entry] } };
+        });
+        enqueueCommit({ ...current, events, updatedAt: now }, "progress", `Updated project readiness to ${normalized}%`, eventId);
+    }, [enqueueCommit]);
+
+    const markNotificationsRead = useCallback((ids: string[]) => {
+        const current = stateRef.current;
+        if (!current || ids.length === 0) return;
+        const readNotificationIds = [...new Set([...current.settings.readNotificationIds, ...ids])].slice(-300);
+        const now = new Date().toISOString();
+        enqueueCommit({ ...current, settings: { ...current.settings, readNotificationIds }, updatedAt: now }, "notification", "Read Echoe notifications");
     }, [enqueueCommit]);
 
     const syncNow = useCallback(async () => {
@@ -354,8 +391,11 @@ export function useDashboardState() {
         restoreEvent,
         addAchievement,
         checkInHabit,
+        checkInProject,
         clearHabitCheckIn,
-        logProjectProgress,
+        logProjectEffort,
+        updateProjectReadiness,
+        markNotificationsRead,
         syncNow,
         importState,
         clearAllData,
