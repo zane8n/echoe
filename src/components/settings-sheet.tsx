@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { getAccount, registerAccount, signIn, signOut } from "@/lib/account-client";
 import { THEME_ORDER, THEMES } from "@/lib/constants";
 import { applyTheme } from "@/lib/theme";
+import { installState, requestInstall, subscribeToInstall } from "@/lib/install";
 import type { AccountSummary, DashboardSettings, StorageSummary, SupportStyle, ThemeName } from "@/lib/types";
 import { Icon, type IconName } from "./icon";
 
@@ -64,6 +65,7 @@ export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync
     const [handle, setHandle] = useState("");
     const [password, setPassword] = useState("");
     const [badgePermission, setBadgePermission] = useState<NotificationPermission | "unsupported">("unsupported");
+    const [installation, setInstallation] = useState(installState);
     const fileInput = useRef<HTMLInputElement>(null);
     const status = storage.isOnline ? statusDetails[storage.syncStatus] : { icon: "cloud-off" as const, label: "Device offline, changes queued" };
 
@@ -105,6 +107,8 @@ export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync
             });
         return () => { active = false; };
     }, []);
+
+    useEffect(() => subscribeToInstall(() => setInstallation(installState())), []);
 
     useEffect(() => {
         const timer = window.setTimeout(() => {
@@ -338,7 +342,13 @@ export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync
                                 </div>
 
                                 <div className="flex items-start justify-between gap-4 text-xs text-[var(--color-muted)]">
-                                    <div className="flex items-start gap-3"><Icon name="sun" size={15} className="mt-0.5 shrink-0 text-[var(--color-accent-ink)]" /><p className="m-0">Ready for iPhone Home Screen use with standalone display, safe-area spacing, offline shell access, and attention badges where iOS supports them.</p></div>
+                                    <div className="flex items-start gap-3"><Icon name="smartphone" size={15} className="mt-0.5 shrink-0 text-[var(--color-accent-ink)]" /><p className="m-0">{installation.installed ? "Echoe is installed in standalone app mode." : installation.isIos ? "On iPhone or iPad, install Echoe from Safari's Share menu using Add to Home Screen." : "Install Echoe for standalone Android app access and a resilient offline shell."}</p></div>
+                                    {installation.canPrompt && !installation.installed && <button type="button" onClick={() => void requestInstall()} className="compact-button shrink-0">Install</button>}
+                                    {installation.installed && <span className="status-pill shrink-0 bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"><Icon name="check" size={11} />Installed</span>}
+                                </div>
+
+                                <div className="flex items-start justify-between gap-4 text-xs text-[var(--color-muted)]">
+                                    <div className="flex items-start gap-3"><Icon name="bell" size={15} className="mt-0.5 shrink-0 text-[var(--color-accent-ink)]" /><p className="m-0">App badges reflect unread check-ins and paths that need a decision on supported installed devices.</p></div>
                                     {badgePermission === "default" && <button type="button" onClick={() => void enableBadge()} className="compact-button shrink-0">Enable badge</button>}
                                     {badgePermission === "granted" && <span className="status-pill shrink-0 bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"><Icon name="check" size={11} />Badge on</span>}
                                 </div>
@@ -362,6 +372,7 @@ export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync
                                         </div>
                                     )}
                                 </div>
+                                <p className="m-0 border-t border-[var(--color-line)] pt-4 text-right text-[10px] text-[var(--color-muted)]">Designed by <strong className="text-[var(--color-accent-ink)]">Kikandi</strong></p>
                             </section>
                         )}
                     </div>

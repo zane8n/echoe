@@ -58,8 +58,49 @@ export interface MilestoneEvent {
     project?: ProjectConfig;
     achievedAt?: string;
     isCountdown?: boolean;
+    allowExtraCheckIns?: boolean;
     createdAt?: string;
     updatedAt?: string;
+}
+
+export type FriendRole = "spectator" | "participant";
+
+export interface FriendSummary {
+    id: string;
+    displayName: string;
+    handle: string;
+    friendsSince: string;
+}
+
+export interface SharedPathSummary {
+    id: string;
+    eventId: string;
+    eventName: string;
+    eventKind: MilestoneKind;
+    color: AccentColor;
+    role: "owner" | "guest";
+    mode: FriendRole;
+    allowExtraCheckIns: boolean;
+    person: FriendSummary;
+    ownerToday: number;
+    guestToday: number;
+    ownerTotal: number;
+    guestTotal: number;
+    createdAt: string;
+}
+
+export interface SocialSnapshot {
+    mode: "local" | "cloud";
+    accountRequired: boolean;
+    friends: FriendSummary[];
+    sharedByMe: SharedPathSummary[];
+    sharedWithMe: SharedPathSummary[];
+}
+
+export interface FriendInvite {
+    token: string;
+    url: string;
+    expiresAt: string;
 }
 
 export interface Achievement {

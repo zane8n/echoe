@@ -15,6 +15,9 @@ The app works offline from IndexedDB. For durable Vercel-backed sync, connect a 
 - `echoe_state` for the latest versioned state per private owner
 - `echoe_history` for append-only, sequential state history
 - `echoe_accounts` for named account handles and scrypt password hashes
+- `echoe_friend_invites` and `echoe_friendships` for private, capability-based connections
+- `echoe_path_shares` and `echoe_shared_checkins` for explicit spectator or participant collaboration
+- `echoe_social_events` for ordered, bounded social audit history
 
 Before registration, the browser installation is identified by a random, HttpOnly, same-site cookie. Creating an account binds the current history to a private handle; signing in on another browser restores that owner state. Passwords are salted and hashed server-side with scrypt and are never stored in the dashboard state. Mutations remain optimistic and local-first; when cloud sync is unavailable the UI reports that state and keeps working. The reference schema is in `database/schema.sql`, and the route also initializes it safely on first use.
 
@@ -32,6 +35,16 @@ Google sign-in uses a server-side OpenID Connect authorization-code flow with st
 6. Redeploy after saving the variables.
 
 Do not add a `NEXT_PUBLIC_` prefix to any of these values. The sample names are documented in `.env.example`; real secrets belong in `.env.local` for local work and in Vercel project settings for deployment.
+
+## Private Friends And Shared Paths
+
+Echoe has no user directory, handle search, profile suggestions, or public paths. A signed-in person creates a random one-time invite link that expires after seven days. The server stores only a SHA-256 hash of that capability token. Acceptance creates a private friendship; only then can either person explicitly share a path.
+
+Spectators can view the shared path's check-in pace without changing it. Participants receive a separate check-in record and a private side-by-side pace view. Extra participant check-ins are only enabled when the path owner allows them, and are capped per day. Revoking a share or removing a friendship removes access and its associated collaboration records while leaving each person's private dashboard history untouched.
+
+## Android And iOS Installation
+
+The web app ships a standalone portrait PWA manifest, 192px and 512px Android icons, an iOS touch icon, safe-area layout, bounded offline asset caching, app shortcuts, and supported attention badges. Android browsers can present the native install prompt. On iPhone and iPad, Safari installs Echoe through Add to Home Screen. Platform-specific behavior is isolated so the next Capacitor phase can replace web adapters without rewriting milestone or social domain logic.
 
 ## Development
 

@@ -6,10 +6,12 @@ import { CheckInSheet } from "@/components/check-in-sheet";
 import { Confetti } from "@/components/confetti";
 import { EventSheet } from "@/components/event-sheet";
 import { EventsSection } from "@/components/events-section";
+import { FriendsView } from "@/components/friends-view";
 import { Header } from "@/components/header";
 import { Icon } from "@/components/icon";
 import { KbdModal } from "@/components/kbd-modal";
 import { NotificationSheet } from "@/components/notification-sheet";
+import { MomentumOverview } from "@/components/momentum-overview";
 import { PathCarousel, pathStatus } from "@/components/path-carousel";
 import { ProgressSheet } from "@/components/progress-sheet";
 import { SettingsSheet } from "@/components/settings-sheet";
@@ -26,7 +28,7 @@ import { applyTheme } from "@/lib/theme";
 import type { DashboardState, EchoeNotification, HabitEntry, MilestoneEvent } from "@/lib/types";
 import { isDashboardState, normalizeSettings, seedState } from "@/lib/utils";
 
-type AppView = "home" | "paths" | "momentum";
+type AppView = "home" | "paths" | "momentum" | "friends";
 
 export default function Home() {
     const {
@@ -82,6 +84,7 @@ export default function Home() {
         const url = new URL(window.location.href);
         const accountResult = url.searchParams.get("account");
         const authResult = url.searchParams.get("auth");
+        const friendTimer = url.searchParams.get("friend_invite") ? window.setTimeout(() => setView("friends"), 0) : null;
         const message = accountResult === "connected" ? "Google account connected" : accountResult === "switched" ? "Signed in with Google" : authResult === "failed" ? "Google sign-in could not be completed" : authResult === "unavailable" ? "Cloud sign-in is not available yet" : "";
         const timer = message ? window.setTimeout(() => showToast(message), 0) : null;
         if (url.searchParams.get("action") === "add") window.setTimeout(() => { setEditingEventId(null); setActiveSheet("event"); }, 0);
@@ -89,7 +92,7 @@ export default function Home() {
             url.searchParams.delete("account"); url.searchParams.delete("auth"); url.searchParams.delete("action");
             window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
         }
-        return () => { if (timer) window.clearTimeout(timer); };
+        return () => { if (timer) window.clearTimeout(timer); if (friendTimer) window.clearTimeout(friendTimer); };
     }, [showToast]);
 
     const openEventEditor = useCallback((id: string | null = null) => { setEditingEventId(id); setActiveSheet("event"); }, []);
@@ -138,7 +141,7 @@ export default function Home() {
 
     return <div className="app-shell min-h-[100dvh] bg-[var(--color-bg)] text-[var(--color-ink)]" data-view={view}>
         <BgCanvas />
-        <Header displayName={state.settings.profile.displayName} notificationCount={unreadActionable.length} onHome={() => setView("home")} onOpenNotifications={() => setNotificationsOpen(true)} onOpenSettings={openSettings} />
+        <Header displayName={state.settings.profile.displayName} notificationCount={unreadActionable.length} isHome={view === "home"} friendsActive={view === "friends"} onHome={() => setView("home")} onOpenFriends={() => setView("friends")} onOpenNotifications={() => setNotificationsOpen(true)} onOpenSettings={openSettings} />
 
         {view === "home" && <main className="home-view relative z-10 mx-auto w-[min(100%,760px)]">
             <PathCarousel events={state.events} profile={state.settings.profile} onHabitCheckIn={(id) => handleHabitCheckIn(id)} onProjectCheckIn={handleProjectCheckIn} onOpenHistory={setCheckInEventId} onProgress={setProgressEventId} />
@@ -151,8 +154,12 @@ export default function Home() {
         </main>}
 
         {view === "momentum" && <main className="app-page momentum-page relative z-10 mx-auto w-[min(calc(100%-40px),920px)]">
+            {state.events.length > 0 && <MomentumOverview events={state.events} tick={tick} />}
             {state.events.length ? <WeeksGrid events={state.events} show={state.settings.showActivityHistogram} tick={tick} /> : <div className="empty-momentum"><Icon name="trending-up" size={22} /><h1>Momentum will gather here</h1><p>It grows from real check-ins and project updates.</p></div>}
-            <p className="design-credit">Designed by <strong>Kikandi</strong></p>
+        </main>}
+
+        {view === "friends" && <main className="app-page friends-page relative z-10 mx-auto w-[min(calc(100%-40px),920px)]">
+            <FriendsView events={state.events} onSync={syncNow} onOpenSettings={openSettings} onToast={showToast} />
         </main>}
 
         {activeSheet === "event" && <EventSheet key={editingEventId ?? "new"} eventId={editingEventId} events={state.events} onSave={upsertEvent} onDelete={handleDelete} onClose={closeSheet} />}

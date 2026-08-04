@@ -2,9 +2,9 @@
 
 import { Icon } from "./icon";
 
-interface Props { displayName?: string; notificationCount: number; onHome: () => void; onOpenNotifications: () => void; onOpenSettings: () => void; }
+interface Props { displayName?: string; notificationCount: number; isHome: boolean; friendsActive: boolean; onHome: () => void; onOpenFriends: () => void; onOpenNotifications: () => void; onOpenSettings: () => void; }
 
-export function Header({ displayName, notificationCount, onHome, onOpenNotifications, onOpenSettings }: Props) {
+export function Header({ displayName, notificationCount, isHome, friendsActive, onHome, onOpenFriends, onOpenNotifications, onOpenSettings }: Props) {
     const today = new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "long" }).format(new Date());
     const hour = new Date().getHours();
     const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
@@ -13,7 +13,8 @@ export function Header({ displayName, notificationCount, onHome, onOpenNotificat
     return (
         <header className="acrylic-header sticky top-0 z-30 border-b border-[var(--color-line)]">
             <div className="w-[min(calc(100%-40px),920px)] mx-auto h-16 flex items-center justify-between gap-4">
-                <button type="button" onClick={onHome} className="inline-flex items-center gap-2.5 border-0 bg-transparent p-0 text-lg font-semibold text-[var(--color-ink)]" aria-label="Echoe home">
+                <button type="button" onClick={onHome} className="home-return inline-flex items-center gap-2.5 border-0 bg-transparent p-0 text-lg font-semibold text-[var(--color-ink)]" aria-label="Echoe home">
+                    {!isHome && <Icon name="chevron-left" size={17} />}
                     <span className="echo-orb" aria-hidden="true" />
                     <span className="hover:text-[var(--color-accent)] transition-colors duration-300">Echoe</span>
                 </button>
@@ -21,6 +22,9 @@ export function Header({ displayName, notificationCount, onHome, onOpenNotificat
                     {firstName ? <><span className="font-semibold text-[var(--color-accent-ink)]">{greeting}, {firstName}</span><span className="mx-2 text-[var(--color-line-strong)]">/</span></> : null}{today}
                 </div>
                 <nav className="flex items-center gap-1.5" aria-label="Application actions">
+                    <button onClick={onOpenFriends} className="icon-button" aria-label="Friends" aria-pressed={friendsActive} title="Friends">
+                        <Icon name="users" size={17} />
+                    </button>
                     <button onClick={onOpenNotifications} className="icon-button relative" aria-label={`Notifications${notificationCount ? `, ${notificationCount} unread` : ""}`} title="Notifications">
                         <Icon name="bell" size={17} />
                         {notificationCount > 0 && <span className="notification-count">{notificationCount > 9 ? "9+" : notificationCount}</span>}

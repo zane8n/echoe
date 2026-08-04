@@ -39,11 +39,13 @@ describe("Echoe app shell", () => {
         render(<Home />);
         expect(screen.getByRole("button", { name: "Echoe home" })).toHaveTextContent("Echoe");
         expect(screen.getAllByRole("button", { name: "Settings" })).toHaveLength(1);
+        expect(screen.getByRole("button", { name: "Friends" })).toBeInTheDocument();
         expect(screen.getByRole("navigation", { name: "Primary navigation" }).querySelectorAll("button")).toHaveLength(3);
         expect(screen.getByRole("button", { name: "Add a path" })).toBeInTheDocument();
         expect(screen.queryByRole("heading", { name: /what you're building/i })).not.toBeInTheDocument();
         await user.click(screen.getByRole("button", { name: "Momentum" }));
-        expect(screen.getByText("Designed by").parentElement).toHaveTextContent("Designed by Kikandi");
+        expect(screen.queryByText(/designed by/i)).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Echoe home" }).querySelector("svg")).toBeInTheDocument();
         expect(screen.queryByText(/where you stand/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/life.*ending/i)).not.toBeInTheDocument();
     });

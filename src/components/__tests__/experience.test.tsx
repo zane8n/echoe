@@ -157,10 +157,11 @@ describe("Echoe milestone experience", () => {
 
         await user.type(screen.getByRole("textbox", { name: "Name" }), "Write the first chapter");
         await user.click(screen.getByRole("radio", { name: "Sky" }));
+        await user.click(screen.getByRole("checkbox", { name: /allow extra check-ins/i }));
         expect(screen.getByRole("radio", { name: "Sky" })).toHaveAttribute("aria-checked", "true");
         await user.click(screen.getByRole("button", { name: "Save milestone" }));
 
-        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ color: "sky", name: "Write the first chapter", kind: "project", project: expect.objectContaining({ plannedHours: 40 }) }));
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ color: "sky", name: "Write the first chapter", kind: "project", allowExtraCheckIns: true, project: expect.objectContaining({ plannedHours: 40 }) }));
     });
 
     it("creates open-ended paths without a fake end date or ambiguous check-in count", async () => {
@@ -206,7 +207,7 @@ describe("Echoe milestone experience", () => {
         expect(screen.getByRole("dialog", { name: "Edit milestone" })).toHaveClass("acrylic-surface");
         expect(screen.getByRole("radio", { name: "Habit" })).toBeInTheDocument();
         expect(screen.getByText("Check-in rhythm")).toBeInTheDocument();
-        expect(screen.queryByText(/Check-ins$/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/^Check-ins$/i)).not.toBeInTheDocument();
     });
 
     it("clusters activity into twelve accessible two-week histogram bars", () => {

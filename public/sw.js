@@ -1,5 +1,12 @@
-const CACHE = "echoe-shell-v6";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/apple-touch-icon.png"];
+const CACHE = "echoe-shell-v7";
+const APP_SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
+const MAX_CACHE_ENTRIES = 80;
+
+const trimCache = async (cache) => {
+  const keys = await cache.keys();
+  const removable = keys.filter((key) => !APP_SHELL.includes(new URL(key.url).pathname));
+  await Promise.all(removable.slice(0, Math.max(0, keys.length - MAX_CACHE_ENTRIES)).map((key) => cache.delete(key)));
+};
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)));
@@ -27,13 +34,19 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(request).then((cached) => cached ?? fetch(request).then((response) => {
+  event.respondWith(caches.open(CACHE).then(async (cache) => {
+    const cached = await cache.match(request);
+    const network = fetch(request).then(async (response) => {
       if (response.ok && ["style", "script", "image", "font"].includes(request.destination)) {
-        const copy = response.clone();
-        void caches.open(CACHE).then((cache) => cache.put(request, copy));
+        await cache.put(request, response.clone());
+        await trimCache(cache);
       }
       return response;
-    })),
-  );
+    });
+    if (cached) {
+      event.waitUntil(network.catch(() => undefined));
+      return cached;
+    }
+    return network;
+  }));
 });

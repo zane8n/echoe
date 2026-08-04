@@ -4,6 +4,7 @@ import {
     Bell,
     Check,
     ChevronRight,
+    ChevronLeft,
     CircleX,
     Clock3,
     Cloud,
@@ -32,6 +33,13 @@ import {
     TrendingUp,
     Upload,
     UserRound,
+    UserRoundPlus,
+    UsersRound,
+    Share2,
+    Eye,
+    Trophy,
+    Home,
+    Smartphone,
     Waves,
     X,
     type LucideIcon,
@@ -43,7 +51,8 @@ export type IconName =
     | "trending-up" | "layers" | "star" | "more-horiz" | "chevron-right"
     | "database" | "cloud" | "cloud-off" | "history" | "refresh" | "missed"
     | "flower" | "leaf" | "mountain" | "palette" | "snowflake" | "sun"
-    | "user" | "waves" | "log-in" | "bell";
+    | "user" | "waves" | "log-in" | "bell" | "users" | "user-plus" | "share"
+    | "eye" | "trophy" | "home" | "chevron-left" | "smartphone";
 
 const icons: Record<IconName, LucideIcon> = {
     settings: Settings,
@@ -80,6 +89,14 @@ const icons: Record<IconName, LucideIcon> = {
     waves: Waves,
     "log-in": LogIn,
     bell: Bell,
+    users: UsersRound,
+    "user-plus": UserRoundPlus,
+    share: Share2,
+    eye: Eye,
+    trophy: Trophy,
+    home: Home,
+    "chevron-left": ChevronLeft,
+    smartphone: Smartphone,
 };
 
 interface Props extends Omit<ComponentProps<LucideIcon>, "ref"> {

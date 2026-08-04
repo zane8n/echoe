@@ -6,6 +6,10 @@ describe("Echoe mobile web app shell", () => {
         const manifest = JSON.parse(readFileSync("public/manifest.webmanifest", "utf8"));
         expect(manifest).toMatchObject({ id: "/", scope: "/", display: "standalone", orientation: "portrait-primary" });
         expect(manifest.icons).toEqual(expect.arrayContaining([expect.objectContaining({ src: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" })]));
+        expect(manifest.icons).toEqual(expect.arrayContaining([
+            expect.objectContaining({ src: "/icon-192.png", sizes: "192x192", type: "image/png" }),
+            expect.objectContaining({ src: "/icon-512.png", sizes: "512x512", type: "image/png" }),
+        ]));
         expect(manifest.shortcuts).toEqual(expect.arrayContaining([expect.objectContaining({ url: "/?action=add" })]));
     });
 
@@ -15,6 +19,8 @@ describe("Echoe mobile web app shell", () => {
         const app = readFileSync("src/app/page.tsx", "utf8");
         expect(serviceWorker).toContain('"/apple-touch-icon.png"');
         expect(serviceWorker).toContain("request.mode === \"navigate\"");
+        expect(serviceWorker).toContain("MAX_CACHE_ENTRIES = 80");
+        expect(serviceWorker).toContain('url.pathname.startsWith("/api/")');
         expect(css).toContain("env(safe-area-inset-bottom)");
         expect(css).toContain(".mobile-nav");
         expect(css).toContain(".sheet-surface");

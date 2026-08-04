@@ -7,18 +7,28 @@ export function SwUpdate() {
 
     useEffect(() => {
         if (!("serviceWorker" in navigator)) return;
-
-        navigator.serviceWorker.register("/sw.js").then((reg) => {
-            reg.addEventListener("updatefound", () => {
-                const newWorker = reg.installing;
-                if (!newWorker) return;
-                newWorker.addEventListener("statechange", () => {
-                    if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-                        setShow(true);
-                    }
-                });
-            });
-        }).catch(() => { });
+        let active = true;
+        let registration: ServiceWorkerRegistration | null = null;
+        let worker: ServiceWorker | null = null;
+        const onStateChange = () => {
+            if (active && worker?.state === "installed" && navigator.serviceWorker.controller) setShow(true);
+        };
+        const onUpdateFound = () => {
+            worker?.removeEventListener("statechange", onStateChange);
+            worker = registration?.installing ?? null;
+            worker?.addEventListener("statechange", onStateChange);
+        };
+        void navigator.serviceWorker.register("/sw.js").then((next) => {
+            if (!active) return;
+            registration = next;
+            registration.addEventListener("updatefound", onUpdateFound);
+            if (registration.waiting && navigator.serviceWorker.controller) setShow(true);
+        }).catch(() => undefined);
+        return () => {
+            active = false;
+            registration?.removeEventListener("updatefound", onUpdateFound);
+            worker?.removeEventListener("statechange", onStateChange);
+        };
     }, []);
 
     if (!show) return null;

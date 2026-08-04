@@ -37,6 +37,7 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
     const [plannedHours, setPlannedHours] = useState(event?.project?.plannedHours ?? 40);
     const [readiness, setReadiness] = useState(event?.project?.readiness ?? 0);
     const [projectFreq, setProjectFreq] = useState<"daily" | "weekly">(event?.project?.checkInFrequency ?? "daily");
+    const [allowExtraCheckIns, setAllowExtraCheckIns] = useState(event?.allowExtraCheckIns ?? false);
     const [error, setError] = useState("");
     const firstInput = useRef<HTMLInputElement>(null);
 
@@ -64,6 +65,7 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
             pinned,
             kind,
             isCountdown: kind === "project" ? isCountdown : false,
+            allowExtraCheckIns: habitEnabled || kind === "project" ? allowExtraCheckIns : false,
             habit: habitEnabled
                 ? { frequency: habitFreq, entries: event?.habit?.entries ?? [], target: event?.habit?.target ?? 1 }
                 : undefined,
@@ -80,8 +82,8 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
     return (
         <>
             <div className="fixed inset-0 z-60 acrylic-backdrop animate-fade-in" onClick={onClose} />
-            <aside className="sheet-surface fixed inset-y-0 right-0 z-70 h-dvh w-[min(100%,520px)] overflow-y-auto acrylic-surface px-[clamp(20px,5vw,40px)] py-[24px] animate-slide-up" role="dialog" aria-modal="true" aria-labelledby="eventSheetTitle">
-                <div className="flex items-start justify-between gap-5 border-b border-[var(--color-line)] pb-5">
+            <aside className="sheet-surface fixed inset-y-0 right-0 z-70 flex h-dvh w-[min(100%,520px)] flex-col overflow-hidden acrylic-surface px-[clamp(20px,5vw,40px)] py-[24px] animate-slide-up" role="dialog" aria-modal="true" aria-labelledby="eventSheetTitle">
+                <div className="flex shrink-0 items-start justify-between gap-5 border-b border-[var(--color-line)] pb-5">
                     <div>
                         <div className="text-xs font-semibold uppercase text-[var(--color-accent-ink)]">{isEdit ? "Edit path" : "New path"}</div>
                         <h2 id="eventSheetTitle" className="m-0 mt-1 font-[var(--font-display)] text-[34px] font-normal">{isEdit ? "Edit milestone" : "Add milestone"}</h2>
@@ -89,7 +91,8 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
                     <button onClick={onClose} className="icon-button" aria-label="Close" title="Close"><Icon name="x" /></button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="grid gap-5 pt-6">
+                <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+                    <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto pt-6">
                     <label className="grid gap-2">
                         <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Name</span>
                         <input ref={firstInput} value={name} onChange={(input) => setName(input.target.value)} maxLength={48} placeholder="e.g. CCNP Enterprise" required className="field" />
@@ -135,6 +138,10 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
                                 <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Project check-in rhythm</span>
                                 <select value={projectFreq} onChange={(input) => setProjectFreq(input.target.value as "daily" | "weekly")} className="field"><option value="daily">Once each day</option><option value="weekly">Once each week</option></select>
                             </label>
+                            <label className="col-span-2 flex cursor-pointer items-center justify-between gap-4">
+                                <span><strong className="block text-sm">Allow extra check-ins</strong><small className="text-xs text-[var(--color-muted)]">Participants can record more than one meaningful session per day.</small></span>
+                                <input type="checkbox" checked={allowExtraCheckIns} onChange={(input) => setAllowExtraCheckIns(input.target.checked)} className="theme-checkbox" />
+                            </label>
                             <p className="col-span-2 m-0 text-xs leading-relaxed text-[var(--color-muted)]">Check-ins, effort, and readiness stay separate. Update only what is useful.</p>
                         </div>
                     )}
@@ -148,13 +155,19 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
                                 </label>
                             )}
                             {(kind === "habit" || trackOngoing) && (
-                                <label className="grid gap-2">
-                                    <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Check-in rhythm</span>
-                                    <select value={habitFreq} onChange={(input) => setHabitFreq(input.target.value as "daily" | "weekly")} className="field">
-                                        <option value="daily">Once each day</option>
-                                        <option value="weekly">Once each week</option>
-                                    </select>
-                                </label>
+                                <>
+                                    <label className="grid gap-2">
+                                        <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Check-in rhythm</span>
+                                        <select value={habitFreq} onChange={(input) => setHabitFreq(input.target.value as "daily" | "weekly")} className="field">
+                                            <option value="daily">Once each day</option>
+                                            <option value="weekly">Once each week</option>
+                                        </select>
+                                    </label>
+                                    <label className="flex cursor-pointer items-center justify-between gap-4">
+                                        <span><strong className="block text-sm">Allow extra check-ins</strong><small className="text-xs text-[var(--color-muted)]">Participants can record additional sessions on the same day.</small></span>
+                                        <input type="checkbox" checked={allowExtraCheckIns} onChange={(input) => setAllowExtraCheckIns(input.target.checked)} className="theme-checkbox" />
+                                    </label>
+                                </>
                             )}
                         </div>
                     )}
@@ -187,7 +200,8 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
                     </details>
 
                     {error && <p className="m-0 text-[13px] text-[var(--color-danger)]" role="alert">{error}</p>}
-                    <div className="acrylic-actions sticky -bottom-6 z-2 mt-1 flex flex-wrap justify-between gap-3 border-t border-[var(--color-line)] pb-6 pt-4">
+                    </div>
+                    <div className="acrylic-actions z-2 mt-1 flex shrink-0 flex-wrap justify-between gap-3 border-t border-[var(--color-line)] pt-4">
                         {isEdit && <button type="button" onClick={() => { onDelete(event!.id); onClose(); }} className="secondary-button text-[var(--color-danger)]"><Icon name="trash" size={16} />Delete</button>}
                         <div className="ml-auto flex gap-2"><button type="button" onClick={onClose} className="secondary-button">Cancel</button><button type="submit" className="primary-button">Save milestone</button></div>
                     </div>

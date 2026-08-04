@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "Echoe: build a rhythm you can trust",
   description: "A calm, local-first milestone and habit tracker built around progress, reflection, and practical growth.",
   manifest: "/manifest.webmanifest",
-  icons: { icon: [{ url: "/icon.svg", type: "image/svg+xml" }], apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }] },
+  icons: { icon: [{ url: "/icon.svg", type: "image/svg+xml" }, { url: "/icon-192.png", sizes: "192x192", type: "image/png" }], apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }] },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Echoe" },
   formatDetection: { telephone: false },
 };

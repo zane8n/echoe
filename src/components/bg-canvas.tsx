@@ -36,26 +36,39 @@ export function BgCanvas() {
             speed: 0.001 + Math.random() * 0.0015,
         }));
 
+        let needsResize = true;
+        let channels = colorChannels(getComputedStyle(canvas).getPropertyValue("--accent"));
         const onPointerMove = (event: PointerEvent) => {
             pointer.current = { x: event.clientX / window.innerWidth, y: event.clientY / window.innerHeight };
         };
+        const onResize = () => { needsResize = true; };
         window.addEventListener("pointermove", onPointerMove, { passive: true });
+        window.addEventListener("resize", onResize, { passive: true });
+        const themeObserver = new MutationObserver(() => {
+            channels = colorChannels(getComputedStyle(canvas).getPropertyValue("--accent"));
+        });
+        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
         let frame = 0;
-        const draw = () => {
+        let lastDraw = 0;
+        let active = true;
+        const draw = (timestamp = 0) => {
+            if (!active || document.hidden) { frame = 0; return; }
+            if (!reducedMotion && timestamp - lastDraw < 32) { frame = requestAnimationFrame(draw); return; }
+            lastDraw = timestamp;
             const width = window.innerWidth;
             const height = window.innerHeight;
             const ratio = Math.min(window.devicePixelRatio || 1, 2);
-            if (canvas.width !== width * ratio || canvas.height !== height * ratio) {
+            if (needsResize) {
                 canvas.width = width * ratio;
                 canvas.height = height * ratio;
                 canvas.style.width = `${width}px`;
                 canvas.style.height = `${height}px`;
+                needsResize = false;
             }
             context.setTransform(ratio, 0, 0, ratio, 0, 0);
             context.clearRect(0, 0, width, height);
 
-            const channels = colorChannels(getComputedStyle(canvas).getPropertyValue("--accent"));
             const { x: pointerX, y: pointerY } = pointer.current;
             for (const line of lines) {
                 if (!reducedMotion) line.phase += line.speed;
@@ -82,10 +95,19 @@ export function BgCanvas() {
             if (!reducedMotion) frame = requestAnimationFrame(draw);
         };
 
+        const onVisibility = () => {
+            if (!document.hidden && !frame && !reducedMotion) frame = requestAnimationFrame(draw);
+        };
+        document.addEventListener("visibilitychange", onVisibility);
+
         draw();
         return () => {
+            active = false;
             cancelAnimationFrame(frame);
             window.removeEventListener("pointermove", onPointerMove);
+            window.removeEventListener("resize", onResize);
+            document.removeEventListener("visibilitychange", onVisibility);
+            themeObserver.disconnect();
         };
     }, []);
 
