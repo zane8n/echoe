@@ -64,7 +64,7 @@ export function FriendsView({ events, onSync, onOpenSettings, onToast }: Props) 
             window.sessionStorage.removeItem("echoe-friend-invite");
             const url = new URL(window.location.href);
             url.searchParams.delete("friend_invite");
-            window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+            window.history.replaceState(window.history.state ?? {}, "", `${url.pathname}${url.search}${url.hash}`);
             setInviteToken("");
             await refresh();
             onToast("Friend added privately");

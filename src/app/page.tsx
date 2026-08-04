@@ -49,6 +49,7 @@ export default function Home() {
     const [tick, setTick] = useState(0);
     const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const shellRef = useRef<HTMLDivElement>(null);
 
     const checkInEvent = state?.events.find((event) => event.id === checkInEventId) ?? null;
     const progressEvent = state?.events.find((event) => event.id === progressEventId) ?? null;
@@ -82,18 +83,91 @@ export default function Home() {
 
     useEffect(() => {
         const url = new URL(window.location.href);
+        const requested = url.searchParams.get("friend_invite")
+            ? "friends"
+            : (["home", "paths", "momentum", "friends"].includes(url.searchParams.get("view") ?? "") ? url.searchParams.get("view") as AppView : "home");
+        if (requested === "home") {
+            window.history.replaceState({ ...(window.history.state ?? {}), echoeView: "home", echoeDepth: 0 }, "", `${url.pathname}${url.search}${url.hash}`);
+        } else {
+            const requestedHref = `${url.pathname}${url.search}${url.hash}`;
+            const homeUrl = new URL(url);
+            homeUrl.searchParams.delete("view");
+            homeUrl.searchParams.delete("friend_invite");
+            window.history.replaceState({ ...(window.history.state ?? {}), echoeView: "home", echoeDepth: 0 }, "", `${homeUrl.pathname}${homeUrl.search}${homeUrl.hash}`);
+            window.history.pushState({ ...(window.history.state ?? {}), echoeView: requested, echoeDepth: 1 }, "", requestedHref);
+        }
+        const timer = requested !== "home" ? window.setTimeout(() => setView(requested), 0) : null;
+        const onPopState = (event: PopStateEvent) => {
+            const nextUrl = new URL(window.location.href);
+            const next = event.state?.echoeView ?? nextUrl.searchParams.get("view") ?? "home";
+            setView(["home", "paths", "momentum", "friends"].includes(next) ? next as AppView : "home");
+        };
+        window.addEventListener("popstate", onPopState);
+        return () => { if (timer) window.clearTimeout(timer); window.removeEventListener("popstate", onPopState); };
+    }, []);
+
+    const navigateTo = useCallback((next: AppView) => {
+        if (next === view) return;
+        const url = new URL(window.location.href);
+        if (next === "home") url.searchParams.delete("view");
+        else url.searchParams.set("view", next);
+        const depth = Number(window.history.state?.echoeDepth ?? 0) + 1;
+        window.history.pushState({ ...(window.history.state ?? {}), echoeView: next, echoeDepth: depth }, "", `${url.pathname}${url.search}${url.hash}`);
+        setView(next);
+    }, [view]);
+
+    const goHome = useCallback(() => {
+        if (view === "home") return;
+        const depth = Number(window.history.state?.echoeDepth ?? 0);
+        if (depth > 0) {
+            window.history.go(-depth);
+            return;
+        }
+        const url = new URL(window.location.href);
+        url.searchParams.delete("view");
+        window.history.replaceState({ ...(window.history.state ?? {}), echoeView: "home", echoeDepth: 0 }, "", `${url.pathname}${url.search}${url.hash}`);
+        setView("home");
+    }, [view]);
+
+    useEffect(() => {
+        const url = new URL(window.location.href);
         const accountResult = url.searchParams.get("account");
         const authResult = url.searchParams.get("auth");
-        const friendTimer = url.searchParams.get("friend_invite") ? window.setTimeout(() => setView("friends"), 0) : null;
         const message = accountResult === "connected" ? "Google account connected" : accountResult === "switched" ? "Signed in with Google" : authResult === "failed" ? "Google sign-in could not be completed" : authResult === "unavailable" ? "Cloud sign-in is not available yet" : "";
         const timer = message ? window.setTimeout(() => showToast(message), 0) : null;
         if (url.searchParams.get("action") === "add") window.setTimeout(() => { setEditingEventId(null); setActiveSheet("event"); }, 0);
         if (accountResult || authResult || url.searchParams.get("action")) {
             url.searchParams.delete("account"); url.searchParams.delete("auth"); url.searchParams.delete("action");
-            window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+            window.history.replaceState(window.history.state ?? {}, "", `${url.pathname}${url.search}${url.hash}`);
         }
-        return () => { if (timer) window.clearTimeout(timer); if (friendTimer) window.clearTimeout(friendTimer); };
+        return () => { if (timer) window.clearTimeout(timer); };
     }, [showToast]);
+
+    useEffect(() => {
+        const standalone = window.matchMedia("(display-mode: standalone)").matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+        const shell = shellRef.current;
+        if (!standalone || !shell || view === "home" || activeSheet || checkInEventId || progressEventId || notificationsOpen) return;
+        let start: { x: number; y: number } | null = null;
+        const onTouchStart = (event: TouchEvent) => {
+            const touch = event.touches[0];
+            start = touch && touch.clientX <= 24 ? { x: touch.clientX, y: touch.clientY } : null;
+        };
+        const onTouchEnd = (event: TouchEvent) => {
+            if (!start) return;
+            const touch = event.changedTouches[0];
+            const deltaX = touch.clientX - start.x;
+            const deltaY = Math.abs(touch.clientY - start.y);
+            start = null;
+            if (deltaX > 72 && deltaY < 52) {
+                const depth = Number(window.history.state?.echoeDepth ?? 0);
+                if (depth > 0) window.history.back();
+                else goHome();
+            }
+        };
+        shell.addEventListener("touchstart", onTouchStart, { passive: true });
+        shell.addEventListener("touchend", onTouchEnd, { passive: true });
+        return () => { shell.removeEventListener("touchstart", onTouchStart); shell.removeEventListener("touchend", onTouchEnd); };
+    }, [activeSheet, checkInEventId, goHome, notificationsOpen, progressEventId, view]);
 
     const openEventEditor = useCallback((id: string | null = null) => { setEditingEventId(id); setActiveSheet("event"); }, []);
     const openSettings = useCallback(() => setActiveSheet("settings"), []);
@@ -129,19 +203,19 @@ export default function Home() {
     const handleAccountChange = useCallback(async () => { await resetForAccountSwitch(); window.location.reload(); }, [resetForAccountSwitch]);
     const handleNotification = useCallback((notification: EchoeNotification) => {
         markNotificationsRead([notification.id]); setNotificationsOpen(false);
-        if (!notification.eventId) { setView("home"); return; }
+        if (!notification.eventId) { navigateTo("home"); return; }
         const event = state?.events.find((item) => item.id === notification.eventId);
         if (notification.kind === "risk" && event?.project) setProgressEventId(event.id);
-        else setView("home");
-    }, [markNotificationsRead, state?.events]);
+        else navigateTo("home");
+    }, [markNotificationsRead, navigateTo, state?.events]);
 
     useKeyboard({ Escape: () => { if (keyboardOpen) setKeyboardOpen(false); else if (notificationsOpen) setNotificationsOpen(false); else if (checkInEventId) setCheckInEventId(null); else if (progressEventId) setProgressEventId(null); else if (activeSheet) closeSheet(); else if (undoEvent) setUndoEvent(null); }, "?": () => setKeyboardOpen((open) => !open), n: () => openEventEditor(), N: () => openEventEditor(), s: openSettings, S: openSettings, "Ctrl+Z": handleUndo });
 
     if (!state) return <div className="grid min-h-[100dvh] place-items-center bg-[var(--color-bg)]"><div className="text-sm text-[var(--color-muted)] animate-pulse">Opening Echoe…</div></div>;
 
-    return <div className="app-shell min-h-[100dvh] bg-[var(--color-bg)] text-[var(--color-ink)]" data-view={view}>
+    return <div ref={shellRef} className="app-shell min-h-[100dvh] bg-[var(--color-bg)] text-[var(--color-ink)]" data-view={view}>
         <BgCanvas />
-        <Header displayName={state.settings.profile.displayName} notificationCount={unreadActionable.length} isHome={view === "home"} friendsActive={view === "friends"} onHome={() => setView("home")} onOpenFriends={() => setView("friends")} onOpenNotifications={() => setNotificationsOpen(true)} onOpenSettings={openSettings} />
+        <Header displayName={state.settings.profile.displayName} notificationCount={unreadActionable.length} isHome={view === "home"} friendsActive={view === "friends"} onHome={goHome} onOpenFriends={() => navigateTo("friends")} onOpenNotifications={() => setNotificationsOpen(true)} onOpenSettings={openSettings} />
 
         {view === "home" && <main className="home-view relative z-10 mx-auto w-[min(100%,760px)]">
             <PathCarousel events={state.events} profile={state.settings.profile} onHabitCheckIn={(id) => handleHabitCheckIn(id)} onProjectCheckIn={handleProjectCheckIn} onOpenHistory={setCheckInEventId} onProgress={setProgressEventId} />
@@ -169,9 +243,9 @@ export default function Home() {
         {notificationsOpen && <NotificationSheet notifications={notifications} readIds={readIds} onMarkRead={markNotificationsRead} onSelect={handleNotification} onClose={() => setNotificationsOpen(false)} />}
 
         <nav className="mobile-nav" aria-label="Primary navigation">
-            <button type="button" onClick={() => setView("paths")} aria-current={view === "paths" ? "page" : undefined}><Icon name="layers" size={20} /><span>Paths</span></button>
+            <button type="button" onClick={() => navigateTo("paths")} aria-current={view === "paths" ? "page" : undefined}><Icon name="layers" size={20} /><span>Paths</span></button>
             <button type="button" onClick={() => openEventEditor()} aria-label="Add a path"><span className="mobile-add"><Icon name="plus" size={23} /></span><span>Add</span></button>
-            <button type="button" onClick={() => setView("momentum")} aria-current={view === "momentum" ? "page" : undefined}><Icon name="trending-up" size={20} /><span>Momentum</span></button>
+            <button type="button" onClick={() => navigateTo("momentum")} aria-current={view === "momentum" ? "page" : undefined}><Icon name="trending-up" size={20} /><span>Momentum</span></button>
         </nav>
         <KbdModal open={keyboardOpen} onClose={() => setKeyboardOpen(false)} /><Toast message={toastMessage} undoEvent={undoEvent} onUndo={handleUndo} /><Confetti active={showConfetti} onDone={() => setShowConfetti(false)} /><SwUpdate />
     </div>;

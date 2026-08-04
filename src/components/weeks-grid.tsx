@@ -2,9 +2,9 @@
 
 import { useMemo } from "react";
 import type { MilestoneEvent } from "@/lib/types";
-import { COLOR_MAP } from "@/lib/constants";
 import { addDays, formatDate, milestoneKind, parseDate, projectProgress, startOfDay } from "@/lib/utils";
 import { Icon } from "./icon";
+import { NeuronLineChart } from "./neuron-line-chart";
 
 interface Props { events: MilestoneEvent[]; show: boolean; tick: number; }
 
@@ -16,13 +16,8 @@ export function WeeksGrid({ events, show, tick }: Props) {
             const start = addDays(firstDay, index * 14);
             const end = addDays(start, 13);
             let score = 0;
-            const colors: string[] = [];
 
             for (const event of events) {
-                const eventStart = parseDate(event.start);
-                const eventTarget = parseDate(event.target);
-                const overlaps = eventStart && eventStart <= end && (!eventTarget || eventTarget >= start);
-
                 const habitCheckIns = event.habit?.entries.filter((entry) => {
                     const date = parseDate(entry.date);
                     return date && date >= start && date <= end;
@@ -38,17 +33,15 @@ export function WeeksGrid({ events, show, tick }: Props) {
                     return date && date >= start && date <= end;
                 }) ?? [];
                 score += progressEntries.reduce((total, entry) => total + Math.min(4, entry.hours), 0);
-                if (overlaps || completedCheckIns.length || progressEntries.length) colors.push(COLOR_MAP[event.color]?.color ?? "var(--color-accent)");
             }
 
-            return { start, end, score, colors: [...new Set(colors)] };
+            return { start, end, score };
         });
         // tick advances date-driven clusters while preserving memoization between minute ticks.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [events, tick]);
 
     if (!show || !events.length) return null;
-    const maximum = Math.max(4, ...buckets.map((bucket) => bucket.score));
     const checkIns = events.reduce((total, event) => total
         + (event.habit?.entries.filter((entry) => entry.status === "done").length ?? 0)
         + (event.project?.checkIns?.filter((entry) => entry.status === "done").length ?? 0), 0);
@@ -64,18 +57,8 @@ export function WeeksGrid({ events, show, tick }: Props) {
                 <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-[var(--color-ink-soft)]"><span><strong>{checkIns}</strong> completed</span><span><strong>{projectHours}h</strong> invested</span><span><strong>{attention}</strong> {attention === 1 ? "path needs" : "paths need"} attention</span></div>
             </div>
 
-            <div className="histogram" role="img" aria-label="Milestone and check-in activity over the last 24 weeks">
-                <div className="grid h-40 grid-cols-12 items-end gap-[clamp(4px,1vw,10px)]">
-                    {buckets.map((bucket, index) => {
-                        const height = bucket.score ? Math.max(8, (bucket.score / maximum) * 100) : 3;
-                        const color = bucket.colors[index % Math.max(1, bucket.colors.length)] ?? "var(--color-line-strong)";
-                        return (
-                            <div key={bucket.start.toISOString()} className="group relative flex h-full items-end" title={`${formatDate(bucket.start, { month: "short", day: "numeric" })} to ${formatDate(bucket.end, { month: "short", day: "numeric" })}: ${Math.round(bucket.score)} activity points`}>
-                                <span className="progress-fill block w-full rounded-t-[4px] opacity-80 group-hover:opacity-100" style={{ height: `${height}%`, background: bucket.score ? color : "var(--color-line)" }} />
-                            </div>
-                        );
-                    })}
-                </div>
+            <div className="histogram">
+                <NeuronLineChart values={buckets.map((bucket) => bucket.score)} titles={buckets.map((bucket) => `${formatDate(bucket.start, { month: "short", day: "numeric" })} to ${formatDate(bucket.end, { month: "short", day: "numeric" })}: ${Math.round(bucket.score)} activity points`)} ariaLabel="Milestone and check-in activity over the last 24 weeks" />
                 <div className="mt-3 flex justify-between text-[11px] text-[var(--color-muted)]">
                     <span>{formatDate(buckets[0].start, { month: "short", day: "numeric" })}</span>
                     <span>{formatDate(buckets[5].end, { month: "short", day: "numeric" })}</span>

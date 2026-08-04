@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { MilestoneEvent } from "@/lib/types";
 import { addDays, localDate, projectProgress, startOfDay } from "@/lib/utils";
 import { Icon } from "./icon";
+import { NeuronLineChart } from "./neuron-line-chart";
 
 interface Props { events: MilestoneEvent[]; tick: number; }
 
@@ -53,7 +54,6 @@ export function MomentumOverview({ events, tick }: Props) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [events, tick]);
 
-    const maximum = Math.max(1, ...analysis.scores.values());
     const signal = analysis.delta > 0 ? `${analysis.delta} more check-ins than last week` : analysis.delta < 0 ? `${Math.abs(analysis.delta)} fewer check-ins than last week` : "Your check-in pace is steady";
 
     return <section className="momentum-overview animate-soft-enter">
@@ -63,7 +63,7 @@ export function MomentumOverview({ events, tick }: Props) {
             <div><dt>Active days</dt><dd>{analysis.activeDays}</dd><small>of the last 7</small></div>
             <div><dt>Deep work</dt><dd>{analysis.currentHours}h</dd><small>logged this week</small></div>
         </dl>
-        <div className="momentum-fortnight" role="img" aria-label="Daily activity over the last fourteen days">{analysis.days.map((date, index) => <span key={date} title={`${date}: ${Math.round(analysis.scores.get(date) ?? 0)} activity`} data-current={index >= 7}><i style={{ height: `${Math.max(7, ((analysis.scores.get(date) ?? 0) / maximum) * 100)}%` }} /></span>)}</div>
+        <div className="momentum-fortnight"><NeuronLineChart compact values={analysis.days.map((date) => analysis.scores.get(date) ?? 0)} titles={analysis.days.map((date) => `${date}: ${Math.round(analysis.scores.get(date) ?? 0)} activity points`)} ariaLabel="Daily activity over the last fourteen days" /><div><span>Previous 7 days</span><span>Current 7 days</span></div></div>
         <div className="momentum-review">
             <div><span>Next review</span><strong>{analysis.attention.length ? `${analysis.attention.length} ${analysis.attention.length === 1 ? "path" : "paths"} need a decision` : "No path is asking for intervention"}</strong></div>
             {analysis.attention.slice(0, 2).map((event) => { const progress = projectProgress(event); return <div className="momentum-attention" key={event.id}><span>{event.name}</span><strong>{Math.max(0, Math.round(progress.elapsedPercent - progress.overallPercent))}% pace gap</strong></div>; })}

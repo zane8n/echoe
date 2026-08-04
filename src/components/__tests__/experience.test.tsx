@@ -156,10 +156,12 @@ describe("Echoe milestone experience", () => {
         render(<EventSheet eventId={null} events={[]} onSave={onSave} onDelete={vi.fn()} onClose={vi.fn()} />);
 
         await user.type(screen.getByRole("textbox", { name: "Name" }), "Write the first chapter");
+        await user.click(screen.getByRole("tab", { name: "Style" }));
         await user.click(screen.getByRole("radio", { name: "Sky" }));
-        await user.click(screen.getByRole("checkbox", { name: /allow extra check-ins/i }));
         expect(screen.getByRole("radio", { name: "Sky" })).toHaveAttribute("aria-checked", "true");
-        await user.click(screen.getByRole("button", { name: "Save milestone" }));
+        await user.click(screen.getByRole("tab", { name: "Tracking" }));
+        await user.click(screen.getByRole("checkbox", { name: /allow extra check-ins/i }));
+        await user.click(screen.getByRole("button", { name: "Create path" }));
 
         expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ color: "sky", name: "Write the first chapter", kind: "project", allowExtraCheckIns: true, project: expect.objectContaining({ plannedHours: 40 }) }));
     });
@@ -171,7 +173,7 @@ describe("Echoe milestone experience", () => {
         await user.type(screen.getByRole("textbox", { name: "Name" }), "My time at Kikandi");
         await user.click(screen.getByRole("radio", { name: "Ongoing" }));
         expect(screen.queryByText("Target date")).not.toBeInTheDocument();
-        await user.click(screen.getByRole("button", { name: "Save milestone" }));
+        await user.click(screen.getByRole("button", { name: "Create path" }));
         expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ kind: "ongoing", target: "", habit: undefined }));
     });
 
@@ -199,22 +201,40 @@ describe("Echoe milestone experience", () => {
 
     it("uses the same acrylic treatment for adding and editing milestones", () => {
         const { unmount } = render(<EventSheet eventId={null} events={[]} onSave={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()} />);
-        expect(screen.getByRole("dialog", { name: "Add milestone" })).toHaveClass("acrylic-surface");
+        expect(screen.getByRole("dialog", { name: "Create a path" })).toHaveClass("acrylic-surface");
         expect(document.querySelector(".acrylic-backdrop")).toBeInTheDocument();
 
         unmount();
         render(<EventSheet eventId="habit-1" events={[habitMilestone]} onSave={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()} />);
-        expect(screen.getByRole("dialog", { name: "Edit milestone" })).toHaveClass("acrylic-surface");
+        expect(screen.getByRole("dialog", { name: habitMilestone.name })).toHaveClass("acrylic-surface");
         expect(screen.getByRole("radio", { name: "Habit" })).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("tab", { name: "Tracking" }));
         expect(screen.getByText("Check-in rhythm")).toBeInTheDocument();
         expect(screen.queryByText(/^Check-ins$/i)).not.toBeInTheDocument();
     });
 
-    it("clusters activity into twelve accessible two-week histogram bars", () => {
+    it("keeps path editor sections keyboard navigable and dismissible", () => {
+        const onClose = vi.fn();
+        render(<EventSheet eventId={null} events={[]} onSave={vi.fn()} onDelete={vi.fn()} onClose={onClose} />);
+        const basics = screen.getByRole("tab", { name: "Basics" });
+        basics.focus();
+
+        fireEvent.keyDown(basics, { key: "ArrowRight" });
+        expect(screen.getByRole("tab", { name: "Tracking" })).toHaveAttribute("aria-selected", "true");
+        fireEvent.keyDown(screen.getByRole("tab", { name: "Tracking" }), { key: "ArrowRight" });
+        expect(screen.getByRole("tab", { name: "Style" })).toHaveAttribute("aria-selected", "true");
+        expect(screen.getByRole("radiogroup", { name: "Milestone color" })).toBeInTheDocument();
+
+        fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+        expect(onClose).toHaveBeenCalledOnce();
+    });
+
+    it("clusters activity into a curved line with twelve neuron points", () => {
         render(<WeeksGrid events={[habitMilestone]} show tick={1} />);
         expect(screen.getByRole("img", { name: /last 24 weeks/i })).toBeInTheDocument();
         expect(screen.getByText(/twelve two-week clusters/i)).toBeInTheDocument();
-        expect(screen.getAllByTitle(/activity points/i)).toHaveLength(12);
+        expect(document.querySelector(".neuron-chart-line")?.getAttribute("d")).toContain(" C ");
+        expect(document.querySelectorAll(".neuron-node-core")).toHaveLength(12);
     });
 
     it("includes independent project check-ins in momentum", () => {

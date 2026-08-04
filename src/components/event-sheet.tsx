@@ -8,9 +8,15 @@ import { Icon, type IconName } from "./icon";
 
 const COLORS: AccentColor[] = ["amber", "coral", "teal", "lavender", "mint", "sky"];
 const KINDS: Array<{ value: MilestoneKind; label: string; detail: string; icon: IconName }> = [
-    { value: "project", label: "Project", detail: "A goal with a deadline", icon: "target" },
-    { value: "habit", label: "Habit", detail: "A repeatable rhythm", icon: "flame" },
+    { value: "project", label: "Project", detail: "Deadline and effort", icon: "target" },
+    { value: "habit", label: "Habit", detail: "Repeatable rhythm", icon: "flame" },
     { value: "ongoing", label: "Ongoing", detail: "No finish line", icon: "history" },
+];
+type EditorTab = "basics" | "tracking" | "style";
+const TABS: Array<{ id: EditorTab; label: string; icon: IconName }> = [
+    { id: "basics", label: "Basics", icon: "pencil" },
+    { id: "tracking", label: "Tracking", icon: "trending-up" },
+    { id: "style", label: "Style", icon: "palette" },
 ];
 
 interface Props {
@@ -24,8 +30,8 @@ interface Props {
 export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props) {
     const event = eventId ? events.find((item) => item.id === eventId) ?? null : null;
     const isEdit = Boolean(event);
-    const initialKind = event ? milestoneKind(event) : "project";
-    const [kind, setKind] = useState<MilestoneKind>(initialKind);
+    const [tab, setTab] = useState<EditorTab>("basics");
+    const [kind, setKind] = useState<MilestoneKind>(event ? milestoneKind(event) : "project");
     const [name, setName] = useState(event?.name ?? "");
     const [start, setStart] = useState(event?.start ?? localDate());
     const [target, setTarget] = useState(event?.target || localDate(addDays(new Date(), 30)));
@@ -40,18 +46,64 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
     const [allowExtraCheckIns, setAllowExtraCheckIns] = useState(event?.allowExtraCheckIns ?? false);
     const [error, setError] = useState("");
     const firstInput = useRef<HTMLInputElement>(null);
+    const sheet = useRef<HTMLElement>(null);
 
-    useEffect(() => { firstInput.current?.focus(); }, []);
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        const timer = window.matchMedia("(pointer: fine)").matches
+            ? window.setTimeout(() => firstInput.current?.focus(), 120)
+            : null;
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            if (timer) window.clearTimeout(timer);
+        };
+    }, []);
+
+    const handleDialogKeyDown = (keyEvent: React.KeyboardEvent<HTMLElement>) => {
+        if (keyEvent.key === "Escape") {
+            keyEvent.preventDefault();
+            onClose();
+            return;
+        }
+        if (keyEvent.key !== "Tab") return;
+        const focusable = Array.from(sheet.current?.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex='-1'])") ?? []);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable.at(-1)!;
+        if (keyEvent.shiftKey && document.activeElement === first) {
+            keyEvent.preventDefault();
+            last.focus();
+        } else if (!keyEvent.shiftKey && document.activeElement === last) {
+            keyEvent.preventDefault();
+            first.focus();
+        }
+    };
+
+    const handleTabKeyDown = (keyEvent: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(keyEvent.key)) return;
+        keyEvent.preventDefault();
+        const nextIndex = keyEvent.key === 'Home' ? 0 : keyEvent.key === 'End' ? TABS.length - 1 : (index + (keyEvent.key === 'ArrowRight' ? 1 : -1) + TABS.length) % TABS.length;
+        setTab(TABS[nextIndex].id);
+        setError("");
+        sheet.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[nextIndex]?.focus();
+    };
+
+    const showBasicsError = (message: string) => {
+        setError(message);
+        setTab("basics");
+        window.setTimeout(() => firstInput.current?.focus(), 0);
+    };
 
     const handleSubmit = (submitEvent: React.FormEvent) => {
         submitEvent.preventDefault();
         const trimmed = name.trim();
         if (!trimmed || !start || (kind !== "ongoing" && !target)) {
-            setError("Add a name and the dates this path needs.");
+            showBasicsError("Add a name and the dates this path needs.");
             return;
         }
         if (kind !== "ongoing" && new Date(target) <= new Date(start)) {
-            setError("The target date must be after the start date.");
+            showBasicsError("The target date must be after the start date.");
             return;
         }
 
@@ -79,134 +131,69 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose }: Props
         onClose();
     };
 
-    return (
-        <>
-            <div className="fixed inset-0 z-60 acrylic-backdrop animate-fade-in" onClick={onClose} />
-            <aside className="sheet-surface fixed inset-y-0 right-0 z-70 flex h-dvh w-[min(100%,520px)] flex-col overflow-hidden acrylic-surface px-[clamp(20px,5vw,40px)] py-[24px] animate-slide-up" role="dialog" aria-modal="true" aria-labelledby="eventSheetTitle">
-                <div className="flex shrink-0 items-start justify-between gap-5 border-b border-[var(--color-line)] pb-5">
-                    <div>
-                        <div className="text-xs font-semibold uppercase text-[var(--color-accent-ink)]">{isEdit ? "Edit path" : "New path"}</div>
-                        <h2 id="eventSheetTitle" className="m-0 mt-1 font-[var(--font-display)] text-[34px] font-normal">{isEdit ? "Edit milestone" : "Add milestone"}</h2>
-                    </div>
-                    <button onClick={onClose} className="icon-button" aria-label="Close" title="Close"><Icon name="x" /></button>
+    return <>
+        <div className="fixed inset-0 z-60 acrylic-backdrop animate-fade-in" onClick={onClose} />
+        <aside ref={sheet} onKeyDown={handleDialogKeyDown} className="sheet-surface path-editor-sheet fixed inset-y-0 right-0 z-70 flex h-dvh w-[min(100%,520px)] flex-col overflow-hidden acrylic-surface animate-slide-up" role="dialog" aria-modal="true" aria-labelledby="eventSheetTitle">
+            <header className="path-editor-header">
+                <div><span>{isEdit ? "Edit path" : "New path"}</span><h2 id="eventSheetTitle">{isEdit ? event?.name : "Create a path"}</h2></div>
+                <button onClick={onClose} className="icon-button" aria-label="Close" title="Close"><Icon name="x" /></button>
+            </header>
+
+            <div className="path-editor-tabs" role="tablist" aria-label="Path editor sections">
+                {TABS.map((item, index) => <button key={item.id} type="button" role="tab" tabIndex={tab === item.id ? 0 : -1} aria-selected={tab === item.id} aria-controls={`path-editor-${item.id}`} onKeyDown={(keyEvent) => handleTabKeyDown(keyEvent, index)} onClick={() => { setTab(item.id); setError(""); }}><Icon name={item.icon} size={14} />{item.label}</button>)}
+            </div>
+
+            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+                <div className="path-editor-body">
+                    {tab === "basics" && <section id="path-editor-basics" role="tabpanel" className="path-editor-panel" aria-label="Path basics">
+                        <label className="grid gap-2"><span className="field-label">Name</span><input ref={firstInput} value={name} onChange={(input) => { setName(input.target.value); setError(""); }} maxLength={48} placeholder="e.g. CCNP Enterprise" required className="field" autoComplete="off" enterKeyHint="next" /></label>
+
+                        <fieldset className="m-0 grid gap-2 border-0 p-0">
+                            <legend className="field-label mb-1">Path type</legend>
+                            <div className="editor-kind-grid" role="radiogroup" aria-label="Milestone type">
+                                {KINDS.map((item) => <button key={item.value} type="button" role="radio" aria-label={item.label} aria-checked={kind === item.value} onClick={() => { setKind(item.value); setError(""); }} className="editor-kind" data-active={kind === item.value}><Icon name={item.icon} size={16} /><span><strong>{item.label}</strong><small>{item.detail}</small></span></button>)}
+                            </div>
+                        </fieldset>
+
+                        <div className={`path-date-grid ${kind === "ongoing" ? "path-date-single" : ""}`}>
+                            <label className="grid min-w-0 gap-2"><span className="field-label">Starts</span><input type="date" value={start} onChange={(input) => { setStart(input.target.value); setError(""); }} required className="field min-w-0" /></label>
+                            {kind !== "ongoing" && <label className="grid min-w-0 gap-2"><span className="field-label">Target date</span><input type="date" value={target} onChange={(input) => { setTarget(input.target.value); setError(""); }} required className="field min-w-0" /></label>}
+                        </div>
+                        {error && <p className="editor-error" role="alert">{error}</p>}
+                    </section>}
+
+                    {tab === "tracking" && <section id="path-editor-tracking" role="tabpanel" className="path-editor-panel" aria-label="Path tracking">
+                        {kind === "project" && <>
+                            <div className="tracking-pair">
+                                <label className="grid min-w-0 gap-2"><span className="field-label">Effort budget</span><span className="field-with-unit"><input type="number" inputMode="decimal" min={1} max={10000} step={1} value={plannedHours} onChange={(input) => setPlannedHours(Number(input.target.value))} aria-label="Planned effort hours" /><span>hours</span></span></label>
+                                <label className="grid min-w-0 gap-2"><span className="field-label">Readiness</span><span className="field-with-unit"><input type="number" inputMode="numeric" min={0} max={100} value={readiness} onChange={(input) => setReadiness(Number(input.target.value))} aria-label="Current readiness" /><span>%</span></span></label>
+                            </div>
+                            <label className="grid gap-2"><span className="field-label">Project check-in rhythm</span><select value={projectFreq} onChange={(input) => setProjectFreq(input.target.value as "daily" | "weekly")} className="field"><option value="daily">Once each day</option><option value="weekly">Once each week</option></select></label>
+                            <label className="editor-toggle"><span><strong>Allow extra check-ins</strong><small>Participants can record more than one session per day.</small></span><input type="checkbox" checked={allowExtraCheckIns} onChange={(input) => setAllowExtraCheckIns(input.target.checked)} className="theme-checkbox" /></label>
+                        </>}
+
+                        {kind === "ongoing" && <label className="editor-toggle"><span><strong>Track consistency</strong><small>Leave off for tenure; turn on for an ongoing practice.</small></span><input type="checkbox" checked={trackOngoing} onChange={(input) => setTrackOngoing(input.target.checked)} className="theme-checkbox" /></label>}
+
+                        {(kind === "habit" || (kind === "ongoing" && trackOngoing)) && <>
+                            <label className="grid gap-2"><span className="field-label">Check-in rhythm</span><select value={habitFreq} onChange={(input) => setHabitFreq(input.target.value as "daily" | "weekly")} className="field"><option value="daily">Once each day</option><option value="weekly">Once each week</option></select></label>
+                            <label className="editor-toggle"><span><strong>Allow extra check-ins</strong><small>Participants can record additional sessions on the same day.</small></span><input type="checkbox" checked={allowExtraCheckIns} onChange={(input) => setAllowExtraCheckIns(input.target.checked)} className="theme-checkbox" /></label>
+                        </>}
+
+                        {kind === "ongoing" && !trackOngoing && <div className="tracking-rest"><Icon name="history" size={20} /><strong>Continuity only</strong><small>Echoe will quietly track how long this path has been part of your life.</small></div>}
+                    </section>}
+
+                    {tab === "style" && <section id="path-editor-style" role="tabpanel" className="path-editor-panel" aria-label="Path style">
+                        <label className="editor-toggle"><span><strong>Keep in focus</strong><small>Place this path first on Home.</small></span><input type="checkbox" checked={pinned} onChange={(input) => setPinned(input.target.checked)} className="theme-checkbox" /></label>
+                        {kind === "project" && <label className="editor-toggle"><span><strong>Countdown emphasis</strong><small>Make the remaining time the primary signal.</small></span><input type="checkbox" checked={isCountdown} onChange={(input) => setIsCountdown(input.target.checked)} className="theme-checkbox" /></label>}
+                        <fieldset className="m-0 grid gap-3 border-0 p-0"><legend className="field-label">Path color</legend><div className="editor-color-grid" role="radiogroup" aria-label="Milestone color">{COLORS.map((choice) => { const palette = COLOR_MAP[choice]; const active = color === choice; const label = choice.charAt(0).toUpperCase() + choice.slice(1); return <button key={choice} type="button" role="radio" aria-checked={active} aria-label={label} onClick={() => setColor(choice)} className="editor-color" style={{ "--swatch": palette.color, "--swatch-glow": palette.glow } as React.CSSProperties}><span /> <small>{label}</small>{active && <Icon name="check" size={13} />}</button>; })}</div></fieldset>
+                    </section>}
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-                    <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto pt-6">
-                    <label className="grid gap-2">
-                        <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Name</span>
-                        <input ref={firstInput} value={name} onChange={(input) => setName(input.target.value)} maxLength={48} placeholder="e.g. CCNP Enterprise" required className="field" />
-                    </label>
-
-                    <fieldset className="m-0 grid gap-2 border-0 p-0">
-                        <legend className="mb-2 text-[13px] font-semibold text-[var(--color-ink-soft)]">What kind of path is this?</legend>
-                        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Milestone type">
-                            {KINDS.map((item) => (
-                                <button key={item.value} type="button" role="radio" aria-label={item.label} aria-checked={kind === item.value} onClick={() => setKind(item.value)} className="kind-choice" data-active={kind === item.value}>
-                                    <Icon name={item.icon} size={17} />
-                                    <strong>{item.label}</strong>
-                                    <small>{item.detail}</small>
-                                </button>
-                            ))}
-                        </div>
-                    </fieldset>
-
-                    <div className={`grid gap-3 ${kind === "ongoing" ? "grid-cols-1" : "grid-cols-2"}`}>
-                        <label className="grid gap-2">
-                            <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Starts</span>
-                            <input type="date" value={start} onChange={(input) => setStart(input.target.value)} required className="field" />
-                        </label>
-                        {kind !== "ongoing" && (
-                            <label className="grid gap-2">
-                                <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Target date</span>
-                                <input type="date" value={target} onChange={(input) => setTarget(input.target.value)} required className="field" />
-                            </label>
-                        )}
-                    </div>
-
-                    {kind === "project" && (
-                        <div className="project-fields grid grid-cols-2 gap-3 border-y border-[var(--color-line)] py-5">
-                            <label className="grid gap-2">
-                                <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Effort budget</span>
-                                <span className="field-with-unit"><input type="number" min={1} max={10000} step={1} value={plannedHours} onChange={(input) => setPlannedHours(Number(input.target.value))} aria-label="Planned effort hours" /><span>hours</span></span>
-                            </label>
-                            <label className="grid gap-2">
-                                <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Starting readiness <small className="font-normal text-[var(--color-muted)]">optional</small></span>
-                                <span className="field-with-unit"><input type="number" min={0} max={100} value={readiness} onChange={(input) => setReadiness(Number(input.target.value))} aria-label="Current readiness" /><span>%</span></span>
-                            </label>
-                            <label className="col-span-2 grid gap-2">
-                                <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Project check-in rhythm</span>
-                                <select value={projectFreq} onChange={(input) => setProjectFreq(input.target.value as "daily" | "weekly")} className="field"><option value="daily">Once each day</option><option value="weekly">Once each week</option></select>
-                            </label>
-                            <label className="col-span-2 flex cursor-pointer items-center justify-between gap-4">
-                                <span><strong className="block text-sm">Allow extra check-ins</strong><small className="text-xs text-[var(--color-muted)]">Participants can record more than one meaningful session per day.</small></span>
-                                <input type="checkbox" checked={allowExtraCheckIns} onChange={(input) => setAllowExtraCheckIns(input.target.checked)} className="theme-checkbox" />
-                            </label>
-                            <p className="col-span-2 m-0 text-xs leading-relaxed text-[var(--color-muted)]">Check-ins, effort, and readiness stay separate. Update only what is useful.</p>
-                        </div>
-                    )}
-
-                    {(kind === "habit" || kind === "ongoing") && (
-                        <div className="grid gap-4 border-y border-[var(--color-line)] py-5">
-                            {kind === "ongoing" && (
-                                <label className="flex cursor-pointer items-center justify-between gap-4">
-                                    <span><strong className="block text-sm">Track consistency</strong><small className="text-xs text-[var(--color-muted)]">Leave off for tenure, turn on for ongoing practice.</small></span>
-                                    <input type="checkbox" checked={trackOngoing} onChange={(input) => setTrackOngoing(input.target.checked)} className="theme-checkbox" />
-                                </label>
-                            )}
-                            {(kind === "habit" || trackOngoing) && (
-                                <>
-                                    <label className="grid gap-2">
-                                        <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Check-in rhythm</span>
-                                        <select value={habitFreq} onChange={(input) => setHabitFreq(input.target.value as "daily" | "weekly")} className="field">
-                                            <option value="daily">Once each day</option>
-                                            <option value="weekly">Once each week</option>
-                                        </select>
-                                    </label>
-                                    <label className="flex cursor-pointer items-center justify-between gap-4">
-                                        <span><strong className="block text-sm">Allow extra check-ins</strong><small className="text-xs text-[var(--color-muted)]">Participants can record additional sessions on the same day.</small></span>
-                                        <input type="checkbox" checked={allowExtraCheckIns} onChange={(input) => setAllowExtraCheckIns(input.target.checked)} className="theme-checkbox" />
-                                    </label>
-                                </>
-                            )}
-                        </div>
-                    )}
-
-                    <details className="editor-details">
-                        <summary>Focus and color</summary>
-                        <div className="mt-4 grid gap-5">
-                            <label className="grid cursor-pointer grid-cols-[auto_1fr] items-start gap-3">
-                                <input type="checkbox" checked={pinned} onChange={(input) => setPinned(input.target.checked)} className="theme-checkbox mt-[3px]" />
-                                <span><strong className="block text-sm">Keep in focus</strong><small className="text-xs text-[var(--color-muted)]">Use this path in the momentum summary.</small></span>
-                            </label>
-                            {kind === "project" && (
-                                <label className="grid cursor-pointer grid-cols-[auto_1fr] items-start gap-3">
-                                    <input type="checkbox" checked={isCountdown} onChange={(input) => setIsCountdown(input.target.checked)} className="theme-checkbox mt-[3px]" />
-                                    <span><strong className="block text-sm">Countdown emphasis</strong><small className="text-xs text-[var(--color-muted)]">Make remaining time more prominent.</small></span>
-                                </label>
-                            )}
-                            <fieldset className="m-0 grid gap-2 border-0 p-0">
-                                <legend className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Path color</legend>
-                                <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Milestone color">
-                                    {COLORS.map((choice) => {
-                                        const palette = COLOR_MAP[choice];
-                                        const active = color === choice;
-                                        const label = choice.charAt(0).toUpperCase() + choice.slice(1);
-                                        return <button key={choice} type="button" role="radio" aria-checked={active} aria-label={label} onClick={() => setColor(choice)} className="color-choice" style={{ borderColor: active ? palette.color : "var(--color-line)", background: active ? palette.glow : "var(--color-panel)" }}><span style={{ background: palette.color }} />{label}{active && <Icon name="check" size={13} style={{ color: palette.ink }} />}</button>;
-                                    })}
-                                </div>
-                            </fieldset>
-                        </div>
-                    </details>
-
-                    {error && <p className="m-0 text-[13px] text-[var(--color-danger)]" role="alert">{error}</p>}
-                    </div>
-                    <div className="acrylic-actions z-2 mt-1 flex shrink-0 flex-wrap justify-between gap-3 border-t border-[var(--color-line)] pt-4">
-                        {isEdit && <button type="button" onClick={() => { onDelete(event!.id); onClose(); }} className="secondary-button text-[var(--color-danger)]"><Icon name="trash" size={16} />Delete</button>}
-                        <div className="ml-auto flex gap-2"><button type="button" onClick={onClose} className="secondary-button">Cancel</button><button type="submit" className="primary-button">Save milestone</button></div>
-                    </div>
-                </form>
-            </aside>
-        </>
-    );
+                <footer className="path-editor-actions acrylic-actions">
+                    {isEdit && <button type="button" onClick={() => { onDelete(event!.id); onClose(); }} className="icon-button text-[var(--color-danger)]" aria-label="Delete path" title="Delete"><Icon name="trash" size={17} /></button>}
+                    <div><button type="button" onClick={onClose} className="secondary-button">Cancel</button><button type="submit" className="primary-button">{isEdit ? "Save changes" : "Create path"}</button></div>
+                </footer>
+            </form>
+        </aside>
+    </>;
 }

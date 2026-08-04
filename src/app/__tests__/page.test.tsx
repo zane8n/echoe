@@ -30,6 +30,7 @@ import Home from "@/app/page";
 
 describe("Echoe app shell", () => {
     beforeEach(() => {
+        window.history.replaceState({}, "", "/");
         dashboardMock.state = { ...dashboardState, events: [] };
         dashboardMock.storageSummary = { ...storageSummary, milestoneCount: 0, checkInCount: 0, historyCount: 0, syncStatus: "local" };
     });
@@ -50,6 +51,18 @@ describe("Echoe app shell", () => {
         expect(screen.queryByText(/life.*ending/i)).not.toBeInTheDocument();
     });
 
+    it("puts app views in browser history so native back gestures can return home", async () => {
+        const user = userEvent.setup();
+        render(<Home />);
+
+        await user.click(screen.getByRole("button", { name: "Paths" }));
+        expect(window.location.search).toBe("?view=paths");
+
+        window.history.replaceState({ echoeView: "home", echoeDepth: 0 }, "", "/");
+        window.dispatchEvent(new PopStateEvent("popstate", { state: { echoeView: "home", echoeDepth: 0 } }));
+        expect(await screen.findByRole("heading", { name: /what deserves your attention/i })).toBeInTheDocument();
+    });
+
     it("previews a general theme across the app and opens frosted add/edit surfaces", async () => {
         const user = userEvent.setup();
         render(<Home />);
@@ -62,7 +75,7 @@ describe("Echoe app shell", () => {
         await user.click(screen.getByRole("button", { name: "Close settings" }));
 
         await user.click(screen.getByRole("button", { name: "Add a path" }));
-        expect(screen.getByRole("dialog", { name: "Add milestone" })).toHaveClass("acrylic-surface");
+        expect(screen.getByRole("dialog", { name: "Create a path" })).toHaveClass("acrylic-surface");
     });
 
     it("shows a meaningful notification behind an actionable badge", async () => {
