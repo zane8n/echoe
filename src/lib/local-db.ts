@@ -1,5 +1,5 @@
 import { deleteDB, openDB, type DBSchema, type IDBPDatabase } from "idb";
-import { LEGACY_STORAGE_KEYS, LOCAL_DB_NAME, STALE_DATA_RESET_KEY } from "./constants";
+import { LEGACY_STORAGE_KEYS, LEGACY_THEME_TO_ACCENT, LOCAL_DB_NAME, STALE_DATA_RESET_KEY } from "./constants";
 import { normalizeSettings, seedState } from "./utils";
 import type {
     Achievement,
@@ -123,14 +123,16 @@ export async function initializeLocalDatabase(): Promise<void> {
     const database = await getDatabase();
     const initialized = await database.get("meta", "initialized-at");
     if (initialized) {
-        const themeMigrated = await database.get("meta", "blue-default-v3");
-        if (!themeMigrated) {
+        const accentMigrated = await database.get("meta", "accent-migration-v4");
+        if (!accentMigrated) {
             const transaction = database.transaction(["meta", "settings"], "readwrite");
             const settings = await transaction.objectStore("settings").get("current");
-            if (settings?.value.theme === "warm") {
-                await transaction.objectStore("settings").put({ ...settings, value: { ...settings.value, theme: "blue" } });
+            const legacyValue = settings?.value as (DashboardSettings & { theme?: string }) | undefined;
+            if (settings && legacyValue && !legacyValue.accent && legacyValue.theme) {
+                const accent = LEGACY_THEME_TO_ACCENT[legacyValue.theme] ?? "blue";
+                await transaction.objectStore("settings").put({ ...settings, value: { ...legacyValue, accent, appearance: legacyValue.appearance ?? "system" } });
             }
-            await transaction.objectStore("meta").put({ key: "blue-default-v3", value: new Date().toISOString() });
+            await transaction.objectStore("meta").put({ key: "accent-migration-v4", value: new Date().toISOString() });
             await transaction.done;
         }
         return;
@@ -228,7 +230,7 @@ export async function commitDashboardState(
         const { habit, ...base } = event;
         const stored: StoredMilestone = {
             ...base,
-            habit: habit ? { frequency: habit.frequency, target: habit.target } : undefined,
+            habit: habit ? { frequency: habit.frequency } : undefined,
             createdAt: existing?.createdAt ?? event.createdAt ?? now,
             updatedAt: event.updatedAt ?? now,
         };

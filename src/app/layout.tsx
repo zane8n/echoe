@@ -1,4 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
+import { AppShell } from "./app-shell";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,8 +15,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f9ff" },
-    { media: "(prefers-color-scheme: dark)", color: "#161e27" },
+    { media: "(prefers-color-scheme: light)", color: "#fbfbfc" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0c0f" },
   ],
   colorScheme: "light dark",
   width: "device-width",
@@ -23,8 +26,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="blue">
-      <body className="antialiased">{children}</body>
+    <html lang="en" data-accent="blue" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+      <body className="antialiased">
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }

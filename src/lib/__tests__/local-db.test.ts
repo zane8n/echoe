@@ -27,7 +27,7 @@ describe("ordered IndexedDB repository", () => {
         expect(window.localStorage.getItem("echoe.audit.v1")).toBeNull();
         expect(window.localStorage.getItem("echoe.stale-data-cleared.v2")).toBeTruthy();
         expect(state.events).toEqual([]);
-        expect(state.settings.theme).toBe("blue");
+        expect(state.settings.accent).toBe("blue");
     });
 
     it("stores milestones, dated outcomes, sequential logs, and historical snapshots", async () => {
@@ -44,7 +44,6 @@ describe("ordered IndexedDB repository", () => {
                 pinned: true,
                 habit: {
                     frequency: "daily" as const,
-                    target: 30,
                     entries: [
                         { date: "2026-08-01", status: "done" as const },
                         { date: "2026-08-02", status: "missed" as const, note: "Travel day" },
@@ -73,14 +72,14 @@ describe("ordered IndexedDB repository", () => {
             ...state,
             settings: {
                 ...state.settings,
-                theme: "teal",
+                accent: "teal",
                 profile: { displayName: "Kikandi", intention: "Build deliberately.", supportStyle: "direct" },
             },
         }, "settings", "Personalized Echoe");
 
         const loaded = await loadDashboardState();
         expect(personalized.settings.profile.displayName).toBe("Kikandi");
-        expect(loaded.settings).toMatchObject({ theme: "teal", profile: { displayName: "Kikandi", supportStyle: "direct" } });
+        expect(loaded.settings).toMatchObject({ accent: "teal", profile: { displayName: "Kikandi", supportStyle: "direct" } });
     });
 
     it("keeps project investment updates ordered and permanent", async () => {

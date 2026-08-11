@@ -1,40 +1,49 @@
-import { THEMES } from "./constants";
-import type { ThemeName, ThemeVariant } from "./types";
-
-const properties: Record<string, keyof ThemeVariant> = {
-    "--bg": "bg",
-    "--surface": "surface",
-    "--ink": "ink",
-    "--ink-soft": "inkSoft",
-    "--muted": "muted",
-    "--line": "line",
-    "--accent": "accent",
-    "--accent-ink": "accentInk",
-    "--on-accent": "onAccent",
-};
+import { ACCENTS, NEUTRAL } from "./constants";
+import type { AccentName, Appearance } from "./types";
 
 let media: MediaQueryList | null = null;
-let activeTheme: ThemeName = "blue";
+let activeAccent: AccentName = "blue";
+let activeAppearance: Appearance = "system";
 let activeRoot: HTMLElement | undefined;
 
-function paint(root: HTMLElement, themeName: ThemeName): void {
-    const theme = THEMES[themeName] ?? THEMES.blue;
-    const dark = media?.matches ?? false;
-    const variant = dark ? theme.dark : theme.light;
-    root.dataset.theme = theme.name;
+function resolveDark(appearance: Appearance): boolean {
+    if (appearance === "dark") return true;
+    if (appearance === "light") return false;
+    return media?.matches ?? false;
+}
+
+function paint(root: HTMLElement, accentName: AccentName, appearance: Appearance): void {
+    const accent = ACCENTS[accentName] ?? ACCENTS.blue;
+    const dark = resolveDark(appearance);
+    const neutral = dark ? NEUTRAL.dark : NEUTRAL.light;
+    const accentVariant = dark ? accent.dark : accent.light;
+    root.dataset.accent = accent.name;
     root.dataset.mode = dark ? "dark" : "light";
-    for (const [property, key] of Object.entries(properties)) root.style.setProperty(property, variant[key]);
+    root.style.setProperty("--bg", neutral.bg);
+    root.style.setProperty("--surface", neutral.surface);
+    root.style.setProperty("--panel", neutral.panel);
+    root.style.setProperty("--ink", neutral.ink);
+    root.style.setProperty("--ink-soft", neutral.inkSoft);
+    root.style.setProperty("--muted", neutral.muted);
+    root.style.setProperty("--line", neutral.line);
+    root.style.setProperty("--line-strong", neutral.lineStrong);
+    root.style.setProperty("--accent", accentVariant.accent);
+    root.style.setProperty("--accent-ink", accentVariant.accentInk);
+    root.style.setProperty("--on-accent", accent.onAccent);
     root.style.colorScheme = dark ? "dark" : "light";
 }
 
-export function applyTheme(themeName: ThemeName, root?: HTMLElement): void {
+export function applyTheme(accent: AccentName, appearance: Appearance, root?: HTMLElement): void {
     const target = root ?? (typeof document === "undefined" ? undefined : document.documentElement);
     if (!target) return;
-    activeTheme = themeName;
+    activeAccent = accent;
+    activeAppearance = appearance;
     activeRoot = target;
     if (typeof window !== "undefined" && !media) {
         media = window.matchMedia("(prefers-color-scheme: dark)");
-        media.addEventListener("change", () => { if (activeRoot) paint(activeRoot, activeTheme); });
+        media.addEventListener("change", () => {
+            if (activeRoot && activeAppearance === "system") paint(activeRoot, activeAccent, activeAppearance);
+        });
     }
-    paint(target, themeName);
+    paint(target, accent, appearance);
 }

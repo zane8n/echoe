@@ -17,6 +17,7 @@ import {
     Leaf,
     Layers3,
     MoreHorizontal,
+    Moon,
     Mountain,
     Palette,
     Pencil,
@@ -52,7 +53,7 @@ export type IconName =
     | "database" | "cloud" | "cloud-off" | "history" | "refresh" | "missed"
     | "flower" | "leaf" | "mountain" | "palette" | "snowflake" | "sun"
     | "user" | "waves" | "log-in" | "bell" | "users" | "user-plus" | "share"
-    | "eye" | "trophy" | "home" | "chevron-left" | "smartphone";
+    | "eye" | "trophy" | "home" | "chevron-left" | "smartphone" | "moon";
 
 const icons: Record<IconName, LucideIcon> = {
     settings: Settings,
@@ -97,6 +98,7 @@ const icons: Record<IconName, LucideIcon> = {
     home: Home,
     "chevron-left": ChevronLeft,
     smartphone: Smartphone,
+    moon: Moon,
 };
 
 interface Props extends Omit<ComponentProps<LucideIcon>, "ref"> {
@@ -104,7 +106,7 @@ interface Props extends Omit<ComponentProps<LucideIcon>, "ref"> {
     size?: number;
 }
 
-export function Icon({ name, size = 18, strokeWidth = 1.8, ...props }: Props) {
+export function Icon({ name, size = 18, strokeWidth = 1.5, ...props }: Props) {
     const Component = icons[name];
     return <Component aria-hidden="true" size={size} strokeWidth={strokeWidth} {...props} />;
 }

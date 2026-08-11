@@ -44,7 +44,6 @@ export function NeuronLineChart({ values, titles, ariaLabel, compact = false }: 
     return <div className="neuron-chart" data-compact={compact}>
         <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={ariaLabel}>
             <path className="neuron-chart-area" d={area} />
-            <path className="neuron-chart-glow" d={line} />
             <path className="neuron-chart-line" d={line} />
         </svg>
         {points.map((point, index) => {

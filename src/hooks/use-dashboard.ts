@@ -149,18 +149,29 @@ export function useDashboardState() {
         const current = stateRef.current;
         if (!current) return;
         const next = { ...current, settings, updatedAt: new Date().toISOString() };
-        enqueueCommit(next, "settings", `Changed the app theme to ${settings.theme}`);
+        enqueueCommit(next, "settings", "Updated Echoe settings");
     }, [enqueueCommit]);
 
-    const updateTheme = useCallback((theme: DashboardState["settings"]["theme"]) => {
+    const updateAccent = useCallback((accent: DashboardState["settings"]["accent"]) => {
         const current = stateRef.current;
-        if (!current || current.settings.theme === theme) return;
+        if (!current || current.settings.accent === accent) return;
         const now = new Date().toISOString();
         enqueueCommit({
             ...current,
-            settings: { ...current.settings, theme },
+            settings: { ...current.settings, accent },
             updatedAt: now,
-        }, "settings", `Changed the app theme to ${theme}`);
+        }, "settings", `Changed the accent color to ${accent}`);
+    }, [enqueueCommit]);
+
+    const updateAppearance = useCallback((appearance: DashboardState["settings"]["appearance"]) => {
+        const current = stateRef.current;
+        if (!current || current.settings.appearance === appearance) return;
+        const now = new Date().toISOString();
+        enqueueCommit({
+            ...current,
+            settings: { ...current.settings, appearance },
+            updatedAt: now,
+        }, "settings", `Changed appearance to ${appearance}`);
     }, [enqueueCommit]);
 
     const upsertEvent = useCallback((event: MilestoneEvent) => {
@@ -385,7 +396,8 @@ export function useDashboardState() {
         state,
         storageSummary,
         updateSettings,
-        updateTheme,
+        updateAccent,
+        updateAppearance,
         upsertEvent,
         deleteEvent,
         restoreEvent,

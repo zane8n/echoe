@@ -16,7 +16,7 @@ describe("Echoe mobile web app shell", () => {
     it("keeps the offline shell and iPhone safe-area navigation available", () => {
         const serviceWorker = readFileSync("public/sw.js", "utf8");
         const css = readFileSync("src/app/globals.css", "utf8");
-        const app = readFileSync("src/app/page.tsx", "utf8");
+        const app = readFileSync("src/app/providers/dashboard-provider.tsx", "utf8");
         expect(serviceWorker).toContain('"/apple-touch-icon.png"');
         expect(serviceWorker).toContain("request.mode === \"navigate\"");
         expect(serviceWorker).toContain("MAX_CACHE_ENTRIES = 80");

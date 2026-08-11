@@ -1,23 +1,31 @@
 export type AccentColor = "amber" | "coral" | "teal" | "lavender" | "mint" | "sky";
-export type ThemeName = "warm" | "teal" | "blue" | "cool" | "earth" | "rose" | "ocean" | "glacier";
 
-export interface ThemeVariant {
+// App-wide accent (Settings) — distinct from AccentColor above, which tags individual paths.
+export type AccentName = "blue" | "teal" | "amber" | "rose" | "violet";
+export type Appearance = "system" | "light" | "dark";
+
+export interface NeutralPalette {
     bg: string;
     surface: string;
+    panel: string;
     ink: string;
     inkSoft: string;
     muted: string;
     line: string;
-    accent: string;
-    accentInk: string;
-    onAccent: string;
+    lineStrong: string;
 }
 
-export interface ThemeConfig {
-    name: ThemeName;
+export interface AccentVariant {
+    accent: string;
+    accentInk: string;
+}
+
+export interface AccentConfig {
+    name: AccentName;
     label: string;
-    light: ThemeVariant;
-    dark: ThemeVariant;
+    light: AccentVariant;
+    dark: AccentVariant;
+    onAccent: string;
 }
 
 export interface HabitEntry {
@@ -30,7 +38,6 @@ export interface HabitEntry {
 export interface HabitConfig {
     frequency: "daily" | "weekly";
     entries: HabitEntry[];
-    target: number;
 }
 
 export type MilestoneKind = "project" | "habit" | "ongoing";
@@ -126,7 +133,8 @@ export interface PersonalProfile {
 }
 
 export interface DashboardSettings {
-    theme: ThemeName;
+    accent: AccentName;
+    appearance: Appearance;
     showActivityHistogram: boolean;
     readNotificationIds: string[];
     profile: PersonalProfile;

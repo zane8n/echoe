@@ -10,11 +10,12 @@ interface Props {
     onSync: () => Promise<void> | void;
     onOpenSettings: () => void;
     onToast: (message: string) => void;
+    onUpdateEvent: (event: MilestoneEvent) => void;
 }
 
 const EMPTY: SocialSnapshot = { mode: "local", accountRequired: true, friends: [], sharedByMe: [], sharedWithMe: [] };
 
-export function FriendsView({ events, onSync, onOpenSettings, onToast }: Props) {
+export function FriendsView({ events, onSync, onOpenSettings, onToast, onUpdateEvent }: Props) {
     const [snapshot, setSnapshot] = useState<SocialSnapshot>(EMPTY);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState("");
@@ -25,6 +26,7 @@ export function FriendsView({ events, onSync, onOpenSettings, onToast }: Props) 
     const [eventId, setEventId] = useState("");
     const [mode, setMode] = useState<FriendRole>("spectator");
     const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+    const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
 
     const refresh = useCallback(async () => {
         try {
@@ -114,6 +116,7 @@ export function FriendsView({ events, onSync, onOpenSettings, onToast }: Props) 
     };
 
     const sharedIds = useMemo(() => new Set(snapshot.sharedByMe.map((share) => `${share.eventId}:${share.person.id}`)), [snapshot.sharedByMe]);
+    const selectedEvent = events.find((event) => event.id === eventId) ?? null;
 
     if (loading) return <section className="friends-view" aria-label="Loading friends"><div className="friends-skeleton" /><div className="friends-skeleton" /></section>;
 
@@ -148,6 +151,12 @@ export function FriendsView({ events, onSync, onOpenSettings, onToast }: Props) 
                 <label><span>Path</span><select className="field" value={eventId} onChange={(event) => setEventId(event.target.value)}>{events.map((event) => <option key={event.id} value={event.id}>{event.name}</option>)}</select></label>
                 <label><span>Friend</span><select className="field" value={friendId} onChange={(event) => setFriendId(event.target.value)}>{snapshot.friends.map((friend) => <option key={friend.id} value={friend.id}>{friend.displayName}</option>)}</select></label>
                 <div className="share-role" role="radiogroup" aria-label="Friend role"><button type="button" role="radio" aria-checked={mode === "spectator"} onClick={() => setMode("spectator")}><Icon name="eye" size={14} />Spectator</button><button type="button" role="radio" aria-checked={mode === "participant"} onClick={() => setMode("participant")}><Icon name="trophy" size={14} />Participant</button></div>
+                {mode === "participant" && selectedEvent && (
+                    <label className="editor-toggle col-span-2">
+                        <span><strong>Allow extra check-ins</strong><small>Let {selectedEvent.name} be checked in more than once a day while shared.</small></span>
+                        <input type="checkbox" checked={Boolean(selectedEvent.allowExtraCheckIns)} onChange={(event) => onUpdateEvent({ ...selectedEvent, allowExtraCheckIns: event.target.checked })} className="theme-checkbox" />
+                    </label>
+                )}
                 <button type="button" className="primary-button" disabled={busy === "share"} onClick={() => void submitShare()}>{sharedIds.has(`${eventId}:${friendId}`) ? "Update sharing" : "Share privately"}</button>
             </div>
         </section>}
@@ -158,6 +167,6 @@ export function FriendsView({ events, onSync, onOpenSettings, onToast }: Props) 
             return <article className="shared-path" key={share.id}><div className="shared-path-title"><span><small>{share.person.displayName} · {share.mode}</small><strong>{share.eventName}</strong></span>{share.mode === "participant" ? <Icon name="trophy" size={15} /> : <Icon name="eye" size={15} />}</div><div className="friendly-pace"><span><small>{share.person.displayName}</small><i><b style={{ width: `${(share.ownerToday / maximum) * 100}%` }} /></i><strong>{share.ownerToday}</strong></span><span><small>You</small><i><b style={{ width: `${(share.guestToday / maximum) * 100}%` }} /></i><strong>{share.guestToday}</strong></span></div>{share.mode === "participant" && <button type="button" className="compact-button" disabled={!canCheckAgain || busy === `check:${share.id}`} onClick={() => void perform(`check:${share.id}`, () => checkInSharedPath(share.id), "Shared check-in recorded")}><Icon name="check" size={14} />{share.guestToday ? share.allowExtraCheckIns ? "Check in again" : "Checked in" : "Check in"}</button>}</article>;
         })}</div></section>}
 
-        {snapshot.sharedByMe.length > 0 && <section className="social-section" aria-labelledby="byMeHeading"><div className="social-section-heading"><h2 id="byMeHeading">Visible to friends</h2><span>{snapshot.sharedByMe.length}</span></div><div className="shared-list">{snapshot.sharedByMe.map((share) => <article className="shared-path shared-path-owned" key={share.id}><div className="shared-path-title"><span><small>{share.person.displayName} · {share.mode}</small><strong>{share.eventName}</strong></span><button type="button" className="icon-button" disabled={busy === `revoke:${share.id}`} aria-label={`Stop sharing ${share.eventName} with ${share.person.displayName}`} onClick={() => void perform(`revoke:${share.id}`, () => revokeShare(share.id))}><Icon name="x" size={15} /></button></div>{share.mode === "participant" && <div className="shared-total"><span>You <strong>{share.ownerTotal}</strong></span><span>{share.person.displayName} <strong>{share.guestTotal}</strong></span></div>}</article>)}</div></section>}
+        {snapshot.sharedByMe.length > 0 && <section className="social-section" aria-labelledby="byMeHeading"><div className="social-section-heading"><h2 id="byMeHeading">Visible to friends</h2><span>{snapshot.sharedByMe.length}</span></div><div className="shared-list">{snapshot.sharedByMe.map((share) => <article className="shared-path shared-path-owned" key={share.id}><div className="shared-path-title"><span><small>{share.person.displayName} · {share.mode}</small><strong>{share.eventName}</strong></span>{confirmRevoke === share.id ? <span className="friend-confirm"><button type="button" className="quiet-button" onClick={() => setConfirmRevoke(null)}>Keep</button><button type="button" className="quiet-button text-[var(--color-danger)]" disabled={busy === `revoke:${share.id}`} onClick={() => void perform(`revoke:${share.id}`, async () => { await revokeShare(share.id); setConfirmRevoke(null); })}>Stop</button></span> : <button type="button" className="icon-button" aria-label={`Stop sharing ${share.eventName} with ${share.person.displayName}`} onClick={() => setConfirmRevoke(share.id)}><Icon name="x" size={15} /></button>}</div>{share.mode === "participant" && <div className="shared-total"><span>You <strong>{share.ownerTotal}</strong></span><span>{share.person.displayName} <strong>{share.guestTotal}</strong></span></div>}</article>)}</div></section>}
     </section>;
 }

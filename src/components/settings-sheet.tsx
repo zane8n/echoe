@@ -2,17 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getAccount, registerAccount, signIn, signOut } from "@/lib/account-client";
-import { THEME_ORDER, THEMES } from "@/lib/constants";
+import { ACCENT_ORDER, ACCENTS } from "@/lib/constants";
 import { applyTheme } from "@/lib/theme";
 import { installState, requestInstall, subscribeToInstall } from "@/lib/install";
-import type { AccountSummary, DashboardSettings, StorageSummary, SupportStyle, ThemeName } from "@/lib/types";
+import type { AccentName, AccountSummary, Appearance, DashboardSettings, StorageSummary, SupportStyle } from "@/lib/types";
 import { Icon, type IconName } from "./icon";
 
 interface Props {
     settings: DashboardSettings;
     storage: StorageSummary;
     onSave: (settings: DashboardSettings) => void;
-    onThemeChange: (theme: ThemeName) => void;
+    onAccentChange: (accent: AccentName) => void;
+    onAppearanceChange: (appearance: Appearance) => void;
     onSync: () => Promise<void> | void;
     onExport: () => void;
     onImport: (file: File) => void;
@@ -29,16 +30,11 @@ const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
     { id: "data", label: "Data", icon: "database" },
 ];
 
-const themeIcons: Record<ThemeName, IconName> = {
-    warm: "sun",
-    teal: "leaf",
-    blue: "cloud",
-    cool: "palette",
-    ocean: "waves",
-    glacier: "snowflake",
-    rose: "flower",
-    earth: "mountain",
-};
+const appearanceOptions: Array<{ id: Appearance; label: string; icon: IconName }> = [
+    { id: "system", label: "System", icon: "smartphone" },
+    { id: "light", label: "Light", icon: "sun" },
+    { id: "dark", label: "Dark", icon: "moon" },
+];
 
 const statusDetails = {
     local: { icon: "database" as const, label: "Saved on this device" },
@@ -47,9 +43,10 @@ const statusDetails = {
     offline: { icon: "cloud-off" as const, label: "Cloud unavailable, saved locally" },
 };
 
-export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync, onExport, onImport, onClearData, onAccountChange, onClose }: Props) {
+export function SettingsSheet({ settings, storage, onSave, onAccentChange, onAppearanceChange, onSync, onExport, onImport, onClearData, onAccountChange, onClose }: Props) {
     const [tab, setTab] = useState<SettingsTab>("appearance");
-    const [theme, setTheme] = useState<ThemeName>(settings.theme ?? "blue");
+    const [accent, setAccent] = useState<AccentName>(settings.accent ?? "blue");
+    const [appearance, setAppearance] = useState<Appearance>(settings.appearance ?? "system");
     const [showHistogram, setShowHistogram] = useState(settings.showActivityHistogram ?? true);
     const [displayName, setDisplayName] = useState(settings.profile.displayName);
     const [intention, setIntention] = useState(settings.profile.intention);
@@ -69,8 +66,9 @@ export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync
     const fileInput = useRef<HTMLInputElement>(null);
     const status = storage.isOnline ? statusDetails[storage.syncStatus] : { icon: "cloud-off" as const, label: "Device offline, changes queued" };
 
-    const buildSettings = (selectedTheme = theme): DashboardSettings => ({
-        theme: selectedTheme,
+    const buildSettings = (selectedAccent = accent, selectedAppearance = appearance): DashboardSettings => ({
+        accent: selectedAccent,
+        appearance: selectedAppearance,
         showActivityHistogram: showHistogram,
         readNotificationIds: settings.readNotificationIds ?? [],
         profile: {
@@ -81,10 +79,16 @@ export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync
         },
     });
 
-    const chooseTheme = (next: ThemeName) => {
-        setTheme(next);
-        applyTheme(next);
-        onThemeChange(next);
+    const chooseAccent = (next: AccentName) => {
+        setAccent(next);
+        applyTheme(next, appearance);
+        onAccentChange(next);
+    };
+
+    const chooseAppearance = (next: Appearance) => {
+        setAppearance(next);
+        applyTheme(accent, next);
+        onAppearanceChange(next);
     };
 
     useEffect(() => {
@@ -164,7 +168,7 @@ export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync
                 <div className="shrink-0 px-[clamp(22px,5vw,38px)] pt-7">
                     <div className="flex items-start justify-between gap-5">
                         <div>
-                            <h2 id="settingsTitle" className="m-0 font-[var(--font-display)] text-[34px] font-normal">Settings</h2>
+                            <h2 id="settingsTitle" className="m-0 text-[var(--text-xl)] font-semibold">Settings</h2>
                             <p className="m-0 mt-1 text-xs text-[var(--color-muted)]">A quieter Echoe, shaped around you.</p>
                         </div>
                         <button onClick={onClose} className="icon-button" aria-label="Close settings" title="Close">
@@ -194,34 +198,45 @@ export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync
                         {tab === "appearance" && (
                             <section id="settings-appearance" role="tabpanel" className="grid gap-7" aria-labelledby="appearanceTitle">
                                 <div>
-                                    <h3 id="appearanceTitle" className="m-0 text-sm font-semibold text-[var(--color-ink)]">Choose the atmosphere</h3>
-                                    <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--color-muted)]">Bright, calm color across every surface and control.</p>
+                                    <h3 id="appearanceTitle" className="m-0 text-sm font-semibold text-[var(--color-ink)]">Appearance</h3>
+                                    <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--color-muted)]">A neutral shell, tuned to one accent color.</p>
                                 </div>
+
                                 <fieldset className="m-0 grid gap-3 border-0 p-0">
-                                    <legend className="sr-only">App theme</legend>
-                                    <div className="grid grid-cols-2 gap-2 max-[390px]:grid-cols-1">
-                                        {THEME_ORDER.map((name) => {
-                                            const config = THEMES[name].light;
-                                            const active = theme === name;
+                                    <legend className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Mode</legend>
+                                    <div className="settings-segment grid grid-cols-3 gap-1" role="radiogroup" aria-label="Appearance mode">
+                                        {appearanceOptions.map((option) => (
+                                            <button
+                                                key={option.id}
+                                                type="button"
+                                                role="radio"
+                                                aria-checked={appearance === option.id}
+                                                onClick={() => chooseAppearance(option.id)}
+                                            >
+                                                <Icon name={option.icon} size={14} /> {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </fieldset>
+
+                                <fieldset className="m-0 grid gap-3 border-0 p-0">
+                                    <legend className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Accent color</legend>
+                                    <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Accent color">
+                                        {ACCENT_ORDER.map((name) => {
+                                            const config = ACCENTS[name];
+                                            const active = accent === name;
                                             return (
                                                 <button
                                                     key={name}
                                                     type="button"
-                                                    onClick={() => chooseTheme(name)}
-                                                    className="theme-choice"
-                                                    style={{
-                                                        borderColor: active ? config.accent : "var(--color-line)",
-                                                        background: active ? config.bg : "var(--color-panel)",
-                                                        boxShadow: active ? `inset 0 0 0 1px ${config.accent}` : undefined,
-                                                    }}
-                                                    aria-pressed={active}
-                                                    aria-label={THEMES[name].label}
+                                                    role="radio"
+                                                    aria-checked={active}
+                                                    aria-label={config.label}
+                                                    onClick={() => chooseAccent(name)}
+                                                    className="accent-dot"
+                                                    style={{ "--accent-dot": config.light.accent } as React.CSSProperties}
                                                 >
-                                                    <span className="theme-choice-icon" style={{ background: config.surface, color: config.accentInk, borderColor: config.line }}>
-                                                        <Icon name={themeIcons[name]} size={17} />
-                                                    </span>
-                                                    <span className="min-w-0 flex-1 truncate text-sm font-semibold" style={{ color: active ? config.ink : "var(--color-ink)" }}>{THEMES[name].label}</span>
-                                                    {active && <Icon name="check" size={14} style={{ color: config.accentInk }} />}
+                                                    {active && <Icon name="check" size={13} />}
                                                 </button>
                                             );
                                         })}
@@ -269,7 +284,7 @@ export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync
                                         <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--color-muted)]">Reconnect to the same milestones and history on another browser.</p>
                                     </div>
                                     {accountLoading ? (
-                                        <div className="h-12 animate-pulse rounded-[8px] bg-[var(--color-accent-soft)]" aria-label="Checking account" />
+                                        <div className="h-12 animate-pulse rounded-[var(--radius-sm)] bg-[var(--color-panel)]" aria-label="Checking account" />
                                     ) : account ? (
                                         <div className="flex flex-wrap items-center justify-between gap-3 border-l-2 border-[var(--color-accent)] pl-4">
                                             <div>

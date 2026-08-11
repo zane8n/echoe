@@ -9,7 +9,7 @@ const habitEvent = (entries: HabitEntry[]): MilestoneEvent => ({
     target: "2026-12-31",
     color: "teal",
     pinned: true,
-    habit: { frequency: "daily", target: 30, entries },
+    habit: { frequency: "daily", entries },
 });
 
 describe("Echoe time and habit logic", () => {
@@ -20,7 +20,7 @@ describe("Echoe time and habit logic", () => {
         const state = seedState();
         expect(state.events).toEqual([]);
         expect(state.schemaVersion).toBe(2);
-        expect(state.settings.theme).toBe("blue");
+        expect(state.settings.accent).toBe("blue");
         expect(state.settings.showActivityHistogram).toBe(true);
     });
 

@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -7,7 +8,8 @@ const dashboardMock = vi.hoisted(() => ({
     state: undefined as unknown,
     storageSummary: undefined as unknown,
     updateSettings: vi.fn(),
-    updateTheme: vi.fn(),
+    updateAccent: vi.fn(),
+    updateAppearance: vi.fn(),
     upsertEvent: vi.fn(),
     deleteEvent: vi.fn(),
     restoreEvent: vi.fn(),
@@ -24,8 +26,26 @@ const dashboardMock = vi.hoisted(() => ({
     resetForAccountSwitch: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("@/hooks/use-dashboard", () => ({ useDashboardState: () => dashboardMock }));
+const routerMock = vi.hoisted(() => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
+    prefetch: vi.fn(),
+}));
 
+vi.mock("@/hooks/use-dashboard", () => ({ useDashboardState: () => dashboardMock }));
+vi.mock("next/navigation", () => ({
+    useRouter: () => routerMock,
+    usePathname: () => "/",
+    useParams: () => ({}),
+}));
+vi.mock("next/link", () => ({
+    default: ({ href, children, ...props }: ComponentProps<"a"> & { href: string }) => <a href={href} {...props}>{children}</a>,
+}));
+
+import { AppShell } from "@/app/app-shell";
 import Home from "@/app/page";
 
 describe("Echoe app shell", () => {
@@ -33,44 +53,32 @@ describe("Echoe app shell", () => {
         window.history.replaceState({}, "", "/");
         dashboardMock.state = { ...dashboardState, events: [] };
         dashboardMock.storageSummary = { ...storageSummary, milestoneCount: 0, checkInCount: 0, historyCount: 0, syncStatus: "local" };
+        routerMock.push.mockClear();
+        routerMock.replace.mockClear();
+        routerMock.back.mockClear();
     });
 
-    it("uses a focused app shell with one settings action and a three-item bottom navigation", async () => {
-        const user = userEvent.setup();
-        render(<Home />);
-        expect(screen.getByRole("button", { name: "Echoe home" })).toHaveTextContent("Echoe");
+    it("uses a focused shell with one settings action and a five-item bottom navigation to real routes", async () => {
+        render(<AppShell><Home /></AppShell>);
+        expect(screen.getByRole("link", { name: "Echoe home" })).toHaveTextContent("Echoe");
         expect(screen.getAllByRole("button", { name: "Settings" })).toHaveLength(1);
-        expect(screen.getByRole("button", { name: "Friends" })).toBeInTheDocument();
-        expect(screen.getByRole("navigation", { name: "Primary navigation" }).querySelectorAll("button")).toHaveLength(3);
+        const nav = screen.getByRole("navigation", { name: "Primary navigation" });
+        expect(nav.querySelectorAll("a, button")).toHaveLength(5);
+        expect(screen.getByRole("link", { name: "Paths" })).toHaveAttribute("href", "/paths");
+        expect(screen.getByRole("link", { name: "Momentum" })).toHaveAttribute("href", "/momentum");
+        expect(screen.getByRole("link", { name: "Friends" })).toHaveAttribute("href", "/friends");
         expect(screen.getByRole("button", { name: "Add a path" })).toBeInTheDocument();
         expect(screen.queryByRole("heading", { name: /what you're building/i })).not.toBeInTheDocument();
-        await user.click(screen.getByRole("button", { name: "Momentum" }));
-        expect(screen.queryByText(/designed by/i)).not.toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Echoe home" }).querySelector("svg")).toBeInTheDocument();
-        expect(screen.queryByText(/where you stand/i)).not.toBeInTheDocument();
-        expect(screen.queryByText(/life.*ending/i)).not.toBeInTheDocument();
     });
 
-    it("puts app views in browser history so native back gestures can return home", async () => {
+    it("previews an accent color across the app and opens frosted add/edit surfaces", async () => {
         const user = userEvent.setup();
-        render(<Home />);
-
-        await user.click(screen.getByRole("button", { name: "Paths" }));
-        expect(window.location.search).toBe("?view=paths");
-
-        window.history.replaceState({ echoeView: "home", echoeDepth: 0 }, "", "/");
-        window.dispatchEvent(new PopStateEvent("popstate", { state: { echoeView: "home", echoeDepth: 0 } }));
-        expect(await screen.findByRole("heading", { name: /what deserves your attention/i })).toBeInTheDocument();
-    });
-
-    it("previews a general theme across the app and opens frosted add/edit surfaces", async () => {
-        const user = userEvent.setup();
-        render(<Home />);
+        render(<AppShell><Home /></AppShell>);
 
         await user.click(screen.getByRole("button", { name: "Settings" }));
-        await user.click(screen.getByRole("button", { name: "Fresh teal" }));
-        expect(dashboardMock.updateTheme).toHaveBeenCalledWith("teal");
-        expect(document.documentElement).toHaveAttribute("data-theme", "teal");
+        await user.click(screen.getByRole("radio", { name: "Teal" }));
+        expect(dashboardMock.updateAccent).toHaveBeenCalledWith("teal");
+        expect(document.documentElement).toHaveAttribute("data-accent", "teal");
         expect(screen.getByRole("dialog", { name: "Settings" })).toHaveClass("acrylic-surface");
         await user.click(screen.getByRole("button", { name: "Close settings" }));
 
@@ -81,7 +89,7 @@ describe("Echoe app shell", () => {
     it("shows a meaningful notification behind an actionable badge", async () => {
         const user = userEvent.setup();
         dashboardMock.state = dashboardState;
-        render(<Home />);
+        render(<AppShell><Home /></AppShell>);
         await user.click(screen.getByRole("button", { name: /notifications, 1 unread/i }));
         expect(screen.getByRole("dialog", { name: "Notifications" })).toBeInTheDocument();
         expect(screen.getByText(/Practice deliberately is ready/i)).toBeInTheDocument();

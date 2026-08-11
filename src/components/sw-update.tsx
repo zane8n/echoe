@@ -34,7 +34,7 @@ export function SwUpdate() {
     if (!show) return null;
 
     return (
-        <div className="fixed bottom-5 right-5 z-85 flex items-center gap-[14px] rounded-[8px] border border-[var(--color-line)] bg-[var(--color-panel-strong)] px-[18px] py-3 text-[13px] font-medium shadow-lg backdrop-blur-xl animate-slide-up">
+        <div className="fixed bottom-5 right-5 z-85 flex items-center gap-[14px] rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-surface)] px-[18px] py-3 text-[var(--text-sm)] font-medium shadow-[var(--shadow-md)] animate-slide-up">
             <span>Update available</span>
             <button
                 onClick={() => {

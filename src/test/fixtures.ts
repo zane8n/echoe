@@ -9,7 +9,6 @@ export const habitMilestone: MilestoneEvent = {
     pinned: true,
     habit: {
         frequency: "daily",
-        target: 30,
         entries: [
             { date: "2026-08-01", status: "done" },
             { date: "2026-08-02", status: "missed", note: "Low energy" },
@@ -22,7 +21,8 @@ export const dashboardState: DashboardState = {
     events: [habitMilestone],
     achievements: [],
     settings: {
-        theme: "warm",
+        accent: "amber",
+        appearance: "system",
         showActivityHistogram: true,
         readNotificationIds: [],
         profile: { displayName: "Mika", intention: "Build a life with room to breathe.", supportStyle: "gentle" },

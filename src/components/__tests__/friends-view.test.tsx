@@ -38,7 +38,7 @@ describe("Friends view", () => {
     });
 
     it("explains the non-discoverable privacy model and role controls", async () => {
-        render(<FriendsView events={[habitMilestone]} onSync={vi.fn()} onOpenSettings={vi.fn()} onToast={vi.fn()} />);
+        render(<FriendsView events={[habitMilestone]} onSync={vi.fn()} onOpenSettings={vi.fn()} onToast={vi.fn()} onUpdateEvent={vi.fn()} />);
         expect(await screen.findByText(/no directory, suggestions, or searchable profiles/i)).toBeInTheDocument();
         expect(screen.getByRole("radio", { name: /spectator/i })).toHaveAttribute("aria-checked", "true");
         expect(screen.getByRole("radio", { name: /participant/i })).toBeInTheDocument();
@@ -47,7 +47,7 @@ describe("Friends view", () => {
 
     it("shares a selected path only with an accepted friend", async () => {
         const user = userEvent.setup();
-        render(<FriendsView events={[habitMilestone]} onSync={vi.fn()} onOpenSettings={vi.fn()} onToast={vi.fn()} />);
+        render(<FriendsView events={[habitMilestone]} onSync={vi.fn()} onOpenSettings={vi.fn()} onToast={vi.fn()} onUpdateEvent={vi.fn()} />);
         await screen.findByText("Your private circle");
         await user.click(screen.getByRole("radio", { name: /participant/i }));
         await user.click(screen.getByRole("button", { name: "Share privately" }));
@@ -57,7 +57,7 @@ describe("Friends view", () => {
     it("requires explicit consent before accepting an invite link", async () => {
         const user = userEvent.setup();
         window.history.replaceState({}, "", "/?friend_invite=private_invite_token_1234567890");
-        render(<FriendsView events={[habitMilestone]} onSync={vi.fn()} onOpenSettings={vi.fn()} onToast={vi.fn()} />);
+        render(<FriendsView events={[habitMilestone]} onSync={vi.fn()} onOpenSettings={vi.fn()} onToast={vi.fn()} onUpdateEvent={vi.fn()} />);
         const accept = await screen.findByRole("button", { name: /accept/i });
         expect(social.accept).not.toHaveBeenCalled();
         await user.click(accept);

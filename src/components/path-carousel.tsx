@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { COLOR_MAP } from "@/lib/constants";
 import type { MilestoneEvent, PersonalProfile } from "@/lib/types";
 import { daysUntil, formatOpenDuration, formatRemaining, habitInsight, habitStats, isCheckedInForPeriod, milestoneKind, projectProgress } from "@/lib/utils";
 import { Icon } from "./icon";
+import { QuickStart } from "./quick-start";
 
 interface Props {
     events: MilestoneEvent[];
@@ -28,7 +30,7 @@ export function pathStatus(event: MilestoneEvent | undefined, profile: PersonalP
 
 export function PathCarousel({ events, profile, onHabitCheckIn, onProjectCheckIn, onOpenHistory, onProgress }: Props) {
     const ordered = [...events].sort((a, b) => Number(b.pinned) - Number(a.pinned));
-    if (!ordered.length) return <section className="home-empty"><span className="echo-orb" aria-hidden="true" /><h1>{profile.displayName ? `${profile.displayName.split(/\s+/)[0]}, what deserves your attention?` : "What deserves your attention?"}</h1><p>A clear beginning is enough.</p></section>;
+    if (!ordered.length) return <section className="home-empty"><span className="echo-orb" aria-hidden="true" /><h1>{profile.displayName ? `${profile.displayName.split(/\s+/)[0]}, what deserves your attention?` : "What deserves your attention?"}</h1><p>A clear beginning is enough.</p><QuickStart /></section>;
 
     return <div className="path-carousel" aria-label="Your paths">
         {ordered.map((event) => {
@@ -42,16 +44,18 @@ export function PathCarousel({ events, profile, onHabitCheckIn, onProjectCheckIn
             const checkedForPeriod = isCheckedInForPeriod(frequency, entries);
             const progress = project?.overallPercent ?? habit?.rate ?? 0;
             return <article key={event.id} className="focus-path" style={{ "--path-color": palette.color, "--path-glow": palette.glow } as React.CSSProperties}>
-                <div className="focus-path-top"><span>{event.pinned ? "In focus" : kind}</span>{project && <span className={`risk-label risk-${project.risk}`}>{project.risk.replace("-", " ")}</span>}</div>
-                <div className="focus-path-body">
-                    <h1>{event.name}</h1>
-                    <div className="focus-metric">
-                        {kind === "ongoing" ? <><strong>{event.habit ? habit?.streak ?? 0 : formatOpenDuration(event.start)}</strong><span>{event.habit ? `${event.habit.frequency} rhythm` : "in motion"}</span></> : <><strong>{remaining?.value}</strong><span>{remaining?.unit}{remaining?.unit ? " remaining" : ""}</span></>}
+                <Link href={`/paths/${event.id}`} className="contents no-underline text-inherit">
+                    <div className="focus-path-top"><span>{event.pinned ? "In focus" : kind}</span>{project && <span className={`risk-label risk-${project.risk}`}>{project.risk.replace("-", " ")}</span>}</div>
+                    <div className="focus-path-body">
+                        <h1>{event.name}</h1>
+                        <div className="focus-metric">
+                            {kind === "ongoing" ? <><strong>{event.habit ? habit?.streak ?? 0 : formatOpenDuration(event.start)}</strong><span>{event.habit ? `${event.habit.frequency} rhythm` : "in motion"}</span></> : <><strong>{remaining?.value}</strong><span>{remaining?.unit}{remaining?.unit ? " remaining" : ""}</span></>}
+                        </div>
                     </div>
-                </div>
+                </Link>
                 {(project || habit) && <div className="focus-progress"><div className="focus-progress-copy"><span>{project ? `${project.investedHours}h invested` : `${habit?.done ?? 0} check-ins`}</span><strong>{project ? `${project.readiness}% ready` : `${habit?.rate ?? 0}% consistent`}</strong></div><div role="progressbar" aria-label={`${event.name} progress`} aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${progress}%` }} /></div></div>}
                 <div className="focus-actions">
-                    {event.project && <><button type="button" className="primary-button" onClick={() => onProjectCheckIn(event.id)} aria-pressed={checkedForPeriod}><Icon name="check" size={16} />{checkedForPeriod ? "Checked in" : "Check in"}</button><button type="button" className="secondary-button" onClick={() => onProgress(event.id)}>Readiness</button></>}
+                    {event.project && <><button type="button" className="primary-button" onClick={() => onProjectCheckIn(event.id)} aria-pressed={checkedForPeriod}><Icon name="check" size={16} />{checkedForPeriod ? "Checked in" : "Check in"}</button><button type="button" className="secondary-button" onClick={() => onProgress(event.id)}>Update</button></>}
                     {event.habit && <><button type="button" className="primary-button" onClick={() => onHabitCheckIn(event.id)} aria-pressed={checkedForPeriod}><Icon name="check" size={16} />{checkedForPeriod ? (event.habit.frequency === "weekly" ? "Done this week" : "Done today") : "Check in"}</button><button type="button" className="icon-button" onClick={() => onOpenHistory(event.id)} aria-label={`Open ${event.name} history`}><Icon name="history" size={17} /></button></>}
                 </div>
             </article>;

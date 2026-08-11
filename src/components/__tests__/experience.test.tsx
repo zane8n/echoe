@@ -1,9 +1,15 @@
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+vi.mock("next/link", () => ({
+    default: ({ href, children, ...props }: ComponentProps<"a"> & { href: string }) => <a href={href} {...props}>{children}</a>,
+}));
+
 import { CheckInSheet } from "@/components/check-in-sheet";
 import { EventSheet } from "@/components/event-sheet";
-import { FocusSection } from "@/components/focus-section";
+import { PathDetail } from "@/components/path-detail";
 import { ProgressSheet } from "@/components/progress-sheet";
 import { PathCarousel } from "@/components/path-carousel";
 import { SettingsSheet } from "@/components/settings-sheet";
@@ -20,18 +26,11 @@ describe("Echoe milestone experience", () => {
         vi.unstubAllGlobals();
     });
 
-    it("keeps empty-state language constructive and theme-colored", () => {
-        render(<FocusSection events={[]} tick={1} onEdit={vi.fn()} onConfetti={vi.fn()} onCheckIn={vi.fn()} onMiss={vi.fn()} onOpenHistory={vi.fn()} />);
-        expect(screen.getByRole("heading", { name: /start with one meaningful step/i })).toBeInTheDocument();
-        expect(screen.getByText(/add your first milestone/i)).toHaveClass("text-[var(--color-muted)]");
-        expect(screen.queryByText(/where you stand/i)).not.toBeInTheDocument();
-    });
-
     it("renders countdown mode dynamically and exposes direct habit check-ins", async () => {
         const user = userEvent.setup();
         const onCheckIn = vi.fn();
         const onOpenHistory = vi.fn();
-        render(<FocusSection events={[{ ...habitMilestone, isCountdown: true }]} tick={1} onEdit={vi.fn()} onConfetti={vi.fn()} onCheckIn={onCheckIn} onMiss={vi.fn()} onOpenHistory={onOpenHistory} />);
+        render(<PathDetail event={{ ...habitMilestone, isCountdown: true }} tick={1} onEdit={vi.fn()} onConfetti={vi.fn()} onCheckIn={onCheckIn} onMiss={vi.fn()} onOpenHistory={onOpenHistory} />);
 
         expect(screen.getByText("8")).toBeInTheDocument();
         expect(screen.getByText(/days until/i)).toBeInTheDocument();
@@ -58,21 +57,25 @@ describe("Echoe milestone experience", () => {
         await user.click(screen.getByRole("button", { name: "Missed" }));
         expect(onCheckIn).toHaveBeenCalledWith("habit-1", "missed", "2026-08-02", "Needed a lighter plan");
         await user.click(screen.getByRole("button", { name: "Clear" }));
+        expect(onClear).not.toHaveBeenCalled();
+        await user.click(screen.getByRole("button", { name: "Yes" }));
         expect(onClear).toHaveBeenCalledWith("habit-1", "2026-08-02");
         expect(screen.getByText(/missed day is information/i)).toBeInTheDocument();
     });
 
-    it("offers independent app themes, including teal and blue, in frosted settings", async () => {
+    it("offers an appearance mode and accent color picker in settings", async () => {
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ mode: "local", account: null }), { status: 503 })));
         const user = userEvent.setup();
-        const onThemeChange = vi.fn();
+        const onAccentChange = vi.fn();
+        const onAppearanceChange = vi.fn();
         const onSave = vi.fn();
         render(
             <SettingsSheet
-                settings={{ theme: "warm", showActivityHistogram: true, readNotificationIds: [], profile: { displayName: "", intention: "", supportStyle: "gentle" } }}
+                settings={{ accent: "amber", appearance: "system", showActivityHistogram: true, readNotificationIds: [], profile: { displayName: "", intention: "", supportStyle: "gentle" } }}
                 storage={storageSummary}
                 onSave={onSave}
-                onThemeChange={onThemeChange}
+                onAccentChange={onAccentChange}
+                onAppearanceChange={onAppearanceChange}
                 onSync={vi.fn()}
                 onExport={vi.fn()}
                 onImport={vi.fn()}
@@ -84,12 +87,14 @@ describe("Echoe milestone experience", () => {
 
         expect(screen.getByRole("dialog", { name: "Settings" })).toHaveClass("acrylic-surface");
         expect(document.querySelector(".acrylic-backdrop")).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Fresh teal" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Open blue" })).toBeInTheDocument();
-        await user.click(screen.getByRole("button", { name: "Fresh teal" }));
-        expect(onThemeChange).toHaveBeenCalledWith("teal");
+        expect(screen.getByRole("radio", { name: "Teal" })).toBeInTheDocument();
+        expect(screen.getByRole("radio", { name: "Blue" })).toBeInTheDocument();
+        await user.click(screen.getByRole("radio", { name: "Teal" }));
+        expect(onAccentChange).toHaveBeenCalledWith("teal");
+        await user.click(screen.getByRole("radio", { name: "Dark" }));
+        expect(onAppearanceChange).toHaveBeenCalledWith("dark");
         await user.click(screen.getByRole("button", { name: "Save changes" }));
-        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ theme: "teal" }));
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ accent: "teal", appearance: "dark" }));
         await user.click(screen.getByRole("tab", { name: "Data" }));
         expect(screen.getByText(/every change is saved locally first/i)).toBeInTheDocument();
         expect(screen.getByText(/synced securely/i)).toBeInTheDocument();
@@ -101,10 +106,11 @@ describe("Echoe milestone experience", () => {
         const onSave = vi.fn();
         render(
             <SettingsSheet
-                settings={{ theme: "blue", showActivityHistogram: true, readNotificationIds: [], profile: { displayName: "", intention: "", supportStyle: "gentle" } }}
+                settings={{ accent: "blue", appearance: "system", showActivityHistogram: true, readNotificationIds: [], profile: { displayName: "", intention: "", supportStyle: "gentle" } }}
                 storage={storageSummary}
                 onSave={onSave}
-                onThemeChange={vi.fn()}
+                onAccentChange={vi.fn()}
+                onAppearanceChange={vi.fn()}
                 onSync={vi.fn()}
                 onExport={vi.fn()}
                 onImport={vi.fn()}
@@ -121,7 +127,7 @@ describe("Echoe milestone experience", () => {
         await user.click(screen.getByRole("button", { name: "Save changes" }));
 
         expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
-            theme: "blue",
+            accent: "blue",
             profile: expect.objectContaining({ displayName: "Kikandi", intention: "Move with purpose and patience.", supportStyle: "reflective" }),
         }));
     });
@@ -131,10 +137,11 @@ describe("Echoe milestone experience", () => {
         const user = userEvent.setup();
         render(
             <SettingsSheet
-                settings={{ theme: "warm", showActivityHistogram: true, readNotificationIds: [], profile: { displayName: "Kikandi", intention: "", supportStyle: "gentle" } }}
+                settings={{ accent: "amber", appearance: "system", showActivityHistogram: true, readNotificationIds: [], profile: { displayName: "Kikandi", intention: "", supportStyle: "gentle" } }}
                 storage={storageSummary}
                 onSave={vi.fn()}
-                onThemeChange={vi.fn()}
+                onAccentChange={vi.fn()}
+                onAppearanceChange={vi.fn()}
                 onSync={vi.fn()}
                 onExport={vi.fn()}
                 onImport={vi.fn()}
@@ -156,14 +163,12 @@ describe("Echoe milestone experience", () => {
         render(<EventSheet eventId={null} events={[]} onSave={onSave} onDelete={vi.fn()} onClose={vi.fn()} />);
 
         await user.type(screen.getByRole("textbox", { name: "Name" }), "Write the first chapter");
-        await user.click(screen.getByRole("tab", { name: "Style" }));
+        await user.click(screen.getByText("Advanced"));
         await user.click(screen.getByRole("radio", { name: "Sky" }));
         expect(screen.getByRole("radio", { name: "Sky" })).toHaveAttribute("aria-checked", "true");
-        await user.click(screen.getByRole("tab", { name: "Tracking" }));
-        await user.click(screen.getByRole("checkbox", { name: /allow extra check-ins/i }));
         await user.click(screen.getByRole("button", { name: "Create path" }));
 
-        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ color: "sky", name: "Write the first chapter", kind: "project", allowExtraCheckIns: true, project: expect.objectContaining({ plannedHours: 40 }) }));
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ color: "sky", name: "Write the first chapter", kind: "project", project: expect.objectContaining({ plannedHours: 40 }) }));
     });
 
     it("creates open-ended paths without a fake end date or ambiguous check-in count", async () => {
@@ -208,25 +213,34 @@ describe("Echoe milestone experience", () => {
         render(<EventSheet eventId="habit-1" events={[habitMilestone]} onSave={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()} />);
         expect(screen.getByRole("dialog", { name: habitMilestone.name })).toHaveClass("acrylic-surface");
         expect(screen.getByRole("radio", { name: "Habit" })).toBeInTheDocument();
-        fireEvent.click(screen.getByRole("tab", { name: "Tracking" }));
         expect(screen.getByText("Check-in rhythm")).toBeInTheDocument();
         expect(screen.queryByText(/^Check-ins$/i)).not.toBeInTheDocument();
     });
 
-    it("keeps path editor sections keyboard navigable and dismissible", () => {
+    it("is a single scrolling form with an Advanced disclosure, dismissible with Escape", async () => {
+        const user = userEvent.setup();
         const onClose = vi.fn();
         render(<EventSheet eventId={null} events={[]} onSave={vi.fn()} onDelete={vi.fn()} onClose={onClose} />);
-        const basics = screen.getByRole("tab", { name: "Basics" });
-        basics.focus();
 
-        fireEvent.keyDown(basics, { key: "ArrowRight" });
-        expect(screen.getByRole("tab", { name: "Tracking" })).toHaveAttribute("aria-selected", "true");
-        fireEvent.keyDown(screen.getByRole("tab", { name: "Tracking" }), { key: "ArrowRight" });
-        expect(screen.getByRole("tab", { name: "Style" })).toHaveAttribute("aria-selected", "true");
+        expect(screen.getByRole("radiogroup", { name: "Milestone type" })).toBeInTheDocument();
+        const details = screen.getByText("Advanced").closest("details") as HTMLDetailsElement;
+        expect(details.open).toBe(false);
+        await user.click(screen.getByText("Advanced"));
+        expect(details.open).toBe(true);
         expect(screen.getByRole("radiogroup", { name: "Milestone color" })).toBeInTheDocument();
 
         fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
         expect(onClose).toHaveBeenCalledOnce();
+    });
+
+    it("requires a name and dates without silently discarding data on other fields", async () => {
+        const user = userEvent.setup();
+        const onSave = vi.fn();
+        render(<EventSheet eventId={null} events={[]} onSave={onSave} onDelete={vi.fn()} onClose={vi.fn()} />);
+
+        await user.click(screen.getByRole("button", { name: "Create path" }));
+        expect(screen.getByRole("alert")).toHaveTextContent(/name/i);
+        expect(onSave).not.toHaveBeenCalled();
     });
 
     it("clusters activity into a curved line with twelve neuron points", () => {

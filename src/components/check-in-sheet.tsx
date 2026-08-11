@@ -16,6 +16,7 @@ interface Props {
 export function CheckInSheet({ event, onCheckIn, onClear, onClose }: Props) {
     const [selectedDate, setSelectedDate] = useState(localDate());
     const [note, setNote] = useState("");
+    const [confirmClear, setConfirmClear] = useState(false);
     const closeButton = useRef<HTMLButtonElement>(null);
     const palette = COLOR_MAP[event.color] ?? COLOR_MAP.amber;
     const entries = useMemo(() => new Map(event.habit?.entries.map((entry) => [entry.date, entry]) ?? []), [event.habit?.entries]);
@@ -26,6 +27,7 @@ export function CheckInSheet({ event, onCheckIn, onClear, onClose }: Props) {
     const save = (status: HabitEntry["status"]) => onCheckIn(event.id, status, selectedDate, note);
     const chooseDate = (date: string) => {
         setSelectedDate(date);
+        setConfirmClear(false);
         setNote(entries.get(date)?.note ?? "");
     };
 
@@ -38,7 +40,7 @@ export function CheckInSheet({ event, onCheckIn, onClear, onClose }: Props) {
                         <div className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--color-accent-ink)]">
                             <Icon name="history" size={14} /> Check-in history
                         </div>
-                        <h2 id="checkInTitle" className="m-0 mt-1 truncate font-[var(--font-display)] text-[32px] font-normal leading-tight">{event.name}</h2>
+                        <h2 id="checkInTitle" className="m-0 mt-1 truncate text-[var(--text-xl)] font-semibold leading-tight">{event.name}</h2>
                     </div>
                     <button ref={closeButton} onClick={onClose} className="icon-button" aria-label="Close check-in history" title="Close">
                         <Icon name="x" size={18} />
@@ -65,7 +67,7 @@ export function CheckInSheet({ event, onCheckIn, onClear, onClose }: Props) {
                                     key={date}
                                     type="button"
                                     onClick={() => chooseDate(date)}
-                                    className="aspect-square min-w-0 rounded-[8px] border text-xs font-semibold tabular-nums transition-transform duration-150 hover:-translate-y-0.5"
+                                    className="aspect-square min-w-0 rounded-[var(--radius-sm)] border text-xs font-semibold tabular-nums transition-colors duration-150"
                                     style={{
                                         background,
                                         borderColor: selected ? "var(--color-ink)" : entry ? "transparent" : "var(--color-line)",
@@ -89,11 +91,17 @@ export function CheckInSheet({ event, onCheckIn, onClear, onClose }: Props) {
                             <div className="text-[13px] font-semibold text-[var(--color-ink)]">{formatDate(selectedDate, { weekday: "long" })}</div>
                             <div className="text-xs capitalize text-[var(--color-muted)]">{selectedEntry?.status ?? "Not recorded"}</div>
                         </div>
-                        {selectedEntry && (
-                            <button type="button" onClick={() => onClear(event.id, selectedDate)} className="quiet-button text-[var(--color-danger)]">
+                        {selectedEntry && (confirmClear ? (
+                            <span className="flex items-center gap-2">
+                                <span className="text-xs text-[var(--color-muted)]">Clear?</span>
+                                <button type="button" onClick={() => { onClear(event.id, selectedDate); setConfirmClear(false); }} className="quiet-button text-[var(--color-danger)]">Yes</button>
+                                <button type="button" onClick={() => setConfirmClear(false)} className="quiet-button">Cancel</button>
+                            </span>
+                        ) : (
+                            <button type="button" onClick={() => setConfirmClear(true)} className="quiet-button text-[var(--color-danger)]">
                                 <Icon name="refresh" size={14} /> Clear
                             </button>
-                        )}
+                        ))}
                     </div>
 
                     <label className="mt-4 grid gap-2">

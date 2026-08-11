@@ -211,7 +211,8 @@ export const defaultProfile = (): PersonalProfile => ({
 });
 
 export const normalizeSettings = (settings?: Partial<DashboardSettings> | null): DashboardSettings => ({
-    theme: settings?.theme ?? "blue",
+    accent: settings?.accent ?? "blue",
+    appearance: settings?.appearance ?? "system",
     showActivityHistogram: settings?.showActivityHistogram ?? true,
     readNotificationIds: settings?.readNotificationIds ?? [],
     profile: {
@@ -234,8 +235,7 @@ export const isDashboardState = (value: unknown): value is DashboardState => {
     const candidate = value as Partial<DashboardState>;
     return Array.isArray(candidate.events)
         && Array.isArray(candidate.achievements)
-        && Boolean(candidate.settings)
-        && typeof candidate.settings?.theme === "string";
+        && Boolean(candidate.settings);
 };
 
 export const escapeHtml = (value: string): string =>
