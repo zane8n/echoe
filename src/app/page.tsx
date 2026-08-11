@@ -21,19 +21,19 @@ import { Toast } from "@/components/toast";
 import { WeeksGrid } from "@/components/weeks-grid";
 import { useDashboardState } from "@/hooks/use-dashboard";
 import { useKeyboard } from "@/hooks/use-keyboard";
-import { THEMES } from "@/lib/constants";
+import { STREAK_MILESTONES, THEMES } from "@/lib/constants";
 import { getAuditLog } from "@/lib/local-db";
 import { buildNotifications } from "@/lib/notifications";
 import { applyTheme } from "@/lib/theme";
 import type { DashboardState, EchoeNotification, HabitEntry, MilestoneEvent } from "@/lib/types";
-import { isDashboardState, normalizeSettings, seedState } from "@/lib/utils";
+import { habitStreak, isDashboardState, localDate, normalizeSettings, seedState } from "@/lib/utils";
 
 type AppView = "home" | "paths" | "momentum" | "friends";
 
 export default function Home() {
     const {
         state, storageSummary, updateSettings, updateTheme, upsertEvent, deleteEvent, restoreEvent,
-        checkInHabit, checkInProject, clearHabitCheckIn, logProjectEffort, updateProjectReadiness,
+        addAchievement, checkInHabit, checkInProject, clearHabitCheckIn, logProjectEffort, updateProjectReadiness,
         markNotificationsRead, syncNow, importState, clearAllData, resetForAccountSwitch,
     } = useDashboardState();
     const [view, setView] = useState<AppView>("home");
@@ -197,7 +197,23 @@ export default function Home() {
         } catch { showToast("That file is not a valid Echoe backup"); } };
         reader.readAsText(file);
     }, [importState, showToast]);
-    const handleHabitCheckIn = useCallback((id: string, status: HabitEntry["status"] = "done", date?: string, note?: string) => { checkInHabit(id, status, date, note); showToast(status === "done" ? "Check-in recorded" : "Missed day recorded without judgement"); }, [checkInHabit, showToast]);
+    const handleHabitCheckIn = useCallback((id: string, status: HabitEntry["status"] = "done", date?: string, note?: string) => {
+        const event = state?.events.find((item) => item.id === id);
+        if (event?.habit && status === "done") {
+            const checkInDate = date ?? localDate();
+            const previousStreak = habitStreak(event);
+            const nextEntries = event.habit.entries.filter((entry) => entry.date !== checkInDate);
+            nextEntries.push({ date: checkInDate, status: "done" });
+            const nextStreak = habitStreak({ ...event, habit: { ...event.habit, entries: nextEntries } });
+            if (nextStreak > previousStreak && STREAK_MILESTONES.includes(nextStreak)) {
+                const unit = event.habit.frequency === "weekly" ? (nextStreak === 1 ? "week" : "weeks") : (nextStreak === 1 ? "day" : "days");
+                addAchievement(`${nextStreak} ${unit} on ${event.name}`, "trophy");
+                setShowConfetti(true);
+            }
+        }
+        checkInHabit(id, status, date, note);
+        showToast(status === "done" ? "Check-in recorded" : "Missed day recorded without judgement");
+    }, [addAchievement, checkInHabit, showToast, state?.events]);
     const handleProjectCheckIn = useCallback((id: string) => { checkInProject(id); showToast("Project check-in recorded"); }, [checkInProject, showToast]);
     const handleClearCheckIn = useCallback((id: string, date: string) => { clearHabitCheckIn(id, date); showToast("Check-in cleared"); }, [clearHabitCheckIn, showToast]);
     const handleAccountChange = useCallback(async () => { await resetForAccountSwitch(); window.location.reload(); }, [resetForAccountSwitch]);
@@ -228,7 +244,7 @@ export default function Home() {
         </main>}
 
         {view === "momentum" && <main className="app-page momentum-page relative z-10 mx-auto w-[min(calc(100%-40px),920px)]">
-            {state.events.length > 0 && <MomentumOverview events={state.events} tick={tick} />}
+            {state.events.length > 0 && <MomentumOverview events={state.events} achievements={state.achievements} tick={tick} />}
             {state.events.length ? <WeeksGrid events={state.events} show={state.settings.showActivityHistogram} tick={tick} /> : <div className="empty-momentum"><Icon name="trending-up" size={22} /><h1>Momentum will gather here</h1><p>It grows from real check-ins and project updates.</p></div>}
         </main>}
 

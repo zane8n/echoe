@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
-import type { MilestoneEvent } from "@/lib/types";
-import { addDays, localDate, projectProgress, startOfDay } from "@/lib/utils";
+import type { Achievement, MilestoneEvent } from "@/lib/types";
+import { addDays, formatDate, localDate, projectProgress, startOfDay } from "@/lib/utils";
 import { Icon } from "./icon";
 import { NeuronLineChart } from "./neuron-line-chart";
 
-interface Props { events: MilestoneEvent[]; tick: number; }
+interface Props { events: MilestoneEvent[]; achievements: Achievement[]; tick: number; }
 
-export function MomentumOverview({ events, tick }: Props) {
+export function MomentumOverview({ events, achievements, tick }: Props) {
     const analysis = useMemo(() => {
         const today = startOfDay();
         const days = Array.from({ length: 14 }, (_, index) => localDate(addDays(today, index - 13)));
@@ -64,6 +64,20 @@ export function MomentumOverview({ events, tick }: Props) {
             <div><dt>Deep work</dt><dd>{analysis.currentHours}h</dd><small>logged this week</small></div>
         </dl>
         <div className="momentum-fortnight"><NeuronLineChart compact values={analysis.days.map((date) => analysis.scores.get(date) ?? 0)} titles={analysis.days.map((date) => `${date}: ${Math.round(analysis.scores.get(date) ?? 0)} activity points`)} ariaLabel="Daily activity over the last fourteen days" /><div><span>Previous 7 days</span><span>Current 7 days</span></div></div>
+        {achievements.length > 0 && (
+            <div className="momentum-achievements">
+                <div className="section-kicker"><Icon name="trophy" size={14} />Achievements</div>
+                <ul>
+                    {achievements.slice(0, 12).map((achievement) => (
+                        <li key={achievement.id} className="achievement-chip">
+                            <Icon name="trophy" size={14} />
+                            <span>{achievement.label}</span>
+                            <small>{formatDate(achievement.date, { month: "short", day: "numeric", year: undefined })}</small>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        )}
         <div className="momentum-review">
             <div><span>Next review</span><strong>{analysis.attention.length ? `${analysis.attention.length} ${analysis.attention.length === 1 ? "path" : "paths"} need a decision` : "No path is asking for intervention"}</strong></div>
             {analysis.attention.slice(0, 2).map((event) => { const progress = projectProgress(event); return <div className="momentum-attention" key={event.id}><span>{event.name}</span><strong>{Math.max(0, Math.round(progress.elapsedPercent - progress.overallPercent))}% pace gap</strong></div>; })}

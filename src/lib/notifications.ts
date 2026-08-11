@@ -1,16 +1,5 @@
 import type { EchoeNotification, MilestoneEvent, PersonalProfile } from "./types";
-import { habitInsight, localDate, milestoneKind, parseDate, projectProgress, startOfDay } from "./utils";
-
-const isDueThisPeriod = (frequency: "daily" | "weekly", entries: Array<{ date: string; status: "done" | "missed" }>, today: string) => {
-    if (frequency === "daily") return !entries.some((entry) => entry.date === today && entry.status === "done");
-    const now = startOfDay(parseDate(today) ?? new Date());
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-    return !entries.some((entry) => {
-        const date = parseDate(entry.date);
-        return entry.status === "done" && Boolean(date && date >= monday && date <= now);
-    });
-};
+import { habitInsight, isCheckedInForPeriod, localDate, milestoneKind, projectProgress } from "./utils";
 
 export function buildNotifications(events: MilestoneEvent[], profile: PersonalProfile, today = localDate()): EchoeNotification[] {
     const notifications: EchoeNotification[] = [];
@@ -20,11 +9,12 @@ export function buildNotifications(events: MilestoneEvent[], profile: PersonalPr
         const projectEntries = event.project?.checkIns ?? [];
         const frequency = event.habit?.frequency ?? event.project?.checkInFrequency ?? "daily";
         const entries = kind === "project" ? projectEntries : habitEntries;
-        const checkedIn = entries.some((entry) => entry.date === today && entry.status === "done");
+        const dueThisPeriod = !isCheckedInForPeriod(frequency, entries, today);
+        const checkedInToday = entries.some((entry) => entry.date === today && entry.status === "done");
 
-        if (!event.achievedAt && (event.habit || event.project) && isDueThisPeriod(frequency, entries, today)) {
+        if (!event.achievedAt && (event.habit || event.project) && dueThisPeriod) {
             notifications.push({ id: `due:${event.id}:${today}`, kind: "check-in", title: `${event.name} is ready`, body: "A simple check-in is enough for today.", createdAt: today, actionable: true, eventId: event.id });
-        } else if (checkedIn) {
+        } else if (checkedInToday) {
             notifications.push({ id: `done:${event.id}:${today}`, kind: "progress", title: `You showed up for ${event.name}`, body: "That check-in is part of the pattern now.", createdAt: today, actionable: false, eventId: event.id });
         }
 

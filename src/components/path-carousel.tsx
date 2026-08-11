@@ -2,7 +2,7 @@
 
 import { COLOR_MAP } from "@/lib/constants";
 import type { MilestoneEvent, PersonalProfile } from "@/lib/types";
-import { daysUntil, formatOpenDuration, formatRemaining, habitInsight, habitStats, localDate, milestoneKind, projectProgress } from "@/lib/utils";
+import { daysUntil, formatOpenDuration, formatRemaining, habitInsight, habitStats, isCheckedInForPeriod, milestoneKind, projectProgress } from "@/lib/utils";
 import { Icon } from "./icon";
 
 interface Props {
@@ -38,7 +38,8 @@ export function PathCarousel({ events, profile, onHabitCheckIn, onProjectCheckIn
             const project = event.project ? projectProgress(event) : null;
             const habit = event.habit ? habitStats(event) : null;
             const entries = event.project?.checkIns ?? event.habit?.entries ?? [];
-            const checkedToday = entries.some((entry) => entry.date === localDate() && entry.status === "done");
+            const frequency = event.habit?.frequency ?? event.project?.checkInFrequency ?? "daily";
+            const checkedForPeriod = isCheckedInForPeriod(frequency, entries);
             const progress = project?.overallPercent ?? habit?.rate ?? 0;
             return <article key={event.id} className="focus-path" style={{ "--path-color": palette.color, "--path-glow": palette.glow } as React.CSSProperties}>
                 <div className="focus-path-top"><span>{event.pinned ? "In focus" : kind}</span>{project && <span className={`risk-label risk-${project.risk}`}>{project.risk.replace("-", " ")}</span>}</div>
@@ -50,8 +51,8 @@ export function PathCarousel({ events, profile, onHabitCheckIn, onProjectCheckIn
                 </div>
                 {(project || habit) && <div className="focus-progress"><div className="focus-progress-copy"><span>{project ? `${project.investedHours}h invested` : `${habit?.done ?? 0} check-ins`}</span><strong>{project ? `${project.readiness}% ready` : `${habit?.rate ?? 0}% consistent`}</strong></div><div role="progressbar" aria-label={`${event.name} progress`} aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${progress}%` }} /></div></div>}
                 <div className="focus-actions">
-                    {event.project && <><button type="button" className="primary-button" onClick={() => onProjectCheckIn(event.id)} aria-pressed={checkedToday}><Icon name="check" size={16} />{checkedToday ? "Checked in" : "Check in"}</button><button type="button" className="secondary-button" onClick={() => onProgress(event.id)}>Readiness</button></>}
-                    {event.habit && <><button type="button" className="primary-button" onClick={() => onHabitCheckIn(event.id)} aria-pressed={checkedToday}><Icon name="check" size={16} />{checkedToday ? "Done today" : "Check in"}</button><button type="button" className="icon-button" onClick={() => onOpenHistory(event.id)} aria-label={`Open ${event.name} history`}><Icon name="history" size={17} /></button></>}
+                    {event.project && <><button type="button" className="primary-button" onClick={() => onProjectCheckIn(event.id)} aria-pressed={checkedForPeriod}><Icon name="check" size={16} />{checkedForPeriod ? "Checked in" : "Check in"}</button><button type="button" className="secondary-button" onClick={() => onProgress(event.id)}>Readiness</button></>}
+                    {event.habit && <><button type="button" className="primary-button" onClick={() => onHabitCheckIn(event.id)} aria-pressed={checkedForPeriod}><Icon name="check" size={16} />{checkedForPeriod ? (event.habit.frequency === "weekly" ? "Done this week" : "Done today") : "Check in"}</button><button type="button" className="icon-button" onClick={() => onOpenHistory(event.id)} aria-label={`Open ${event.name} history`}><Icon name="history" size={17} /></button></>}
                 </div>
             </article>;
         })}

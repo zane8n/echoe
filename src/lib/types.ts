@@ -1,9 +1,7 @@
 export type AccentColor = "amber" | "coral" | "teal" | "lavender" | "mint" | "sky";
 export type ThemeName = "warm" | "teal" | "blue" | "cool" | "earth" | "rose" | "ocean" | "glacier";
 
-export interface ThemeConfig {
-    name: ThemeName;
-    label: string;
+export interface ThemeVariant {
     bg: string;
     surface: string;
     ink: string;
@@ -12,6 +10,14 @@ export interface ThemeConfig {
     line: string;
     accent: string;
     accentInk: string;
+    onAccent: string;
+}
+
+export interface ThemeConfig {
+    name: ThemeName;
+    label: string;
+    light: ThemeVariant;
+    dark: ThemeVariant;
 }
 
 export interface HabitEntry {

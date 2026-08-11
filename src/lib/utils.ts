@@ -135,6 +135,20 @@ export const getPinnedEvent = (events: MilestoneEvent[]): MilestoneEvent | null 
     return events.find((e) => e.pinned) ?? future[0] ?? events[0] ?? null;
 };
 
+export const isCheckedInForPeriod = (
+    frequency: "daily" | "weekly",
+    entries: Array<{ date: string; status: "done" | "missed" }>,
+    today = localDate(),
+): boolean => {
+    if (frequency === "daily") return entries.some((entry) => entry.date === today && entry.status === "done");
+    const now = startOfDay(parseDate(today) ?? new Date());
+    const monday = addDays(now, -((now.getDay() + 6) % 7));
+    return entries.some((entry) => {
+        const date = parseDate(entry.date);
+        return entry.status === "done" && Boolean(date && date >= monday && date <= now);
+    });
+};
+
 export const habitStreak = (event: MilestoneEvent): number => {
     if (!event.habit) return 0;
     const doneDates = new Set(event.habit.entries.filter((entry) => entry.status === "done").map((entry) => entry.date));

@@ -201,7 +201,7 @@ export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync
                                     <legend className="sr-only">App theme</legend>
                                     <div className="grid grid-cols-2 gap-2 max-[390px]:grid-cols-1">
                                         {THEME_ORDER.map((name) => {
-                                            const config = THEMES[name];
+                                            const config = THEMES[name].light;
                                             const active = theme === name;
                                             return (
                                                 <button
@@ -215,12 +215,12 @@ export function SettingsSheet({ settings, storage, onSave, onThemeChange, onSync
                                                         boxShadow: active ? `inset 0 0 0 1px ${config.accent}` : undefined,
                                                     }}
                                                     aria-pressed={active}
-                                                    aria-label={config.label}
+                                                    aria-label={THEMES[name].label}
                                                 >
                                                     <span className="theme-choice-icon" style={{ background: config.surface, color: config.accentInk, borderColor: config.line }}>
                                                         <Icon name={themeIcons[name]} size={17} />
                                                     </span>
-                                                    <span className="min-w-0 flex-1 truncate text-sm font-semibold" style={{ color: active ? config.ink : "var(--color-ink)" }}>{config.label}</span>
+                                                    <span className="min-w-0 flex-1 truncate text-sm font-semibold" style={{ color: active ? config.ink : "var(--color-ink)" }}>{THEMES[name].label}</span>
                                                     {active && <Icon name="check" size={14} style={{ color: config.accentInk }} />}
                                                 </button>
                                             );

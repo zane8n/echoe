@@ -47,7 +47,7 @@ export function BgCanvas() {
         const themeObserver = new MutationObserver(() => {
             channels = colorChannels(getComputedStyle(canvas).getPropertyValue("--accent"));
         });
-        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-mode"] });
 
         let frame = 0;
         let lastDraw = 0;

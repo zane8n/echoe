@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { COLOR_MAP } from "@/lib/constants";
 import type { MilestoneEvent, MilestoneKind } from "@/lib/types";
-import { daysUntil, formatOpenDuration, formatRemaining, habitStats, localDate, milestoneKind, parseDate, projectProgress } from "@/lib/utils";
+import { daysUntil, formatOpenDuration, formatRemaining, habitStats, isCheckedInForPeriod, milestoneKind, parseDate, projectProgress } from "@/lib/utils";
 import { Icon } from "./icon";
 
 interface Props {
@@ -58,7 +58,9 @@ export function EventsSection({ events, onEdit, onExport, onCheckIn, onProjectCh
                         const kind = milestoneKind(event);
                         const project = kind === "project" ? projectProgress(event) : null;
                         const habit = event.habit ? habitStats(event) : null;
-                        const today = (event.project?.checkIns ?? event.habit?.entries ?? []).find((entry) => entry.date === localDate());
+                        const entries = event.project?.checkIns ?? event.habit?.entries ?? [];
+                        const frequency = event.habit?.frequency ?? event.project?.checkInFrequency ?? "daily";
+                        const checkedForPeriod = isCheckedInForPeriod(frequency, entries);
                         const remaining = kind === "ongoing" ? null : formatRemaining(daysUntil(event.target));
                         const percent = project?.overallPercent ?? (habit?.rate ?? 0);
                         const statusText = kind === "project"
@@ -82,8 +84,8 @@ export function EventsSection({ events, onEdit, onExport, onCheckIn, onProjectCh
                                 </button>
                                 <div className="path-actions">
                                     {kind === "project" && <button onClick={() => onProgress(event.id)} className="compact-button" aria-label={`Log progress for ${event.name}`}><Icon name="trending-up" size={14} /><span>Update</span></button>}
-                                    {kind === "project" && <button onClick={() => onProjectCheckIn(event.id)} className="compact-button" aria-pressed={today?.status === "done"} aria-label={`Check in to ${event.name}`}><Icon name="check" size={14} /><span>{today?.status === "done" ? "Done" : "Check in"}</span></button>}
-                                    {event.habit && <button onClick={() => onCheckIn(event.id)} className="compact-button" aria-pressed={today?.status === "done"} aria-label={`Check in to ${event.name}`}><Icon name="check" size={14} /><span>{today?.status === "done" ? "Done" : "Check in"}</span></button>}
+                                    {kind === "project" && <button onClick={() => onProjectCheckIn(event.id)} className="compact-button" aria-pressed={checkedForPeriod} aria-label={`Check in to ${event.name}`}><Icon name="check" size={14} /><span>{checkedForPeriod ? "Done" : "Check in"}</span></button>}
+                                    {event.habit && <button onClick={() => onCheckIn(event.id)} className="compact-button" aria-pressed={checkedForPeriod} aria-label={`Check in to ${event.name}`}><Icon name="check" size={14} /><span>{checkedForPeriod ? "Done" : "Check in"}</span></button>}
                                     {event.habit && <button onClick={() => onOpenHistory(event.id)} className="icon-button" aria-label={`Open ${event.name} check-in history`} title="History"><Icon name="history" size={15} /></button>}
                                     <button onClick={() => onEdit(event.id)} className="icon-button" aria-label={`More options for ${event.name}`} title="Edit"><Icon name="more-horiz" size={16} /></button>
                                 </div>
