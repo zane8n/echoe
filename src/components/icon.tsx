@@ -13,6 +13,7 @@ import {
     Download,
     Flower2,
     Flame,
+    Heart,
     History,
     Leaf,
     Layers3,
@@ -53,7 +54,7 @@ export type IconName =
     | "database" | "cloud" | "cloud-off" | "history" | "refresh" | "missed"
     | "flower" | "leaf" | "mountain" | "palette" | "snowflake" | "sun"
     | "user" | "waves" | "log-in" | "bell" | "users" | "user-plus" | "share"
-    | "eye" | "trophy" | "home" | "chevron-left" | "smartphone" | "moon";
+    | "eye" | "trophy" | "home" | "chevron-left" | "smartphone" | "moon" | "heart";
 
 const icons: Record<IconName, LucideIcon> = {
     settings: Settings,
@@ -99,6 +100,7 @@ const icons: Record<IconName, LucideIcon> = {
     "chevron-left": ChevronLeft,
     smartphone: Smartphone,
     moon: Moon,
+    heart: Heart,
 };
 
 interface Props extends Omit<ComponentProps<LucideIcon>, "ref"> {

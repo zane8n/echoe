@@ -1,57 +1,39 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { acceptInvite, checkInSharedPath, createInvite, getSocialSnapshot, removeFriend, revokeShare, sharePath } from "@/lib/social-client";
+import { useEffect, useMemo, useState } from "react";
+import { acceptInvite, checkInSharedPath, createInvite, removeFriend, revokeShare, sharePath } from "@/lib/social-client";
 import type { FriendInvite, FriendRole, MilestoneEvent, SocialSnapshot } from "@/lib/types";
+import { CoProgress } from "./co-progress";
 import { Icon } from "./icon";
 
 interface Props {
     events: MilestoneEvent[];
+    social: SocialSnapshot;
+    socialLoading: boolean;
+    onRefreshSocial: () => Promise<void>;
+    onCheer: (shareId: string) => Promise<void>;
     onSync: () => Promise<void> | void;
     onOpenSettings: () => void;
     onToast: (message: string) => void;
     onUpdateEvent: (event: MilestoneEvent) => void;
 }
 
-const EMPTY: SocialSnapshot = { mode: "local", accountRequired: true, friends: [], sharedByMe: [], sharedWithMe: [] };
-
-export function FriendsView({ events, onSync, onOpenSettings, onToast, onUpdateEvent }: Props) {
-    const [snapshot, setSnapshot] = useState<SocialSnapshot>(EMPTY);
-    const [loading, setLoading] = useState(true);
+export function FriendsView({ events, social: snapshot, socialLoading: loading, onRefreshSocial: refresh, onCheer, onSync, onOpenSettings, onToast, onUpdateEvent }: Props) {
     const [busy, setBusy] = useState("");
     const [error, setError] = useState("");
     const [invite, setInvite] = useState<FriendInvite | null>(null);
     const [inviteToken, setInviteToken] = useState("");
-    const [friendId, setFriendId] = useState("");
-    const [eventId, setEventId] = useState("");
+    const [friendIdOverride, setFriendIdOverride] = useState("");
+    const [eventIdOverride, setEventIdOverride] = useState("");
     const [mode, setMode] = useState<FriendRole>("spectator");
     const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
     const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
-    const eventsRef = useRef(events);
-    useEffect(() => { eventsRef.current = events; }, [events]);
+    const [cheeredIds, setCheeredIds] = useState<Set<string>>(new Set());
 
-    const refresh = useCallback(async () => {
-        try {
-            const next = await getSocialSnapshot();
-            setSnapshot(next);
-            setFriendId((current) => current || next.friends[0]?.id || "");
-            setEventId((current) => current || eventsRef.current[0]?.id || "");
-            setError("");
-            return next;
-        } catch (requestError) {
-            setError(requestError instanceof Error ? requestError.message : "Private sharing is unavailable.");
-            return null;
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        const timer = window.setTimeout(() => { void refresh(); }, 0);
-        return () => window.clearTimeout(timer);
-        // Fetch once on mount; `refresh` is stable and re-fetching is triggered explicitly elsewhere.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    // Derived rather than synced via effect: falls back to the first option until the
+    // user makes an explicit choice, without an extra render pass.
+    const friendId = friendIdOverride || snapshot.friends[0]?.id || "";
+    const eventId = eventIdOverride || events[0]?.id || "";
 
     useEffect(() => {
         const url = new URL(window.location.href);
@@ -119,6 +101,11 @@ export function FriendsView({ events, onSync, onOpenSettings, onToast, onUpdateE
         }
     };
 
+    const cheer = async (shareId: string) => {
+        setCheeredIds((current) => new Set(current).add(shareId));
+        await onCheer(shareId);
+    };
+
     const sharedIds = useMemo(() => new Set(snapshot.sharedByMe.map((share) => `${share.eventId}:${share.person.id}`)), [snapshot.sharedByMe]);
     const selectedEvent = events.find((event) => event.id === eventId) ?? null;
 
@@ -141,6 +128,15 @@ export function FriendsView({ events, onSync, onOpenSettings, onToast, onUpdateE
         </header>
 
         {error && <p className="social-error" role="alert">{error}</p>}
+
+        {snapshot.recentCheers.length > 0 && (
+            <div className="cheer-banner" role="status">
+                {snapshot.recentCheers.slice(0, 3).map((notice) => (
+                    <p key={notice.id}><Icon name="heart" size={14} /><strong>{notice.fromDisplayName}</strong> cheered you on for <strong>{notice.eventName}</strong></p>
+                ))}
+            </div>
+        )}
+
         {inviteToken && <div className="invite-strip"><span><strong>A private invitation is waiting</strong><small>Nothing is connected until you accept.</small></span><button type="button" onClick={() => void acceptPendingInvite()} disabled={busy === "accepting"} className="compact-button"><Icon name="user-plus" size={14} />Accept</button></div>}
         {invite && <div className="invite-strip"><span><strong>Private invite ready</strong><small>Single use, expires {new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(invite.expiresAt))}</small></span><button type="button" onClick={() => void shareInvite()} className="compact-button"><Icon name="share" size={14} />Share</button></div>}
 
@@ -152,11 +148,11 @@ export function FriendsView({ events, onSync, onOpenSettings, onToast, onUpdateE
         {snapshot.friends.length > 0 && events.length > 0 && <section className="social-section" aria-labelledby="shareHeading">
             <div className="social-section-heading"><h2 id="shareHeading">Share a path</h2><Icon name="share" size={15} /></div>
             <div className="share-builder">
-                <label><span>Path</span><select className="field" value={eventId} onChange={(event) => setEventId(event.target.value)}>{events.map((event) => <option key={event.id} value={event.id}>{event.name}</option>)}</select></label>
-                <label><span>Friend</span><select className="field" value={friendId} onChange={(event) => setFriendId(event.target.value)}>{snapshot.friends.map((friend) => <option key={friend.id} value={friend.id}>{friend.displayName}</option>)}</select></label>
+                <label><span>Path</span><select className="field" value={eventId} onChange={(event) => setEventIdOverride(event.target.value)}>{events.map((event) => <option key={event.id} value={event.id}>{event.name}</option>)}</select></label>
+                <label><span>Friend</span><select className="field" value={friendId} onChange={(event) => setFriendIdOverride(event.target.value)}>{snapshot.friends.map((friend) => <option key={friend.id} value={friend.id}>{friend.displayName}</option>)}</select></label>
                 <div className="share-role" role="radiogroup" aria-label="Friend role"><button type="button" role="radio" aria-checked={mode === "spectator"} onClick={() => setMode("spectator")}><Icon name="eye" size={14} />Spectator</button><button type="button" role="radio" aria-checked={mode === "participant"} onClick={() => setMode("participant")}><Icon name="trophy" size={14} />Participant</button></div>
                 {mode === "participant" && selectedEvent && (
-                    <label className="editor-toggle col-span-2">
+                    <label className="editor-toggle">
                         <span><strong>Allow extra check-ins</strong><small>Let {selectedEvent.name} be checked in more than once a day while shared.</small></span>
                         <input type="checkbox" checked={Boolean(selectedEvent.allowExtraCheckIns)} onChange={(event) => onUpdateEvent({ ...selectedEvent, allowExtraCheckIns: event.target.checked })} className="theme-checkbox" />
                     </label>
@@ -166,11 +162,17 @@ export function FriendsView({ events, onSync, onOpenSettings, onToast, onUpdateE
         </section>}
 
         {snapshot.sharedWithMe.length > 0 && <section className="social-section" aria-labelledby="withMeHeading"><div className="social-section-heading"><h2 id="withMeHeading">Shared with you</h2><span>{snapshot.sharedWithMe.length}</span></div><div className="shared-list">{snapshot.sharedWithMe.map((share) => {
-            const maximum = Math.max(1, share.ownerToday, share.guestToday);
             const canCheckAgain = share.mode === "participant" && (share.allowExtraCheckIns || share.guestToday === 0);
-            return <article className="shared-path" key={share.id}><div className="shared-path-title"><span><small>{share.person.displayName} · {share.mode}</small><strong>{share.eventName}</strong></span>{share.mode === "participant" ? <Icon name="trophy" size={15} /> : <Icon name="eye" size={15} />}</div><div className="friendly-pace"><span><small>{share.person.displayName}</small><i><b style={{ width: `${(share.ownerToday / maximum) * 100}%` }} /></i><strong>{share.ownerToday}</strong></span><span><small>You</small><i><b style={{ width: `${(share.guestToday / maximum) * 100}%` }} /></i><strong>{share.guestToday}</strong></span></div>{share.mode === "participant" && <button type="button" className="compact-button" disabled={!canCheckAgain || busy === `check:${share.id}`} onClick={() => void perform(`check:${share.id}`, () => checkInSharedPath(share.id), "Shared check-in recorded")}><Icon name="check" size={14} />{share.guestToday ? share.allowExtraCheckIns ? "Check in again" : "Checked in" : "Check in"}</button>}</article>;
+            return <article className="shared-path" key={share.id}>
+                <div className="shared-path-title"><span><small>{share.person.displayName} · {share.mode}</small><strong>{share.eventName}</strong></span>{share.mode === "participant" ? <Icon name="trophy" size={15} /> : <Icon name="eye" size={15} />}</div>
+                {share.mode === "participant" && <CoProgress partnerName={share.person.displayName} youDoneToday={share.guestToday > 0} partnerDoneToday={share.ownerToday > 0} onCheer={() => void cheer(share.id)} cheerSent={cheeredIds.has(share.id)} />}
+                {share.mode === "participant" && <button type="button" className="compact-button" disabled={!canCheckAgain || busy === `check:${share.id}`} onClick={() => void perform(`check:${share.id}`, () => checkInSharedPath(share.id), "Shared check-in recorded")}><Icon name="check" size={14} />{share.guestToday ? share.allowExtraCheckIns ? "Check in again" : "Checked in" : "Check in"}</button>}
+            </article>;
         })}</div></section>}
 
-        {snapshot.sharedByMe.length > 0 && <section className="social-section" aria-labelledby="byMeHeading"><div className="social-section-heading"><h2 id="byMeHeading">Visible to friends</h2><span>{snapshot.sharedByMe.length}</span></div><div className="shared-list">{snapshot.sharedByMe.map((share) => <article className="shared-path shared-path-owned" key={share.id}><div className="shared-path-title"><span><small>{share.person.displayName} · {share.mode}</small><strong>{share.eventName}</strong></span>{confirmRevoke === share.id ? <span className="friend-confirm"><button type="button" className="quiet-button" onClick={() => setConfirmRevoke(null)}>Keep</button><button type="button" className="quiet-button text-[var(--color-danger)]" disabled={busy === `revoke:${share.id}`} onClick={() => void perform(`revoke:${share.id}`, async () => { await revokeShare(share.id); setConfirmRevoke(null); })}>Stop</button></span> : <button type="button" className="icon-button" aria-label={`Stop sharing ${share.eventName} with ${share.person.displayName}`} onClick={() => setConfirmRevoke(share.id)}><Icon name="x" size={15} /></button>}</div>{share.mode === "participant" && <div className="shared-total"><span>You <strong>{share.ownerTotal}</strong></span><span>{share.person.displayName} <strong>{share.guestTotal}</strong></span></div>}</article>)}</div></section>}
+        {snapshot.sharedByMe.length > 0 && <section className="social-section" aria-labelledby="byMeHeading"><div className="social-section-heading"><h2 id="byMeHeading">Visible to friends</h2><span>{snapshot.sharedByMe.length}</span></div><div className="shared-list">{snapshot.sharedByMe.map((share) => <article className="shared-path shared-path-owned" key={share.id}>
+            <div className="shared-path-title"><span><small>{share.person.displayName} · {share.mode}</small><strong>{share.eventName}</strong></span>{confirmRevoke === share.id ? <span className="friend-confirm"><button type="button" className="quiet-button" onClick={() => setConfirmRevoke(null)}>Keep</button><button type="button" className="quiet-button text-[var(--color-danger)]" disabled={busy === `revoke:${share.id}`} onClick={() => void perform(`revoke:${share.id}`, async () => { await revokeShare(share.id); setConfirmRevoke(null); })}>Stop</button></span> : <button type="button" className="icon-button" aria-label={`Stop sharing ${share.eventName} with ${share.person.displayName}`} onClick={() => setConfirmRevoke(share.id)}><Icon name="x" size={15} /></button>}</div>
+            {share.mode === "participant" && <CoProgress partnerName={share.person.displayName} youDoneToday={share.ownerToday > 0} partnerDoneToday={share.guestToday > 0} onCheer={() => void cheer(share.id)} cheerSent={cheeredIds.has(share.id)} />}
+        </article>)}</div></section>}
     </section>;
 }

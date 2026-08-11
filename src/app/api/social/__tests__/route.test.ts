@@ -9,6 +9,7 @@ const database = vi.hoisted(() => ({
     sharePath: vi.fn(),
     revokeShare: vi.fn(),
     checkIn: vi.fn(),
+    cheer: vi.fn(),
 }));
 
 vi.mock("@/lib/server-db", () => ({
@@ -20,6 +21,7 @@ vi.mock("@/lib/server-db", () => ({
     sharePath: database.sharePath,
     revokePathShare: database.revokeShare,
     checkInSharedPath: database.checkIn,
+    sendCheer: database.cheer,
 }));
 
 vi.mock("next/headers", () => ({
@@ -37,9 +39,10 @@ const post = (body: Record<string, unknown>) => new Request("https://echoe.test/
 describe("private social route", () => {
     beforeEach(() => {
         database.configured = true;
-        database.read.mockResolvedValue({ mode: "cloud", accountRequired: false, friends: [], sharedByMe: [], sharedWithMe: [] });
+        database.read.mockResolvedValue({ mode: "cloud", accountRequired: false, friends: [], sharedByMe: [], sharedWithMe: [], recentCheers: [] });
         database.createInvite.mockResolvedValue({ token: "a".repeat(32), url: "https://echoe.test/?friend_invite=private", expiresAt: "2026-08-11T00:00:00.000Z" });
         database.checkIn.mockResolvedValue(2);
+        database.cheer.mockResolvedValue(undefined);
     });
 
     it("returns only the current owner's private social snapshot", async () => {
@@ -74,5 +77,18 @@ describe("private social route", () => {
         const response = await POST(post({ action: "check-in", shareId, date: "2026-08-04" }));
         expect(database.checkIn).toHaveBeenCalledWith(ownerId, shareId, "2026-08-04");
         await expect(response.json()).resolves.toMatchObject({ ok: true, count: 2 });
+    });
+
+    it("sends a cheer for a valid share and rejects a malformed one", async () => {
+        const response = await POST(post({ action: "cheer", shareId }));
+        expect(response.status).toBe(200);
+        expect(database.cheer).toHaveBeenCalledWith(ownerId, shareId);
+        expect((await POST(post({ action: "cheer", shareId: "not-a-uuid" }))).status).toBe(400);
+    });
+
+    it("surfaces a friendly error when cheering too soon", async () => {
+        database.cheer.mockRejectedValueOnce(new Error("CHEER_TOO_SOON"));
+        const response = await POST(post({ action: "cheer", shareId }));
+        expect(response.status).toBe(429);
     });
 });

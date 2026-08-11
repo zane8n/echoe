@@ -56,7 +56,7 @@ export function EventsSection({ events, onEdit, onExport, onCheckIn, onProjectCh
                 <p className="border-y border-[var(--color-line)] py-8 text-center text-sm text-[var(--color-muted)]">No paths in this view yet.</p>
             ) : (
                 <div className="path-list">
-                    {sorted.map((event) => {
+                    {sorted.map((event, index) => {
                         const palette = COLOR_MAP[event.color] ?? COLOR_MAP.teal;
                         const kind = milestoneKind(event);
                         const project = kind === "project" ? projectProgress(event) : null;
@@ -73,7 +73,7 @@ export function EventsSection({ events, onEdit, onExport, onCheckIn, onProjectCh
                                 : habit?.total ? `${habit.rate}% consistency` : "Ready for your first check-in";
 
                         return (
-                            <article key={event.id} className="path-row" style={{ "--path-color": palette.color, "--path-glow": palette.glow } as React.CSSProperties}>
+                            <article key={event.id} className="path-row animate-soft-enter" style={{ "--path-color": palette.color, "--path-glow": palette.glow, animationDelay: `${Math.min(index, 6) * 35}ms` } as React.CSSProperties}>
                                 <Link href={`/paths/${event.id}`} className="path-main no-underline" aria-label={`Open ${event.name}`}>
                                     <span className="path-marker" aria-hidden="true" />
                                     <span className="min-w-0 flex-1">

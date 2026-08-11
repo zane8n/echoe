@@ -6,9 +6,12 @@ import { useDashboardState } from "@/hooks/use-dashboard";
 import { ACCENT_ORDER, LEGACY_THEME_TO_ACCENT, STREAK_MILESTONES } from "@/lib/constants";
 import { getAuditLog } from "@/lib/local-db";
 import { buildNotifications } from "@/lib/notifications";
+import { getSocialSnapshot, sendCheer } from "@/lib/social-client";
 import { applyTheme } from "@/lib/theme";
-import type { DashboardState, EchoeNotification, HabitEntry, MilestoneEvent, MilestoneKind, StorageSummary } from "@/lib/types";
+import type { DashboardState, EchoeNotification, HabitEntry, MilestoneEvent, MilestoneKind, SocialSnapshot, StorageSummary } from "@/lib/types";
 import { habitStreak, isDashboardState, localDate, normalizeSettings, seedState } from "@/lib/utils";
+
+const EMPTY_SOCIAL: SocialSnapshot = { mode: "local", accountRequired: true, friends: [], sharedByMe: [], sharedWithMe: [], recentCheers: [] };
 
 interface DashboardContextValue {
     state: DashboardState;
@@ -27,6 +30,10 @@ interface DashboardContextValue {
     toastMessage: string;
     undoEvent: MilestoneEvent | null;
     showConfetti: boolean;
+    social: SocialSnapshot;
+    socialLoading: boolean;
+    refreshSocial: () => Promise<void>;
+    cheerShare: (shareId: string) => Promise<void>;
     setCheckInEventId: (id: string | null) => void;
     setProgressEventId: (id: string | null) => void;
     setNotificationsOpen: (open: boolean) => void;
@@ -86,6 +93,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const [undoEvent, setUndoEvent] = useState<MilestoneEvent | null>(null);
     const [showConfetti, setShowConfetti] = useState(false);
     const [tick, setTick] = useState(0);
+    const [social, setSocial] = useState<SocialSnapshot>(EMPTY_SOCIAL);
+    const [socialLoading, setSocialLoading] = useState(true);
     const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const navigatedWithinApp = useRef(false);
@@ -116,6 +125,33 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         if (toastTimer.current) clearTimeout(toastTimer.current);
         toastTimer.current = setTimeout(() => setToastMessage(""), 2400);
     }, []);
+
+    const refreshSocial = useCallback(async () => {
+        try {
+            const next = await getSocialSnapshot();
+            setSocial(next);
+        } catch {
+            // Private sharing is optional infrastructure — a failed refresh just keeps the last known snapshot.
+        } finally {
+            setSocialLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => { void refreshSocial(); }, 0);
+        const interval = window.setInterval(() => { void refreshSocial(); }, 5 * 60_000);
+        return () => { window.clearTimeout(timer); window.clearInterval(interval); };
+    }, [refreshSocial]);
+
+    const cheerShare = useCallback(async (shareId: string) => {
+        try {
+            await sendCheer(shareId);
+            showToast("Cheer sent");
+            await refreshSocial();
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : "That cheer could not be sent.");
+        }
+    }, [refreshSocial, showToast]);
 
     const upsertEvent = useCallback((event: MilestoneEvent) => {
         const previouslyPinned = state?.events.find((item) => item.pinned && item.id !== event.id);
@@ -259,6 +295,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const value: DashboardContextValue = {
         state, storageSummary, tick, notifications, readIds, unreadActionable,
         activeSheet, editingEventId, quickStartSeed, checkInEventId, progressEventId, notificationsOpen, keyboardOpen, toastMessage, undoEvent, showConfetti,
+        social, socialLoading, refreshSocial, cheerShare,
         setCheckInEventId, setProgressEventId, setNotificationsOpen, setKeyboardOpen, setShowConfetti,
         showToast, openEventEditor, openQuickStart, openSettings, closeSheet, goBack, navigateTo,
         updateSettings, updateAccent, updateAppearance, upsertEvent, syncNow, updateProjectReadiness, logProjectEffort, markNotificationsRead, clearAllData,

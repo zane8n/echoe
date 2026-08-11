@@ -7,6 +7,7 @@ import {
     readSocialSnapshot,
     removeFriend,
     revokePathShare,
+    sendCheer,
     sharePath,
 } from "@/lib/server-db";
 import { getOwnerSession, withOwnerCookie } from "@/lib/owner-session";
@@ -30,14 +31,15 @@ const errorResponse = (error: unknown) => {
     const code = error instanceof Error ? error.message : "SOCIAL_REQUEST_FAILED";
     if (code === "ACCOUNT_REQUIRED") return Response.json({ error: "Sign in before connecting with friends." }, { status: 401 });
     if (code === "INVITE_INVALID") return Response.json({ error: "This invite is invalid, expired, or already used." }, { status: 410 });
-    if (["PATH_NOT_FOUND", "FRIEND_REQUIRED", "PARTICIPANT_REQUIRED"].includes(code)) {
+    if (["PATH_NOT_FOUND", "FRIEND_REQUIRED", "PARTICIPANT_REQUIRED", "SHARE_NOT_FOUND"].includes(code)) {
         return Response.json({ error: "That private connection is no longer available." }, { status: 404 });
     }
+    if (code === "CHEER_TOO_SOON") return Response.json({ error: "You already cheered them on recently — give it a little time." }, { status: 429 });
     return Response.json({ error: "The social request could not be completed." }, { status: 400 });
 };
 
 export async function GET(request: Request) {
-    if (!databaseConfigured()) return Response.json({ mode: "local", accountRequired: true, friends: [], sharedByMe: [], sharedWithMe: [] }, { status: 503 });
+    if (!databaseConfigured()) return Response.json({ mode: "local", accountRequired: true, friends: [], sharedByMe: [], sharedWithMe: [], recentCheers: [] }, { status: 503 });
     const { ownerId, isNew } = await getOwnerSession();
     const date = new URL(request.url).searchParams.get("date") ?? "";
     const snapshot = await readSocialSnapshot(ownerId, date);
@@ -87,6 +89,10 @@ export async function POST(request: Request) {
             if (!ID_PATTERN.test(shareId) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return Response.json({ error: "Invalid check-in." }, { status: 400 });
             const count = await checkInSharedPath(ownerId, shareId, date);
             return withOwnerCookie(Response.json({ ok: true, count }), ownerId, isNew);
+        } else if (action === "cheer") {
+            const shareId = String(payload.shareId ?? "");
+            if (!ID_PATTERN.test(shareId)) return Response.json({ error: "Invalid share." }, { status: 400 });
+            await sendCheer(ownerId, shareId);
         } else {
             return Response.json({ error: "Unsupported social action." }, { status: 400 });
         }

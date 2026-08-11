@@ -2,7 +2,7 @@ import "server-only";
 
 import { neon } from "@neondatabase/serverless";
 import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
-import type { AccountSummary, AuditAction, DashboardState, FriendInvite, FriendRole, FriendSummary, MilestoneEvent, SharedPathSummary, SocialSnapshot } from "./types";
+import type { AccountSummary, AuditAction, CheerNotice, DashboardState, FriendInvite, FriendRole, FriendSummary, MilestoneEvent, SharedPathSummary, SocialSnapshot } from "./types";
 
 export interface RemoteStateRecord {
     state: DashboardState;
@@ -488,6 +488,36 @@ export async function checkInSharedPath(ownerId: string, shareId: string, date: 
     return Number(rows[0].count);
 }
 
+export async function sendCheer(ownerId: string, shareId: string): Promise<void> {
+    await ensureSchema();
+    const sql = neon(connectionString());
+    const shareRows = await sql`
+        SELECT s.owner_id, s.friend_id, s.event_id,
+               CASE WHEN s.owner_id = ${ownerId}::uuid THEN s.friend_id ELSE s.owner_id END AS recipient_id,
+               st.state
+        FROM echoe_path_shares s
+        LEFT JOIN echoe_state st ON st.owner_id = s.owner_id
+        WHERE s.id = ${shareId}::uuid AND (s.owner_id = ${ownerId}::uuid OR s.friend_id = ${ownerId}::uuid)
+    `;
+    const share = shareRows[0];
+    if (!share) throw new Error("SHARE_NOT_FOUND");
+    const recipientId = String(share.recipient_id);
+    const state = share.state as DashboardState | null;
+    const event = state?.events.find((candidate) => candidate.id === String(share.event_id));
+    const eventName = event?.name ?? "your path";
+
+    const recent = await sql`
+        SELECT 1 FROM echoe_social_events
+        WHERE owner_id = ${recipientId}::uuid AND action = 'cheer' AND subject_id = ${shareId}
+          AND metadata->>'fromOwnerId' = ${ownerId} AND created_at > NOW() - INTERVAL '12 hours'
+        LIMIT 1
+    `;
+    if (recent[0]) throw new Error("CHEER_TOO_SOON");
+
+    const sender = await readAccount(ownerId);
+    await logSocialEvent(recipientId, "cheer", shareId, { fromOwnerId: ownerId, fromDisplayName: sender?.displayName ?? "A friend", eventName });
+}
+
 const eventCheckIns = (event: MilestoneEvent, date?: string) => {
     const entries = event.project?.checkIns ?? event.habit?.entries ?? [];
     return entries.filter((entry) => entry.status === "done" && (!date || entry.date === date)).length;
@@ -495,7 +525,7 @@ const eventCheckIns = (event: MilestoneEvent, date?: string) => {
 
 export async function readSocialSnapshot(ownerId: string, requestedDate: string): Promise<SocialSnapshot> {
     await ensureSchema();
-    if (!await readAccount(ownerId)) return { mode: "cloud", accountRequired: true, friends: [], sharedByMe: [], sharedWithMe: [] };
+    if (!await readAccount(ownerId)) return { mode: "cloud", accountRequired: true, friends: [], sharedByMe: [], sharedWithMe: [], recentCheers: [] };
     const sql = neon(connectionString());
     const today = safeDate(requestedDate);
     const friendRows = await sql`
@@ -563,11 +593,31 @@ export async function readSocialSnapshot(ownerId: string, requestedDate: string)
             createdAt: new Date(row.created_at as string | Date).toISOString(),
         }];
     });
+
+    const cheerRows = await sql`
+        SELECT seq, subject_id, metadata, created_at
+        FROM echoe_social_events
+        WHERE owner_id = ${ownerId}::uuid AND action = 'cheer' AND created_at > NOW() - INTERVAL '3 days'
+        ORDER BY seq DESC
+        LIMIT 5
+    `;
+    const recentCheers: CheerNotice[] = cheerRows.map((row) => {
+        const metadata = row.metadata as { fromDisplayName?: string; eventName?: string };
+        return {
+            id: String(row.seq),
+            shareId: String(row.subject_id ?? ""),
+            eventName: metadata.eventName ?? "a shared path",
+            fromDisplayName: metadata.fromDisplayName ?? "A friend",
+            createdAt: new Date(row.created_at as string | Date).toISOString(),
+        };
+    });
+
     return {
         mode: "cloud",
         accountRequired: false,
         friends,
         sharedByMe: mapped.filter((share) => share.role === "owner"),
         sharedWithMe: mapped.filter((share) => share.role === "guest"),
+        recentCheers,
     };
 }

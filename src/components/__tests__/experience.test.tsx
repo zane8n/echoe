@@ -198,7 +198,7 @@ describe("Echoe milestone experience", () => {
         const user = userEvent.setup();
         const onProjectCheckIn = vi.fn();
         const project = { ...habitMilestone, kind: "project" as const, habit: undefined, project: { plannedHours: 80, readiness: 25, entries: [], checkInFrequency: "daily" as const, checkIns: [] } };
-        render(<PathCarousel events={[project]} profile={{ displayName: "Kikandi", intention: "", supportStyle: "gentle" }} onHabitCheckIn={vi.fn()} onProjectCheckIn={onProjectCheckIn} onOpenHistory={vi.fn()} onProgress={vi.fn()} />);
+        render(<PathCarousel events={[project]} profile={{ displayName: "Kikandi", intention: "", supportStyle: "gentle" }} sharedByMe={[]} onHabitCheckIn={vi.fn()} onProjectCheckIn={onProjectCheckIn} onOpenHistory={vi.fn()} onProgress={vi.fn()} onCheer={vi.fn()} />);
         expect(screen.queryByRole("slider", { name: /readiness/i })).not.toBeInTheDocument();
         await user.click(screen.getByRole("button", { name: "Check in" }));
         expect(onProjectCheckIn).toHaveBeenCalledWith("habit-1");

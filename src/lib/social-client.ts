@@ -7,6 +7,7 @@ const EMPTY_SOCIAL: SocialSnapshot = {
     friends: [],
     sharedByMe: [],
     sharedWithMe: [],
+    recentCheers: [],
 };
 
 const readPayload = async <T>(response: Response): Promise<T> => {
@@ -36,3 +37,4 @@ export const removeFriend = (friendId: string) => mutate({ action: "remove-frien
 export const sharePath = (friendId: string, eventId: string, mode: FriendRole) => mutate({ action: "share-path", friendId, eventId, mode });
 export const revokeShare = (shareId: string) => mutate({ action: "revoke-share", shareId });
 export const checkInSharedPath = (shareId: string) => mutate<{ ok: true; count: number }>({ action: "check-in", shareId, date: localDate() });
+export const sendCheer = (shareId: string) => mutate({ action: "cheer", shareId });

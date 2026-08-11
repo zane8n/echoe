@@ -102,12 +102,21 @@ export interface SharedPathSummary {
     createdAt: string;
 }
 
+export interface CheerNotice {
+    id: string;
+    shareId: string;
+    eventName: string;
+    fromDisplayName: string;
+    createdAt: string;
+}
+
 export interface SocialSnapshot {
     mode: "local" | "cloud";
     accountRequired: boolean;
     friends: FriendSummary[];
     sharedByMe: SharedPathSummary[];
     sharedWithMe: SharedPathSummary[];
+    recentCheers: CheerNotice[];
 }
 
 export interface FriendInvite {
