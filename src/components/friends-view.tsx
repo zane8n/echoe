@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { acceptInvite, checkInSharedPath, createInvite, getSocialSnapshot, removeFriend, revokeShare, sharePath } from "@/lib/social-client";
 import type { FriendInvite, FriendRole, MilestoneEvent, SocialSnapshot } from "@/lib/types";
 import { Icon } from "./icon";
@@ -27,13 +27,15 @@ export function FriendsView({ events, onSync, onOpenSettings, onToast, onUpdateE
     const [mode, setMode] = useState<FriendRole>("spectator");
     const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
     const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
+    const eventsRef = useRef(events);
+    useEffect(() => { eventsRef.current = events; }, [events]);
 
     const refresh = useCallback(async () => {
         try {
             const next = await getSocialSnapshot();
             setSnapshot(next);
             setFriendId((current) => current || next.friends[0]?.id || "");
-            setEventId((current) => current || events[0]?.id || "");
+            setEventId((current) => current || eventsRef.current[0]?.id || "");
             setError("");
             return next;
         } catch (requestError) {
@@ -42,12 +44,14 @@ export function FriendsView({ events, onSync, onOpenSettings, onToast, onUpdateE
         } finally {
             setLoading(false);
         }
-    }, [events]);
+    }, []);
 
     useEffect(() => {
         const timer = window.setTimeout(() => { void refresh(); }, 0);
         return () => window.clearTimeout(timer);
-    }, [refresh]);
+        // Fetch once on mount; `refresh` is stable and re-fetching is triggered explicitly elsewhere.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         const url = new URL(window.location.href);
