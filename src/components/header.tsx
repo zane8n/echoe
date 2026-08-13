@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Icon } from "./icon";
 
 interface Props { displayName?: string; notificationCount: number; onOpenAdd: () => void; onOpenNotifications: () => void; onOpenSettings: () => void; }
@@ -10,9 +11,17 @@ export function Header({ displayName, notificationCount, onOpenAdd, onOpenNotifi
     const hour = new Date().getHours();
     const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
     const firstName = displayName?.trim().split(/\s+/)[0];
+    const [scrolled, setScrolled] = useState(false);
+
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 8);
+        onScroll();
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+    }, []);
 
     return (
-        <header className="acrylic-header sticky top-0 z-30 border-b border-[var(--color-line)]">
+        <header className="acrylic-header sticky top-0 z-30" data-scrolled={scrolled}>
             <div className="w-[min(calc(100%-40px),920px)] mx-auto h-16 flex items-center justify-between gap-4">
                 <Link href="/" className="home-return inline-flex items-center gap-2.5 text-lg font-semibold text-[var(--color-ink)]" aria-label="Echoe home">
                     <span className="echo-orb" aria-hidden="true" />

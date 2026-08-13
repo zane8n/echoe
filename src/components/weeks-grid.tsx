@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useCountUp } from "@/hooks/use-count-up";
 import type { MilestoneEvent } from "@/lib/types";
 import { addDays, formatDate, milestoneKind, parseDate, projectProgress, startOfDay } from "@/lib/utils";
 import { Icon } from "./icon";
@@ -41,12 +42,16 @@ export function WeeksGrid({ events, show, tick }: Props) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [events, tick]);
 
-    if (!show || !events.length) return null;
-    const checkIns = events.reduce((total, event) => total
+    const rawCheckIns = events.reduce((total, event) => total
         + (event.habit?.entries.filter((entry) => entry.status === "done").length ?? 0)
         + (event.project?.checkIns?.filter((entry) => entry.status === "done").length ?? 0), 0);
-    const projectHours = Math.round(events.reduce((total, event) => total + (event.project?.entries.reduce((sum, entry) => sum + entry.hours, 0) ?? 0), 0) * 10) / 10;
-    const attention = events.filter((event) => milestoneKind(event) === "project" && ["watch", "at-risk"].includes(projectProgress(event).risk)).length;
+    const rawProjectHours = Math.round(events.reduce((total, event) => total + (event.project?.entries.reduce((sum, entry) => sum + entry.hours, 0) ?? 0), 0) * 10) / 10;
+    const rawAttention = events.filter((event) => milestoneKind(event) === "project" && ["watch", "at-risk"].includes(projectProgress(event).risk)).length;
+    const checkIns = useCountUp(rawCheckIns);
+    const projectHours = useCountUp(rawProjectHours);
+    const attention = useCountUp(rawAttention);
+
+    if (!show || !events.length) return null;
 
     return (
         <section id="activity" className="dashboard-disclosure mt-5 animate-soft-enter">
@@ -54,15 +59,14 @@ export function WeeksGrid({ events, show, tick }: Props) {
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--color-accent-ink)]"><Icon name="trending-up" size={14} /> Momentum</div>
                 <h2 className="m-0 mt-1.5 text-[clamp(22px,3vw,30px)] font-semibold leading-[1.1] tracking-[-0.01em]">Your activity rhythm</h2>
                 <p className="mt-1 text-sm text-[var(--color-muted)]">Twelve two-week clusters, shaped by your actual check-ins and project work.</p>
-                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-[var(--color-ink-soft)]"><span><strong>{checkIns}</strong> completed</span><span><strong>{projectHours}h</strong> invested</span><span><strong>{attention}</strong> {attention === 1 ? "path needs" : "paths need"} attention</span></div>
+                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-[var(--color-ink-soft)]"><span><strong>{Math.round(checkIns)}</strong> completed</span><span><strong>{projectHours.toFixed(1)}h</strong> invested</span><span><strong>{Math.round(attention)}</strong> {rawAttention === 1 ? "path needs" : "paths need"} attention</span></div>
             </div>
 
             <div className="histogram">
                 <NeuronLineChart values={buckets.map((bucket) => bucket.score)} titles={buckets.map((bucket) => `${formatDate(bucket.start, { month: "short", day: "numeric" })} to ${formatDate(bucket.end, { month: "short", day: "numeric" })}: ${Math.round(bucket.score)} activity points`)} ariaLabel="Milestone and check-in activity over the last 24 weeks" />
                 <div className="mt-3 flex justify-between text-[11px] text-[var(--color-muted)]">
                     <span>{formatDate(buckets[0].start, { month: "short", day: "numeric" })}</span>
-                    <span>{formatDate(buckets[5].end, { month: "short", day: "numeric" })}</span>
-                    <span>Today</span>
+                    <span>{formatDate(buckets.at(-1)!.end, { month: "short", day: "numeric" })}</span>
                 </div>
             </div>
         </section>

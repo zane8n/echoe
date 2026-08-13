@@ -47,7 +47,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         <BgCanvas />
         <Header displayName={state.settings.profile.displayName} notificationCount={unreadActionable.length} onOpenAdd={() => openEventEditor()} onOpenNotifications={() => setNotificationsOpen(true)} onOpenSettings={openSettings} />
 
-        {children}
+        <div key={pathname} className="route-fade">{children}</div>
 
         {activeSheet === "event" && <EventSheet key={editingEventId ?? "new"} eventId={editingEventId} events={state.events} onSave={upsertEvent} onDelete={handleDelete} onClose={closeSheet} seed={quickStartSeed} />}
         {activeSheet === "settings" && <SettingsSheet settings={state.settings} storage={storageSummary} onSave={updateSettings} onAccentChange={updateAccent} onAppearanceChange={updateAppearance} onSync={syncNow} onExport={handleExport} onImport={handleImport} onClearData={clearAllData} onAccountChange={handleAccountChange} onClose={closeSheet} snapshots={snapshots} onLoadSnapshots={loadSnapshots} onRestoreSnapshot={restoreSnapshot} />}

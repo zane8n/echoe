@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useCountUp } from "@/hooks/use-count-up";
 import { COLOR_MAP } from "@/lib/constants";
 import type { MilestoneEvent } from "@/lib/types";
 import { formatDate, localDate, projectProgress } from "@/lib/utils";
@@ -22,6 +23,9 @@ export function ProgressSheet({ event, onEffort, onReadiness, onClose }: Props) 
     const [date, setDate] = useState(localDate());
     const [note, setNote] = useState("");
     const entries = [...(event.project?.entries ?? [])].sort((a, b) => b.date.localeCompare(a.date) || (b.recordedAt ?? "").localeCompare(a.recordedAt ?? ""));
+    const overallPercent = useCountUp(progress.overallPercent);
+    const investedHours = useCountUp(progress.investedHours);
+    const readinessPercent = useCountUp(progress.readiness);
 
     const submit = (submitEvent: React.FormEvent) => {
         submitEvent.preventDefault();
@@ -35,7 +39,7 @@ export function ProgressSheet({ event, onEffort, onReadiness, onClose }: Props) 
         <aside className="sheet-surface fixed inset-y-0 right-0 z-70 h-dvh w-[min(100%,500px)] overflow-y-auto acrylic-surface px-[clamp(20px,5vw,38px)] py-6 animate-slide-up" role="dialog" aria-modal="true" aria-label={`Update ${event.name}`}>
             <span className="sheet-grabber" aria-hidden="true" />
             <div className="flex items-start justify-between gap-4 border-b border-[var(--color-line)] pb-5"><div><div className="text-xs font-semibold uppercase" style={{ color: palette.ink }}>Project details</div><h2 className="m-0 mt-1 text-[var(--text-xl)] font-semibold">{event.name}</h2></div><button onClick={onClose} className="icon-button" aria-label="Close progress"><Icon name="x" /></button></div>
-            <div className="progress-summary my-6"><div><span>Overall</span><strong>{progress.overallPercent}%</strong></div><div><span>Invested</span><strong>{progress.investedHours}h</strong></div><div><span>Readiness</span><strong>{progress.readiness}%</strong></div></div>
+            <div className="progress-summary my-6"><div><span>Overall</span><strong>{Math.round(overallPercent)}%</strong></div><div><span>Invested</span><strong>{investedHours.toFixed(1)}h</strong></div><div><span>Readiness</span><strong>{Math.round(readinessPercent)}%</strong></div></div>
             <div className="settings-segment grid-cols-2 mb-5" role="tablist" aria-label="Project update type"><button type="button" role="tab" aria-selected={mode === "readiness"} onClick={() => setMode("readiness")}>Readiness</button><button type="button" role="tab" aria-selected={mode === "effort"} onClick={() => setMode("effort")}>Effort</button></div>
             <form onSubmit={submit} className="grid gap-4 border-y border-[var(--color-line)] py-5">
                 {mode === "readiness" ? <>
