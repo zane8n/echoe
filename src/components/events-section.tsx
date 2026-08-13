@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { COLOR_MAP } from "@/lib/constants";
 import type { MilestoneEvent, MilestoneKind } from "@/lib/types";
-import { daysUntil, formatOpenDuration, formatRemaining, habitStats, isCheckedInForPeriod, milestoneKind, parseDate, projectProgress } from "@/lib/utils";
+import { daysUntil, formatOpenDuration, formatRemaining, habitStats, isCheckedInForPeriod, milestoneKind, parseDate, periodProgress, projectProgress } from "@/lib/utils";
 import { Icon } from "./icon";
 import { QuickStart } from "./quick-start";
 
@@ -61,9 +61,13 @@ export function EventsSection({ events, onEdit, onExport, onCheckIn, onProjectCh
                         const kind = milestoneKind(event);
                         const project = kind === "project" ? projectProgress(event) : null;
                         const habit = event.habit ? habitStats(event) : null;
-                        const entries = event.project?.checkIns ?? event.habit?.entries ?? [];
-                        const frequency = event.habit?.frequency ?? event.project?.checkInFrequency ?? "daily";
-                        const checkedForPeriod = isCheckedInForPeriod(frequency, entries);
+                        const habitProgress = event.habit ? periodProgress(event.habit) : null;
+                        const projectCheckedForPeriod = isCheckedInForPeriod(event.project?.checkInFrequency ?? "daily", event.project?.checkIns ?? []);
+                        const habitCheckInLabel = habitProgress
+                            ? habitProgress.target > 1
+                                ? `${habitProgress.done} of ${habitProgress.target} this week`
+                                : habitProgress.satisfied ? "Done" : "Check in"
+                            : "Check in";
                         const remaining = kind === "ongoing" ? null : formatRemaining(daysUntil(event.target));
                         const percent = project?.overallPercent ?? (habit?.rate ?? 0);
                         const statusText = kind === "project"
@@ -87,12 +91,13 @@ export function EventsSection({ events, onEdit, onExport, onCheckIn, onProjectCh
                                 </Link>
                                 <div className="path-actions">
                                     {kind === "project" && <button onClick={() => onProgress(event.id)} className="compact-button" aria-label={`Log progress for ${event.name}`}><Icon name="trending-up" size={14} /><span>Update</span></button>}
-                                    {kind === "project" && <button onClick={() => onProjectCheckIn(event.id)} className="compact-button" aria-pressed={checkedForPeriod} aria-label={`Check in to ${event.name}`}><Icon name="check" size={14} /><span>{checkedForPeriod ? "Done" : "Check in"}</span></button>}
-                                    {event.habit && <button onClick={() => onCheckIn(event.id)} className="compact-button" aria-pressed={checkedForPeriod} aria-label={`Check in to ${event.name}`}><Icon name="check" size={14} /><span>{checkedForPeriod ? "Done" : "Check in"}</span></button>}
+                                    {kind === "project" && <button onClick={() => onProjectCheckIn(event.id)} className="compact-button" aria-pressed={projectCheckedForPeriod} aria-label={`Check in to ${event.name}`}><Icon name="check" size={14} /><span>{projectCheckedForPeriod ? "Done" : "Check in"}</span></button>}
+                                    {event.habit && <button onClick={() => onCheckIn(event.id)} className="compact-button" aria-pressed={habitProgress?.satisfied ?? false} aria-label={`Check in to ${event.name}`}><Icon name="check" size={14} /><span>{habitCheckInLabel}</span></button>}
                                     {event.habit && <button onClick={() => onOpenHistory(event.id)} className="icon-button" aria-label={`Open ${event.name} check-in history`} title="History"><Icon name="history" size={15} /></button>}
                                     <button onClick={() => onEdit(event.id)} className="icon-button" aria-label={`Edit ${event.name}`} title="Edit"><Icon name="pencil" size={15} /></button>
                                 </div>
-                                {project && <span className={`risk-line risk-${project.risk}`}>{project.risk === "on-track" ? "On track" : project.risk === "watch" ? "Needs attention" : project.risk === "at-risk" ? `${project.requiredHoursPerWeek}h/week needed` : "Complete"}</span>}
+                                {project && project.risk !== "complete" && <span className={`risk-line risk-${project.risk}`}>{project.requiredHoursPerWeek}h/week needed{project.risk === "watch" ? " · needs attention" : project.risk === "at-risk" ? " · at risk" : ""}</span>}
+                                {project && project.risk === "complete" && <span className="risk-line risk-complete">Complete</span>}
                             </article>
                         );
                     })}

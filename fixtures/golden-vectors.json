@@ -1,0 +1,871 @@
+{
+    "description": "Echoe domain-logic golden vectors (PRD §6, Phase 0). Each vector's `expected` block is produced by the reference TypeScript implementation in src/lib/utils.ts and is meant to be reproduced bit-for-bit by any independent client implementation (Swift, Kotlin, ...). `tz` pins the IANA timezone the vector must be evaluated under; `asOf` pins the wall-clock 'today' the functions are evaluated at (both are simulated in the generating/verifying test, not passed as function arguments, since the reference implementation reads the system clock and local timezone directly).",
+    "habitVectors": [
+        {
+            "name": "daily-empty-history",
+            "tz": "UTC",
+            "asOf": "2026-01-06",
+            "habit": {
+                "frequency": "daily",
+                "entries": []
+            },
+            "expected": {
+                "done": 0,
+                "target": 1,
+                "satisfied": false,
+                "streak": 0
+            }
+        },
+        {
+            "name": "daily-single-entry-satisfied",
+            "tz": "UTC",
+            "asOf": "2026-01-06",
+            "habit": {
+                "frequency": "daily",
+                "entries": [
+                    {
+                        "date": "2026-01-06",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 1,
+                "target": 1,
+                "satisfied": true,
+                "streak": 1
+            }
+        },
+        {
+            "name": "weekly-target-1-satisfied",
+            "tz": "UTC",
+            "asOf": "2026-01-11",
+            "habit": {
+                "frequency": "weekly",
+                "targetPerPeriod": 1,
+                "entries": [
+                    {
+                        "date": "2026-01-05",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 1,
+                "target": 1,
+                "satisfied": true,
+                "streak": 1
+            }
+        },
+        {
+            "name": "weekly-target-2-satisfied",
+            "tz": "UTC",
+            "asOf": "2026-01-11",
+            "habit": {
+                "frequency": "weekly",
+                "targetPerPeriod": 2,
+                "entries": [
+                    {
+                        "date": "2026-01-05",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-06",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 2,
+                "target": 2,
+                "satisfied": true,
+                "streak": 1
+            }
+        },
+        {
+            "name": "weekly-target-3-satisfied",
+            "tz": "UTC",
+            "asOf": "2026-01-11",
+            "habit": {
+                "frequency": "weekly",
+                "targetPerPeriod": 3,
+                "entries": [
+                    {
+                        "date": "2026-01-05",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-06",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-07",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 3,
+                "target": 3,
+                "satisfied": true,
+                "streak": 1
+            }
+        },
+        {
+            "name": "weekly-target-3-just-under",
+            "tz": "UTC",
+            "asOf": "2026-01-11",
+            "habit": {
+                "frequency": "weekly",
+                "targetPerPeriod": 3,
+                "entries": [
+                    {
+                        "date": "2026-01-05",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-06",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 2,
+                "target": 3,
+                "satisfied": false,
+                "streak": 0
+            }
+        },
+        {
+            "name": "weekly-target-4-satisfied",
+            "tz": "UTC",
+            "asOf": "2026-01-11",
+            "habit": {
+                "frequency": "weekly",
+                "targetPerPeriod": 4,
+                "entries": [
+                    {
+                        "date": "2026-01-05",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-06",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-07",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-08",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 4,
+                "target": 4,
+                "satisfied": true,
+                "streak": 1
+            }
+        },
+        {
+            "name": "weekly-target-5-satisfied",
+            "tz": "UTC",
+            "asOf": "2026-01-11",
+            "habit": {
+                "frequency": "weekly",
+                "targetPerPeriod": 5,
+                "entries": [
+                    {
+                        "date": "2026-01-05",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-06",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-07",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-08",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-09",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 5,
+                "target": 5,
+                "satisfied": true,
+                "streak": 1
+            }
+        },
+        {
+            "name": "weekly-target-6-satisfied",
+            "tz": "UTC",
+            "asOf": "2026-01-11",
+            "habit": {
+                "frequency": "weekly",
+                "targetPerPeriod": 6,
+                "entries": [
+                    {
+                        "date": "2026-01-05",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-06",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-07",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-08",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-09",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-10",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 6,
+                "target": 6,
+                "satisfied": true,
+                "streak": 1
+            }
+        },
+        {
+            "name": "weekly-target-7-satisfied",
+            "tz": "UTC",
+            "asOf": "2026-01-11",
+            "habit": {
+                "frequency": "weekly",
+                "targetPerPeriod": 7,
+                "entries": [
+                    {
+                        "date": "2026-01-05",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-06",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-07",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-08",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-09",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-10",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-11",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 7,
+                "target": 7,
+                "satisfied": true,
+                "streak": 1
+            }
+        },
+        {
+            "name": "weekly-target-3-two-week-streak",
+            "tz": "UTC",
+            "asOf": "2026-01-18",
+            "habit": {
+                "frequency": "weekly",
+                "targetPerPeriod": 3,
+                "entries": [
+                    {
+                        "date": "2026-01-05",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-06",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-07",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-12",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-13",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-01-14",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 3,
+                "target": 3,
+                "satisfied": true,
+                "streak": 2
+            }
+        },
+        {
+            "name": "week-boundary-sunday-same-week",
+            "tz": "UTC",
+            "asOf": "2026-01-11",
+            "habit": {
+                "frequency": "weekly",
+                "targetPerPeriod": 1,
+                "entries": [
+                    {
+                        "date": "2026-01-11",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 1,
+                "target": 1,
+                "satisfied": true,
+                "streak": 1
+            }
+        },
+        {
+            "name": "week-boundary-sunday-then-next-monday",
+            "tz": "UTC",
+            "asOf": "2026-01-12",
+            "habit": {
+                "frequency": "weekly",
+                "targetPerPeriod": 1,
+                "entries": [
+                    {
+                        "date": "2026-01-11",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 0,
+                "target": 1,
+                "satisfied": false,
+                "streak": 1
+            }
+        },
+        {
+            "name": "b3-regression-week-boundary-consistency",
+            "tz": "UTC",
+            "asOf": "2026-01-11",
+            "habit": {
+                "frequency": "weekly",
+                "targetPerPeriod": 1,
+                "entries": [
+                    {
+                        "date": "2026-01-11",
+                        "status": "done"
+                    }
+                ]
+            },
+            "note": "Regression vector for the Tier-1 fix (commit d02dea4) that unified three divergent per-period 'is this habit done' checks into one isCheckedInForPeriod/isSatisfied function; a Sunday entry must satisfy its own Monday-start week consistently across every surface (check-in button, streak, notifications).",
+            "expected": {
+                "done": 1,
+                "target": 1,
+                "satisfied": true,
+                "streak": 1
+            }
+        },
+        {
+            "name": "dst-us-spring-forward-streak",
+            "tz": "America/New_York",
+            "asOf": "2026-03-09",
+            "habit": {
+                "frequency": "daily",
+                "entries": [
+                    {
+                        "date": "2026-03-07",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-03-08",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-03-09",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 1,
+                "target": 1,
+                "satisfied": true,
+                "streak": 3
+            }
+        },
+        {
+            "name": "dst-us-fall-back-streak",
+            "tz": "America/New_York",
+            "asOf": "2026-11-02",
+            "habit": {
+                "frequency": "daily",
+                "entries": [
+                    {
+                        "date": "2026-10-31",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-11-01",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-11-02",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 1,
+                "target": 1,
+                "satisfied": true,
+                "streak": 3
+            }
+        },
+        {
+            "name": "dst-eu-spring-forward-streak",
+            "tz": "Europe/Berlin",
+            "asOf": "2026-03-30",
+            "habit": {
+                "frequency": "daily",
+                "entries": [
+                    {
+                        "date": "2026-03-28",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-03-29",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-03-30",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 1,
+                "target": 1,
+                "satisfied": true,
+                "streak": 3
+            }
+        },
+        {
+            "name": "dst-eu-fall-back-streak",
+            "tz": "Europe/Berlin",
+            "asOf": "2026-10-26",
+            "habit": {
+                "frequency": "daily",
+                "entries": [
+                    {
+                        "date": "2026-10-24",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-10-25",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-10-26",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 1,
+                "target": 1,
+                "satisfied": true,
+                "streak": 3
+            }
+        },
+        {
+            "name": "half-hour-offset-india-streak",
+            "tz": "Asia/Kolkata",
+            "asOf": "2026-06-03",
+            "habit": {
+                "frequency": "daily",
+                "entries": [
+                    {
+                        "date": "2026-06-01",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-06-02",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-06-03",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 1,
+                "target": 1,
+                "satisfied": true,
+                "streak": 3
+            }
+        },
+        {
+            "name": "half-hour-offset-newfoundland-streak",
+            "tz": "America/St_Johns",
+            "asOf": "2026-06-03",
+            "habit": {
+                "frequency": "daily",
+                "entries": [
+                    {
+                        "date": "2026-06-01",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-06-02",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-06-03",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 1,
+                "target": 1,
+                "satisfied": true,
+                "streak": 3
+            }
+        },
+        {
+            "name": "dateline-kiritimati-streak",
+            "tz": "Pacific/Kiritimati",
+            "asOf": "2026-06-03",
+            "habit": {
+                "frequency": "daily",
+                "entries": [
+                    {
+                        "date": "2026-06-01",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-06-02",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-06-03",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 1,
+                "target": 1,
+                "satisfied": true,
+                "streak": 3
+            }
+        },
+        {
+            "name": "dateline-gmt-minus12-streak",
+            "tz": "Etc/GMT+12",
+            "asOf": "2026-06-03",
+            "habit": {
+                "frequency": "daily",
+                "entries": [
+                    {
+                        "date": "2026-06-01",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-06-02",
+                        "status": "done"
+                    },
+                    {
+                        "date": "2026-06-03",
+                        "status": "done"
+                    }
+                ]
+            },
+            "expected": {
+                "done": 1,
+                "target": 1,
+                "satisfied": true,
+                "streak": 3
+            }
+        }
+    ],
+    "projectVectors": [
+        {
+            "name": "risk-on-track-gap-0",
+            "tz": "UTC",
+            "asOf": "2026-01-06",
+            "event": {
+                "start": "2026-01-01",
+                "target": "2026-01-11",
+                "project": {
+                    "plannedHours": 10,
+                    "readiness": 50,
+                    "entries": [
+                        {
+                            "id": "e1",
+                            "date": "2026-01-02",
+                            "hours": 5
+                        }
+                    ]
+                }
+            },
+            "expected": {
+                "investedHours": 5,
+                "plannedHours": 10,
+                "remainingHours": 5,
+                "readiness": 50,
+                "effortPercent": 50,
+                "elapsedPercent": 50,
+                "overallPercent": 50,
+                "requiredHoursPerWeek": 5,
+                "risk": "on-track"
+            }
+        },
+        {
+            "name": "risk-watch-gap-exactly-10",
+            "tz": "UTC",
+            "asOf": "2026-01-06",
+            "event": {
+                "start": "2026-01-01",
+                "target": "2026-01-11",
+                "project": {
+                    "plannedHours": 10,
+                    "readiness": 40,
+                    "entries": [
+                        {
+                            "id": "e1",
+                            "date": "2026-01-02",
+                            "hours": 4
+                        }
+                    ]
+                }
+            },
+            "expected": {
+                "investedHours": 4,
+                "plannedHours": 10,
+                "remainingHours": 6,
+                "readiness": 40,
+                "effortPercent": 40,
+                "elapsedPercent": 50,
+                "overallPercent": 40,
+                "requiredHoursPerWeek": 6,
+                "risk": "watch"
+            }
+        },
+        {
+            "name": "risk-at-risk-gap-exactly-25",
+            "tz": "UTC",
+            "asOf": "2026-01-06",
+            "event": {
+                "start": "2026-01-01",
+                "target": "2026-01-11",
+                "project": {
+                    "plannedHours": 10,
+                    "readiness": 25,
+                    "entries": [
+                        {
+                            "id": "e1",
+                            "date": "2026-01-02",
+                            "hours": 2.5
+                        }
+                    ]
+                }
+            },
+            "expected": {
+                "investedHours": 2.5,
+                "plannedHours": 10,
+                "remainingHours": 7.5,
+                "readiness": 25,
+                "effortPercent": 25,
+                "elapsedPercent": 50,
+                "overallPercent": 25,
+                "requiredHoursPerWeek": 7.5,
+                "risk": "at-risk"
+            }
+        },
+        {
+            "name": "risk-at-risk-remaining-days-zero",
+            "tz": "UTC",
+            "asOf": "2026-01-11",
+            "event": {
+                "start": "2026-01-01",
+                "target": "2026-01-11",
+                "project": {
+                    "plannedHours": 10,
+                    "readiness": 50,
+                    "entries": [
+                        {
+                            "id": "e1",
+                            "date": "2026-01-02",
+                            "hours": 5
+                        }
+                    ]
+                }
+            },
+            "expected": {
+                "investedHours": 5,
+                "plannedHours": 10,
+                "remainingHours": 5,
+                "readiness": 50,
+                "effortPercent": 50,
+                "elapsedPercent": 100,
+                "overallPercent": 50,
+                "requiredHoursPerWeek": 5,
+                "risk": "at-risk"
+            }
+        },
+        {
+            "name": "risk-complete-readiness-100",
+            "tz": "UTC",
+            "asOf": "2026-01-01",
+            "event": {
+                "start": "2026-01-01",
+                "target": "2026-01-11",
+                "project": {
+                    "plannedHours": 10,
+                    "readiness": 100,
+                    "entries": [
+                        {
+                            "id": "e1",
+                            "date": "2026-01-01",
+                            "hours": 10
+                        }
+                    ]
+                }
+            },
+            "expected": {
+                "investedHours": 10,
+                "plannedHours": 10,
+                "remainingHours": 0,
+                "readiness": 100,
+                "effortPercent": 100,
+                "elapsedPercent": 0,
+                "overallPercent": 100,
+                "requiredHoursPerWeek": 0,
+                "risk": "complete"
+            }
+        },
+        {
+            "name": "risk-complete-via-achievedAt",
+            "tz": "UTC",
+            "asOf": "2026-01-06",
+            "event": {
+                "start": "2026-01-01",
+                "target": "2026-01-11",
+                "achievedAt": "2026-01-05",
+                "project": {
+                    "plannedHours": 10,
+                    "readiness": 20,
+                    "entries": [
+                        {
+                            "id": "e1",
+                            "date": "2026-01-02",
+                            "hours": 3
+                        }
+                    ]
+                }
+            },
+            "expected": {
+                "investedHours": 3,
+                "plannedHours": 10,
+                "remainingHours": 7,
+                "readiness": 20,
+                "effortPercent": 30,
+                "elapsedPercent": 50,
+                "overallPercent": 25,
+                "requiredHoursPerWeek": 7,
+                "risk": "complete"
+            }
+        },
+        {
+            "name": "overall-percent-reweight-0.5-0.5",
+            "tz": "UTC",
+            "asOf": "2026-01-06",
+            "event": {
+                "start": "2026-01-01",
+                "target": "2026-01-11",
+                "project": {
+                    "plannedHours": 10,
+                    "readiness": 20,
+                    "entries": [
+                        {
+                            "id": "e1",
+                            "date": "2026-01-02",
+                            "hours": 8
+                        }
+                    ]
+                }
+            },
+            "note": "Locks DOM-14: with effort=80%, readiness=20%, the pre-Phase-0 0.35/0.65 weighting gave overallPercent=41; the spec-compliant 0.5/0.5 weighting gives 50.",
+            "expected": {
+                "investedHours": 8,
+                "plannedHours": 10,
+                "remainingHours": 2,
+                "readiness": 20,
+                "effortPercent": 80,
+                "elapsedPercent": 50,
+                "overallPercent": 50,
+                "requiredHoursPerWeek": 2,
+                "risk": "on-track"
+            }
+        },
+        {
+            "name": "empty-project-history",
+            "tz": "UTC",
+            "asOf": "2026-01-01",
+            "event": {
+                "start": "2026-01-01",
+                "target": "2026-03-01",
+                "project": {
+                    "plannedHours": 40,
+                    "readiness": 0,
+                    "entries": []
+                }
+            },
+            "expected": {
+                "investedHours": 0,
+                "plannedHours": 40,
+                "remainingHours": 40,
+                "readiness": 0,
+                "effortPercent": 0,
+                "elapsedPercent": 0,
+                "overallPercent": 0,
+                "requiredHoursPerWeek": 4.7,
+                "risk": "on-track"
+            }
+        }
+    ]
+}

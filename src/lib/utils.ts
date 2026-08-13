@@ -2,9 +2,11 @@ import { DAY_MS } from "./constants";
 import type {
     DashboardSettings,
     DashboardState,
+    HabitConfig,
     HabitStats,
     MilestoneEvent,
     MilestoneKind,
+    PeriodProgress,
     PersonalProfile,
     RemainingDisplay,
     SupportStyle,
@@ -77,7 +79,7 @@ export const projectProgress = (event: MilestoneEvent): ProjectProgress => {
     const readiness = clamp(event.project?.readiness ?? 0);
     const effortPercent = clamp((investedHours / plannedHours) * 100);
     const elapsedPercent = progressBetween(event.start, event.target);
-    const overallPercent = Math.round((effortPercent * 0.35) + (readiness * 0.65));
+    const overallPercent = Math.round((effortPercent * 0.5) + (readiness * 0.5));
     const remainingHours = Math.max(0, Math.round((plannedHours - investedHours) * 10) / 10);
     const remainingDays = Math.max(0, daysUntil(event.target));
     const requiredHoursPerWeek = remainingHours === 0
@@ -149,27 +151,62 @@ export const isCheckedInForPeriod = (
     });
 };
 
+// ── Canonical habit satisfaction (DOM-5) — every surface that needs to know
+// whether a habit's current period is "done" must go through this, not re-derive it.
+export const startOfWeek = (date: Date): Date => addDays(startOfDay(date), -((date.getDay() + 6) % 7));
+
+export const periodTarget = (habit: Pick<HabitConfig, "frequency" | "targetPerPeriod">): number =>
+    habit.frequency === "weekly" ? clamp(habit.targetPerPeriod ?? 1, 1, 7) : 1;
+
+export const periodProgress = (habit: HabitConfig, today = localDate()): PeriodProgress => {
+    const target = periodTarget(habit);
+    if (habit.frequency === "daily") {
+        const done = habit.entries.some((entry) => entry.date === today && entry.status === "done") ? 1 : 0;
+        return { done, target, satisfied: done >= target, periodLabel: "today" };
+    }
+    const now = startOfDay(parseDate(today) ?? new Date());
+    const monday = startOfWeek(now);
+    const done = habit.entries.filter((entry) => {
+        const date = parseDate(entry.date);
+        return entry.status === "done" && Boolean(date && date >= monday && date <= now);
+    }).length;
+    return { done, target, satisfied: done >= target, periodLabel: "this week" };
+};
+
+export const isSatisfied = (habit: HabitConfig, today = localDate()): boolean => periodProgress(habit, today).satisfied;
+
+// DOM-9: a new distinct day beyond the period's target is rejected unless allowExtraCheckIns is on.
+// Correcting an existing date's entry is never blocked — only new "extra" days are.
+export const isBlockedExtraCheckIn = (habit: HabitConfig, date: string, allowExtraCheckIns: boolean | undefined): boolean =>
+    !habit.entries.some((entry) => entry.date === date)
+    && periodProgress(habit, date).satisfied
+    && allowExtraCheckIns !== true;
+
 export const habitStreak = (event: MilestoneEvent): number => {
     if (!event.habit) return 0;
     const doneDates = new Set(event.habit.entries.filter((entry) => entry.status === "done").map((entry) => entry.date));
     if (!doneDates.size) return 0;
 
     if (event.habit.frequency === "weekly") {
-        const weeks = new Set([...doneDates].map((date) => {
+        const target = periodTarget(event.habit);
+        const doneCountByWeek = new Map<string, number>();
+        for (const date of doneDates) {
             const parsed = parseDate(date) ?? new Date();
-            const monday = addDays(startOfDay(parsed), -((parsed.getDay() + 6) % 7));
-            return localDate(monday);
-        }));
+            const monday = localDate(startOfWeek(parsed));
+            doneCountByWeek.set(monday, (doneCountByWeek.get(monday) ?? 0) + 1);
+        }
         let streak = 0;
-        let week = addDays(startOfDay(), -((new Date().getDay() + 6) % 7));
-        if (!weeks.has(localDate(week))) week = addDays(week, -7);
-        while (weeks.has(localDate(week))) {
+        let week = startOfWeek(startOfDay());
+        if ((doneCountByWeek.get(localDate(week)) ?? 0) < target) week = addDays(week, -7);
+        while ((doneCountByWeek.get(localDate(week)) ?? 0) >= target) {
             streak += 1;
             week = addDays(week, -7);
         }
         return streak;
     }
 
+    // Daily habits: a "missed" entry and simply no entry are treated identically here —
+    // only presence of a "done" date breaks/continues the streak (DOM-7).
     let streak = 0;
     let cursor = startOfDay();
     if (!doneDates.has(localDate(cursor))) cursor = addDays(cursor, -1);

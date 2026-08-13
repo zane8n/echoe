@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { COLOR_MAP } from "@/lib/constants";
 import type { MilestoneEvent, PersonalProfile, SharedPathSummary } from "@/lib/types";
-import { daysUntil, formatOpenDuration, formatRemaining, habitInsight, habitStats, isCheckedInForPeriod, milestoneKind, projectProgress } from "@/lib/utils";
+import { daysUntil, formatOpenDuration, formatRemaining, habitInsight, habitStats, isCheckedInForPeriod, milestoneKind, periodProgress, projectProgress } from "@/lib/utils";
 import { CoProgress } from "./co-progress";
 import { Icon } from "./icon";
 import { QuickStart } from "./quick-start";
@@ -44,9 +44,10 @@ export function PathCarousel({ events, profile, sharedByMe, onHabitCheckIn, onPr
             const remaining = kind === "ongoing" ? null : formatRemaining(daysUntil(event.target));
             const project = event.project ? projectProgress(event) : null;
             const habit = event.habit ? habitStats(event) : null;
-            const entries = event.project?.checkIns ?? event.habit?.entries ?? [];
-            const frequency = event.habit?.frequency ?? event.project?.checkInFrequency ?? "daily";
-            const checkedForPeriod = isCheckedInForPeriod(frequency, entries);
+            const habitProgress = event.habit ? periodProgress(event.habit) : null;
+            const checkedForPeriod = event.habit
+                ? habitProgress?.satisfied ?? false
+                : isCheckedInForPeriod(event.project?.checkInFrequency ?? "daily", event.project?.checkIns ?? []);
             const progress = project?.overallPercent ?? habit?.rate ?? 0;
             const share = sharedByMe.find((item) => item.eventId === event.id && item.mode === "participant");
             return <article key={event.id} className="focus-path animate-soft-enter" style={{ "--path-color": palette.color, "--path-glow": palette.glow, animationDelay: `${Math.min(index, 4) * 50}ms` } as React.CSSProperties}>
@@ -59,7 +60,7 @@ export function PathCarousel({ events, profile, sharedByMe, onHabitCheckIn, onPr
                         </div>
                     </div>
                 </Link>
-                {(project || habit) && <div className="focus-progress"><div className="focus-progress-copy"><span>{project ? `${project.investedHours}h invested` : `${habit?.done ?? 0} check-ins`}</span><strong>{project ? `${project.readiness}% ready` : `${habit?.rate ?? 0}% consistent`}</strong></div><div role="progressbar" aria-label={`${event.name} progress`} aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${progress}%` }} /></div></div>}
+                {(project || habit) && <div className="focus-progress"><div className="focus-progress-copy"><span>{project ? `${project.investedHours}h invested` : habitProgress && habitProgress.target > 1 ? `${habitProgress.done} of ${habitProgress.target} this week` : `${habit?.done ?? 0} check-ins`}</span><strong>{project ? `${project.readiness}% ready` : `${habit?.rate ?? 0}% consistent`}</strong></div><div role="progressbar" aria-label={`${event.name} progress`} aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${progress}%` }} /></div>{project && <span className="focus-progress-hours">{project.requiredHoursPerWeek}h/week needed</span>}</div>}
                 {share && (
                     <CoProgress
                         compact
@@ -72,7 +73,7 @@ export function PathCarousel({ events, profile, sharedByMe, onHabitCheckIn, onPr
                 )}
                 <div className="focus-actions">
                     {event.project && <><button type="button" className="primary-button" onClick={() => onProjectCheckIn(event.id)} aria-pressed={checkedForPeriod}><Icon name="check" size={16} />{checkedForPeriod ? "Checked in" : "Check in"}</button><button type="button" className="secondary-button" onClick={() => onProgress(event.id)}>Update</button></>}
-                    {event.habit && <><button type="button" className="primary-button" onClick={() => onHabitCheckIn(event.id)} aria-pressed={checkedForPeriod}><Icon name="check" size={16} />{checkedForPeriod ? (event.habit.frequency === "weekly" ? "Done this week" : "Done today") : "Check in"}</button><button type="button" className="icon-button" onClick={() => onOpenHistory(event.id)} aria-label={`Open ${event.name} history`}><Icon name="history" size={17} /></button></>}
+                    {event.habit && <><button type="button" className="primary-button" onClick={() => onHabitCheckIn(event.id)} aria-pressed={checkedForPeriod}><Icon name="check" size={16} />{habitProgress && habitProgress.target > 1 ? `${habitProgress.done} of ${habitProgress.target} this week` : checkedForPeriod ? (event.habit.frequency === "weekly" ? "Done this week" : "Done today") : "Check in"}</button><button type="button" className="icon-button" onClick={() => onOpenHistory(event.id)} aria-label={`Open ${event.name} history`}><Icon name="history" size={17} /></button></>}
                 </div>
             </article>;
         })}

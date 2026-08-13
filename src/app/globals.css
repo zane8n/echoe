@@ -462,6 +462,7 @@ button:disabled {
 .focus-progress-copy strong { color: var(--color-ink-soft); }
 .focus-progress > div[role="progressbar"] { height: 5px; overflow: hidden; border-radius: 999px; background: var(--color-line); }
 .focus-progress > div[role="progressbar"] span { display: block; height: 100%; border-radius: inherit; background: var(--path-color); transition: width 400ms cubic-bezier(.2, 0, 0, 1); }
+.focus-progress-hours { font-size: var(--text-xs); color: var(--color-muted); }
 .focus-actions { display: flex; align-items: center; gap: 9px; }
 .focus-actions .primary-button, .focus-actions .secondary-button { min-height: 38px; }
 .home-empty { min-height: 0; display: grid; place-items: center; align-content: center; gap: 12px; padding: 24px; text-align: center; }

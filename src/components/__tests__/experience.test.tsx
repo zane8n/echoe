@@ -82,6 +82,9 @@ describe("Echoe milestone experience", () => {
                 onClearData={vi.fn().mockResolvedValue(undefined)}
                 onAccountChange={vi.fn().mockResolvedValue(undefined)}
                 onClose={vi.fn()}
+                snapshots={[]}
+                onLoadSnapshots={vi.fn().mockResolvedValue(undefined)}
+                onRestoreSnapshot={vi.fn().mockResolvedValue(undefined)}
             />,
         );
 
@@ -117,6 +120,9 @@ describe("Echoe milestone experience", () => {
                 onClearData={vi.fn().mockResolvedValue(undefined)}
                 onAccountChange={vi.fn().mockResolvedValue(undefined)}
                 onClose={vi.fn()}
+                snapshots={[]}
+                onLoadSnapshots={vi.fn().mockResolvedValue(undefined)}
+                onRestoreSnapshot={vi.fn().mockResolvedValue(undefined)}
             />,
         );
 
@@ -148,6 +154,9 @@ describe("Echoe milestone experience", () => {
                 onClearData={vi.fn().mockResolvedValue(undefined)}
                 onAccountChange={vi.fn().mockResolvedValue(undefined)}
                 onClose={vi.fn()}
+                snapshots={[]}
+                onLoadSnapshots={vi.fn().mockResolvedValue(undefined)}
+                onRestoreSnapshot={vi.fn().mockResolvedValue(undefined)}
             />,
         );
 

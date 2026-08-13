@@ -5,8 +5,10 @@ import { getAccount, registerAccount, signIn, signOut } from "@/lib/account-clie
 import { ACCENT_ORDER, ACCENTS } from "@/lib/constants";
 import { applyTheme } from "@/lib/theme";
 import { installState, requestInstall, subscribeToInstall } from "@/lib/install";
-import type { AccentName, AccountSummary, Appearance, DashboardSettings, StorageSummary, SupportStyle } from "@/lib/types";
+import type { AccentName, AccountSummary, Appearance, AuditAction, DashboardSettings, StorageSummary, SupportStyle } from "@/lib/types";
 import { Icon, type IconName } from "./icon";
+
+type SnapshotSummary = { seq?: number; createdAt: string; action: AuditAction };
 
 interface Props {
     settings: DashboardSettings;
@@ -20,6 +22,9 @@ interface Props {
     onClearData: () => Promise<void>;
     onAccountChange: () => Promise<void>;
     onClose: () => void;
+    snapshots: SnapshotSummary[];
+    onLoadSnapshots: () => Promise<void>;
+    onRestoreSnapshot: (seq: number) => Promise<void>;
 }
 
 type SettingsTab = "appearance" | "personal" | "data";
@@ -43,8 +48,24 @@ const statusDetails = {
     offline: { icon: "cloud-off" as const, label: "Cloud unavailable, saved locally" },
 };
 
-export function SettingsSheet({ settings, storage, onSave, onAccentChange, onAppearanceChange, onSync, onExport, onImport, onClearData, onAccountChange, onClose }: Props) {
+const actionLabels: Partial<Record<AuditAction, string>> = {
+    "check-in": "Check-in",
+    "clear-check-in": "Cleared a check-in",
+    create: "Created a path",
+    edit: "Edited a path",
+    delete: "Deleted a path",
+    restore: "Restored a path",
+    "restore-snapshot": "Restored from history",
+    progress: "Logged progress",
+    settings: "Changed settings",
+    import: "Imported a backup",
+    "remote-pull": "Synced from the cloud",
+};
+
+export function SettingsSheet({ settings, storage, onSave, onAccentChange, onAppearanceChange, onSync, onExport, onImport, onClearData, onAccountChange, onClose, snapshots, onLoadSnapshots, onRestoreSnapshot }: Props) {
     const [tab, setTab] = useState<SettingsTab>("appearance");
+    const [confirmRestoreSeq, setConfirmRestoreSeq] = useState<number | null>(null);
+    const [restoring, setRestoring] = useState(false);
     const [accent, setAccent] = useState<AccentName>(settings.accent ?? "blue");
     const [appearance, setAppearance] = useState<Appearance>(settings.appearance ?? "system");
     const [showHistogram, setShowHistogram] = useState(settings.showActivityHistogram ?? true);
@@ -113,6 +134,10 @@ export function SettingsSheet({ settings, storage, onSave, onAccentChange, onApp
     }, []);
 
     useEffect(() => subscribeToInstall(() => setInstallation(installState())), []);
+
+    useEffect(() => {
+        if (tab === "data") void onLoadSnapshots();
+    }, [tab, onLoadSnapshots]);
 
     useEffect(() => {
         const timer = window.setTimeout(() => {
@@ -373,6 +398,30 @@ export function SettingsSheet({ settings, storage, onSave, onAccentChange, onApp
                                     <button type="button" onClick={() => fileInput.current?.click()} className="secondary-button"><Icon name="upload" size={15} /> Import</button>
                                     <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={(event) => { if (event.target.files?.[0]) { onImport(event.target.files[0]); event.target.value = ""; } }} />
                                 </div>
+
+                                {snapshots.length > 0 && (
+                                    <div className="border-t border-[var(--color-line)] pt-5">
+                                        <strong className="block text-sm">History</strong>
+                                        <p className="m-0 mt-1 text-xs text-[var(--color-muted)]">Restore an earlier point in time. Restoring saves a fresh snapshot too, so it can be undone.</p>
+                                        <ul className="m-0 mt-3 grid list-none gap-2 p-0">
+                                            {snapshots.slice(0, 10).map((snapshot) => (
+                                                <li key={snapshot.seq} className="flex items-center justify-between gap-3 text-xs">
+                                                    <span className="min-w-0 truncate text-[var(--color-ink-soft)]">
+                                                        {actionLabels[snapshot.action] ?? snapshot.action} <span className="text-[var(--color-muted)]">· {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(snapshot.createdAt))}</span>
+                                                    </span>
+                                                    {confirmRestoreSeq === snapshot.seq ? (
+                                                        <span className="flex shrink-0 items-center gap-2">
+                                                            <button type="button" disabled={restoring} onClick={async () => { setRestoring(true); await onRestoreSnapshot(snapshot.seq!); setRestoring(false); setConfirmRestoreSeq(null); }} className="quiet-button text-[var(--color-accent-ink)]">Yes, restore</button>
+                                                            <button type="button" onClick={() => setConfirmRestoreSeq(null)} className="quiet-button">Cancel</button>
+                                                        </span>
+                                                    ) : (
+                                                        <button type="button" onClick={() => setConfirmRestoreSeq(snapshot.seq ?? null)} className="quiet-button shrink-0">Restore</button>
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
 
                                 <div className="border-t border-[var(--color-line)] pt-5">
                                     {!confirmClear ? (

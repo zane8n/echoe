@@ -13,6 +13,7 @@ import {
     habitStreak,
     localDate,
     milestoneKind,
+    periodProgress,
     projectProgress,
     formatOpenDuration,
     startOfDay,
@@ -60,6 +61,7 @@ export function PathDetail({ event, tick, profile, onEdit, onConfetti, onCheckIn
 
     const { spent, remaining, remainingDisplay, streak, stats, palette, kind, project } = display;
     const todayEntry = event.habit?.entries.find((entry) => entry.date === localDate());
+    const habitProgress = event.habit ? periodProgress(event.habit) : null;
     const historyDays = Array.from({ length: 21 }, (_, index) => localDate(addDays(startOfDay(), index - 20)));
     const metric = kind === "ongoing"
         ? event.habit ? String(streak) : formatOpenDuration(event.start)
@@ -70,7 +72,7 @@ export function PathDetail({ event, tick, profile, onEdit, onConfetti, onCheckIn
         ? event.habit ? `${event.habit.frequency} rhythm` : "moving with you"
         : event.isCountdown
         ? remaining > 0 ? `days until ${formatDate(event.target, { month: "short", day: "numeric" })}` : "target date"
-        : project ? `${project.investedHours}h invested, ${project.readiness}% ready` : remaining > 0 ? `${remainingDisplay.value} ${remainingDisplay.unit} until target` : "target reached";
+        : project ? `${project.investedHours}h invested, ${project.readiness}% ready, ${project.requiredHoursPerWeek}h/week needed` : remaining > 0 ? `${remainingDisplay.value} ${remainingDisplay.unit} until target` : "target reached";
     const progressValue = project?.overallPercent ?? (kind === "ongoing" ? stats.rate : spent.percent);
 
     return (
@@ -86,6 +88,9 @@ export function PathDetail({ event, tick, profile, onEdit, onConfetti, onCheckIn
                 )}
                 {event.habit && stats.total > 0 && (
                     <span className="status-pill bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]">{stats.rate}% consistency</span>
+                )}
+                {habitProgress && habitProgress.target > 1 && (
+                    <span className="status-pill bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]">{habitProgress.done}/{habitProgress.target} this week</span>
                 )}
                 {event.achievedAt && (
                     <span className="status-pill bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"><Icon name="check" size={12} /> Complete</span>

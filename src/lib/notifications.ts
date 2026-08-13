@@ -1,5 +1,5 @@
 import type { EchoeNotification, MilestoneEvent, PersonalProfile } from "./types";
-import { habitInsight, isCheckedInForPeriod, localDate, milestoneKind, projectProgress } from "./utils";
+import { habitInsight, isCheckedInForPeriod, isSatisfied, localDate, milestoneKind, projectProgress } from "./utils";
 
 export function buildNotifications(events: MilestoneEvent[], profile: PersonalProfile, today = localDate()): EchoeNotification[] {
     const notifications: EchoeNotification[] = [];
@@ -7,9 +7,11 @@ export function buildNotifications(events: MilestoneEvent[], profile: PersonalPr
         const kind = milestoneKind(event);
         const habitEntries = event.habit?.entries ?? [];
         const projectEntries = event.project?.checkIns ?? [];
-        const frequency = event.habit?.frequency ?? event.project?.checkInFrequency ?? "daily";
+        const projectFrequency = event.project?.checkInFrequency ?? "daily";
         const entries = kind === "project" ? projectEntries : habitEntries;
-        const dueThisPeriod = !isCheckedInForPeriod(frequency, entries, today);
+        const dueThisPeriod = kind === "project"
+            ? !isCheckedInForPeriod(projectFrequency, projectEntries, today)
+            : event.habit ? !isSatisfied(event.habit, today) : false;
         const checkedInToday = entries.some((entry) => entry.date === today && entry.status === "done");
 
         if (!event.achievedAt && (event.habit || event.project) && dueThisPeriod) {

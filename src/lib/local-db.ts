@@ -230,7 +230,7 @@ export async function commitDashboardState(
         const { habit, ...base } = event;
         const stored: StoredMilestone = {
             ...base,
-            habit: habit ? { frequency: habit.frequency } : undefined,
+            habit: habit ? { frequency: habit.frequency, targetPerPeriod: habit.targetPerPeriod } : undefined,
             createdAt: existing?.createdAt ?? event.createdAt ?? now,
             updatedAt: event.updatedAt ?? now,
         };
@@ -271,7 +271,7 @@ export async function commitDashboardState(
     for (const key of auditKeys.slice(0, Math.max(0, auditKeys.length - 1000))) await auditStore.delete(key);
     const snapshotStore = transaction.objectStore("snapshots");
     const snapshotKeys = await snapshotStore.getAllKeys();
-    for (const key of snapshotKeys.slice(0, Math.max(0, snapshotKeys.length - 120))) await snapshotStore.delete(key);
+    for (const key of snapshotKeys.slice(0, Math.max(0, snapshotKeys.length - 30))) await snapshotStore.delete(key);
     await transaction.done;
     return state;
 }
@@ -303,6 +303,24 @@ export async function getAuditLog(limit = 200): Promise<AuditEntry[]> {
     const entries = await database.getAllFromIndex("audit", "by-time");
     return entries.slice(-limit).reverse();
 }
+
+export async function listSnapshots(limit = 30): Promise<Array<Pick<StateSnapshot, "seq" | "createdAt" | "action">>> {
+    const database = await getDatabase();
+    const entries = await database.getAllFromIndex("snapshots", "by-time");
+    return entries.slice(-limit).reverse().map(({ seq, createdAt, action }) => ({ seq, createdAt, action }));
+}
+
+export async function restoreSnapshot(seq: number): Promise<DashboardState> {
+    const database = await getDatabase();
+    const snapshot = await database.get("snapshots", seq);
+    if (!snapshot) throw new Error("Snapshot not found");
+    return commitDashboardState(snapshot.state, "restore-snapshot", `Restored a snapshot from ${formatSnapshotTime(snapshot.createdAt)}`);
+}
+
+const formatSnapshotTime = (iso: string): string => {
+    const date = new Date(iso);
+    return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
+};
 
 export async function setRemoteVersion(version: number): Promise<void> {
     const database = await getDatabase();

@@ -37,6 +37,7 @@ export interface HabitEntry {
 
 export interface HabitConfig {
     frequency: "daily" | "weekly";
+    targetPerPeriod?: number;
     entries: HabitEntry[];
 }
 
@@ -189,7 +190,8 @@ export type AuditAction =
     | "notification"
     | "settings"
     | "import"
-    | "remote-pull";
+    | "remote-pull"
+    | "restore-snapshot";
 
 export interface AuditEntry {
     seq?: number;
@@ -251,4 +253,11 @@ export interface HabitStats {
     missed: number;
     total: number;
     rate: number;
+}
+
+export interface PeriodProgress {
+    done: number;
+    target: number;
+    satisfied: boolean;
+    periodLabel: "today" | "this week";
 }

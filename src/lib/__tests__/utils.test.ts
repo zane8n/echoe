@@ -62,7 +62,7 @@ describe("Echoe time and habit logic", () => {
                 entries: [{ id: "p1", date: "2026-10-31", hours: 24, readiness: 35 }],
             },
         };
-        expect(projectProgress(project)).toMatchObject({ investedHours: 24, remainingHours: 96, readiness: 35, effortPercent: 20, overallPercent: 30, risk: "at-risk" });
+        expect(projectProgress(project)).toMatchObject({ investedHours: 24, remainingHours: 96, readiness: 35, effortPercent: 20, overallPercent: 28, risk: "at-risk" });
         expect(projectProgress(project).requiredHoursPerWeek).toBeGreaterThan(20);
     });
 

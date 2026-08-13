@@ -6,18 +6,21 @@ import {
     commitDashboardState,
     getStorageSummary,
     initializeLocalDatabase,
+    listSnapshots as listSnapshotsFromDb,
     loadDashboardState,
     resetLocalDatabaseForAccountSwitch,
+    restoreSnapshot as restoreSnapshotInDb,
     setRemoteVersion,
 } from "@/lib/local-db";
 import { pullRemoteState, pushRemoteState } from "@/lib/remote-sync";
-import { localDate, seedState } from "@/lib/utils";
+import { isBlockedExtraCheckIn, localDate, seedState } from "@/lib/utils";
 import type {
     Achievement,
     AuditAction,
     DashboardState,
     HabitEntry,
     MilestoneEvent,
+    StateSnapshot,
     StorageSummary,
     SyncStatus,
 } from "@/lib/types";
@@ -229,6 +232,9 @@ export function useDashboardState() {
     ) => {
         const current = stateRef.current;
         if (!current) return;
+        const target = current.events.find((event) => event.id === eventId);
+        if (!target?.habit) return;
+        if (status === "done" && isBlockedExtraCheckIn(target.habit, date, target.allowExtraCheckIns)) return;
         const now = new Date().toISOString();
         const events = current.events.map((event) => {
             if (event.id !== eventId || !event.habit) return event;
@@ -392,6 +398,24 @@ export function useDashboardState() {
         await resetLocalDatabaseForAccountSwitch();
     }, []);
 
+    const listSnapshots = useCallback(async () => {
+        return listSnapshotsFromDb(30) as Promise<Array<Pick<StateSnapshot, "seq" | "createdAt" | "action">>>;
+    }, []);
+
+    const restoreSnapshot = useCallback(async (seq: number) => {
+        await queueRef.current;
+        const next = await restoreSnapshotInDb(seq);
+        publishState(next);
+        channelRef.current?.postMessage({ updatedAt: next.updatedAt });
+        await refreshSummary("syncing");
+        try {
+            const remote = await pushRemoteState(next, "bootstrap");
+            await refreshSummary(remote.mode === "cloud" ? "synced" : "local");
+        } catch {
+            await refreshSummary("offline");
+        }
+    }, [publishState, refreshSummary]);
+
     return {
         state,
         storageSummary,
@@ -412,5 +436,7 @@ export function useDashboardState() {
         importState,
         clearAllData,
         resetForAccountSwitch,
+        listSnapshots,
+        restoreSnapshot,
     };
 }

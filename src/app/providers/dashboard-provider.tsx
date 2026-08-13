@@ -8,8 +8,10 @@ import { getAuditLog } from "@/lib/local-db";
 import { buildNotifications } from "@/lib/notifications";
 import { getSocialSnapshot, sendCheer } from "@/lib/social-client";
 import { applyTheme } from "@/lib/theme";
-import type { DashboardState, EchoeNotification, HabitEntry, MilestoneEvent, MilestoneKind, SocialSnapshot, StorageSummary } from "@/lib/types";
-import { habitStreak, isDashboardState, localDate, normalizeSettings, seedState } from "@/lib/utils";
+import type { AuditAction, DashboardState, EchoeNotification, HabitEntry, MilestoneEvent, MilestoneKind, SocialSnapshot, StorageSummary } from "@/lib/types";
+import { habitStreak, isBlockedExtraCheckIn, isDashboardState, localDate, normalizeSettings, seedState } from "@/lib/utils";
+
+type SnapshotSummary = { seq?: number; createdAt: string; action: AuditAction };
 
 const EMPTY_SOCIAL: SocialSnapshot = { mode: "local", accountRequired: true, friends: [], sharedByMe: [], sharedWithMe: [], recentCheers: [] };
 
@@ -55,6 +57,9 @@ interface DashboardContextValue {
     logProjectEffort: ReturnType<typeof useDashboardState>["logProjectEffort"];
     markNotificationsRead: ReturnType<typeof useDashboardState>["markNotificationsRead"];
     clearAllData: ReturnType<typeof useDashboardState>["clearAllData"];
+    snapshots: SnapshotSummary[];
+    loadSnapshots: () => Promise<void>;
+    restoreSnapshot: (seq: number) => Promise<void>;
     handleDelete: (id: string) => void;
     handleUndo: () => void;
     handleExport: () => Promise<void>;
@@ -80,8 +85,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         state, storageSummary, updateSettings, updateAccent, updateAppearance, upsertEvent: rawUpsertEvent, deleteEvent, restoreEvent,
         addAchievement, checkInHabit, checkInProject, clearHabitCheckIn, logProjectEffort, updateProjectReadiness,
         markNotificationsRead, syncNow, importState, clearAllData, resetForAccountSwitch,
+        listSnapshots, restoreSnapshot: restoreSnapshotState,
     } = useDashboardState();
 
+    const [snapshots, setSnapshots] = useState<SnapshotSummary[]>([]);
     const [activeSheet, setActiveSheet] = useState<"event" | "settings" | null>(null);
     const [editingEventId, setEditingEventId] = useState<string | null>(null);
     const [quickStartSeed, setQuickStartSeed] = useState<{ kind: MilestoneKind; frequency?: "daily" | "weekly" } | null>(null);
@@ -125,6 +132,15 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         if (toastTimer.current) clearTimeout(toastTimer.current);
         toastTimer.current = setTimeout(() => setToastMessage(""), 2400);
     }, []);
+
+    const loadSnapshots = useCallback(async () => {
+        setSnapshots(await listSnapshots());
+    }, [listSnapshots]);
+    const restoreSnapshot = useCallback(async (seq: number) => {
+        await restoreSnapshotState(seq);
+        await loadSnapshots();
+        showToast("Snapshot restored");
+    }, [loadSnapshots, restoreSnapshotState, showToast]);
 
     const refreshSocial = useCallback(async () => {
         try {
@@ -264,6 +280,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         const event = state?.events.find((item) => item.id === id);
         if (event?.habit && status === "done") {
             const checkInDate = date ?? localDate();
+            if (isBlockedExtraCheckIn(event.habit, checkInDate, event.allowExtraCheckIns)) {
+                showToast("This week's target is already met — turn on extra check-ins to log more.");
+                return;
+            }
             const previousStreak = habitStreak(event);
             const nextEntries = event.habit.entries.filter((entry) => entry.date !== checkInDate);
             nextEntries.push({ date: checkInDate, status: "done" });
@@ -299,6 +319,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         setCheckInEventId, setProgressEventId, setNotificationsOpen, setKeyboardOpen, setShowConfetti,
         showToast, openEventEditor, openQuickStart, openSettings, closeSheet, goBack, navigateTo,
         updateSettings, updateAccent, updateAppearance, upsertEvent, syncNow, updateProjectReadiness, logProjectEffort, markNotificationsRead, clearAllData,
+        snapshots, loadSnapshots, restoreSnapshot,
         handleDelete, handleUndo, handleExport, handleImport, handleHabitCheckIn, handleProjectCheckIn, handleClearCheckIn, handleAccountChange, handleNotification,
     };
 

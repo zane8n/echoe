@@ -33,6 +33,7 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose, seed }:
     const [pinned, setPinned] = useState(event?.pinned ?? events.length === 0);
     const [isCountdown, setIsCountdown] = useState(event?.isCountdown ?? false);
     const [habitFreq, setHabitFreq] = useState<"daily" | "weekly">(event?.habit?.frequency ?? seed?.frequency ?? "daily");
+    const [targetPerPeriod, setTargetPerPeriod] = useState(event?.habit?.targetPerPeriod ?? 1);
     const [trackOngoing, setTrackOngoing] = useState(Boolean(event?.habit));
     const [plannedHours, setPlannedHours] = useState(event?.project?.plannedHours ?? 40);
     const [readiness, setReadiness] = useState(event?.project?.readiness ?? 0);
@@ -112,7 +113,7 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose, seed }:
             isCountdown: kind === "project" ? isCountdown : false,
             allowExtraCheckIns: event?.allowExtraCheckIns ?? false,
             habit: habitEnabled
-                ? { frequency: habitFreq, entries: event?.habit?.entries ?? [] }
+                ? { frequency: habitFreq, targetPerPeriod: habitFreq === "weekly" ? targetPerPeriod : undefined, entries: event?.habit?.entries ?? [] }
                 : undefined,
             project: kind === "project"
                 ? { plannedHours: Math.max(1, plannedHours), readiness, entries: event?.project?.entries ?? [], checkInFrequency: projectFreq, checkIns: event?.project?.checkIns ?? [] }
@@ -165,7 +166,12 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose, seed }:
                         {kind === "ongoing" && <label className="editor-toggle"><span><strong>Track consistency</strong><small>Leave off for tenure; turn on for an ongoing practice.</small></span><input type="checkbox" checked={trackOngoing} onChange={(input) => setTrackOngoing(input.target.checked)} className="theme-checkbox" /></label>}
 
                         {(kind === "habit" || (kind === "ongoing" && trackOngoing)) && (
-                            <label className="grid gap-2"><span className="field-label">Check-in rhythm</span><select value={habitFreq} onChange={(input) => setHabitFreq(input.target.value as "daily" | "weekly")} className="field"><option value="daily">Once each day</option><option value="weekly">Once each week</option></select></label>
+                            <div className="tracking-pair">
+                                <label className="grid min-w-0 gap-2"><span className="field-label">Check-in rhythm</span><select value={habitFreq} onChange={(input) => setHabitFreq(input.target.value as "daily" | "weekly")} className="field"><option value="daily">Once each day</option><option value="weekly">Once each week</option></select></label>
+                                {habitFreq === "weekly" && (
+                                    <label className="grid min-w-0 gap-2"><span className="field-label">Times per week</span><select value={targetPerPeriod} onChange={(input) => setTargetPerPeriod(Number(input.target.value))} className="field" aria-label="Times per week">{[1, 2, 3, 4, 5, 6, 7].map((n) => <option key={n} value={n}>{n}×</option>)}</select></label>
+                                )}
+                            </div>
                         )}
 
                         {kind === "ongoing" && !trackOngoing && <div className="tracking-rest"><Icon name="history" size={20} /><strong>Continuity only</strong><small>Echoe will quietly track how long this path has been part of your life.</small></div>}

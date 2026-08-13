@@ -27,6 +27,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         handleHabitCheckIn, handleClearCheckIn, handleNotification, markNotificationsRead,
         upsertEvent, updateSettings, updateAccent, updateAppearance, syncNow, handleExport, handleImport, clearAllData, handleAccountChange,
         logProjectEffort, updateProjectReadiness, showToast,
+        snapshots, loadSnapshots, restoreSnapshot,
     } = useDashboard();
 
     const checkInEvent = state.events.find((event) => event.id === checkInEventId) ?? null;
@@ -49,7 +50,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         {children}
 
         {activeSheet === "event" && <EventSheet key={editingEventId ?? "new"} eventId={editingEventId} events={state.events} onSave={upsertEvent} onDelete={handleDelete} onClose={closeSheet} seed={quickStartSeed} />}
-        {activeSheet === "settings" && <SettingsSheet settings={state.settings} storage={storageSummary} onSave={updateSettings} onAccentChange={updateAccent} onAppearanceChange={updateAppearance} onSync={syncNow} onExport={handleExport} onImport={handleImport} onClearData={clearAllData} onAccountChange={handleAccountChange} onClose={closeSheet} />}
+        {activeSheet === "settings" && <SettingsSheet settings={state.settings} storage={storageSummary} onSave={updateSettings} onAccentChange={updateAccent} onAppearanceChange={updateAppearance} onSync={syncNow} onExport={handleExport} onImport={handleImport} onClearData={clearAllData} onAccountChange={handleAccountChange} onClose={closeSheet} snapshots={snapshots} onLoadSnapshots={loadSnapshots} onRestoreSnapshot={restoreSnapshot} />}
         {checkInEvent?.habit && <CheckInSheet event={checkInEvent} onCheckIn={handleHabitCheckIn} onClear={handleClearCheckIn} onClose={() => setCheckInEventId(null)} />}
         {progressEvent?.project && <ProgressSheet event={progressEvent} onEffort={(id, hours, date, note) => { logProjectEffort(id, hours, date, note); showToast("Effort recorded"); }} onReadiness={(id, readiness, note) => { updateProjectReadiness(id, readiness, note); showToast("Readiness updated"); }} onClose={() => setProgressEventId(null)} />}
         {notificationsOpen && <NotificationSheet notifications={notifications} readIds={readIds} onMarkRead={markNotificationsRead} onSelect={handleNotification} onClose={() => setNotificationsOpen(false)} />}
