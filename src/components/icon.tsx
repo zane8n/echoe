@@ -15,8 +15,10 @@ import {
     Flame,
     Heart,
     History,
+    Hourglass,
     Leaf,
     Layers3,
+    ListChecks,
     MoreHorizontal,
     Moon,
     Mountain,
@@ -54,7 +56,8 @@ export type IconName =
     | "database" | "cloud" | "cloud-off" | "history" | "refresh" | "missed"
     | "flower" | "leaf" | "mountain" | "palette" | "snowflake" | "sun"
     | "user" | "waves" | "log-in" | "bell" | "users" | "user-plus" | "share"
-    | "eye" | "trophy" | "home" | "chevron-left" | "smartphone" | "moon" | "heart";
+    | "eye" | "trophy" | "home" | "chevron-left" | "smartphone" | "moon" | "heart"
+    | "hourglass" | "list-checks";
 
 const icons: Record<IconName, LucideIcon> = {
     settings: Settings,
@@ -101,6 +104,8 @@ const icons: Record<IconName, LucideIcon> = {
     smartphone: Smartphone,
     moon: Moon,
     heart: Heart,
+    hourglass: Hourglass,
+    "list-checks": ListChecks,
 };
 
 interface Props extends Omit<ComponentProps<LucideIcon>, "ref"> {

@@ -191,6 +191,19 @@ describe("Echoe milestone experience", () => {
         expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ kind: "ongoing", target: "", habit: undefined }));
     });
 
+    it("creates a countdown path with no check-in or tracking fields at all", async () => {
+        const user = userEvent.setup();
+        const onSave = vi.fn();
+        render(<EventSheet eventId={null} events={[]} onSave={onSave} onDelete={vi.fn()} onClose={vi.fn()} />);
+        await user.type(screen.getByRole("textbox", { name: "Name" }), "Trip to Lisbon");
+        await user.click(screen.getByRole("radio", { name: "Countdown" }));
+        expect(screen.getByText("Just a date to look forward to")).toBeInTheDocument();
+        expect(screen.getByText("Target date")).toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: "Create path" }));
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ kind: "countdown", habit: undefined, project: undefined }));
+        expect(onSave.mock.calls[0][0].target).not.toBe("");
+    });
+
     it("updates project readiness without requiring a check-in or effort", async () => {
         const user = userEvent.setup();
         const onReadiness = vi.fn();

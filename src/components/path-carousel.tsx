@@ -71,10 +71,12 @@ export function PathCarousel({ events, profile, sharedByMe, onHabitCheckIn, onPr
                         onCheer={() => { setCheeredIds((current) => new Set(current).add(share.id)); onCheer(share.id); }}
                     />
                 )}
-                <div className="focus-actions">
-                    {event.project && <><button type="button" className="primary-button" onClick={() => onProjectCheckIn(event.id)} aria-pressed={checkedForPeriod}><Icon name="check" size={16} />{checkedForPeriod ? "Checked in" : "Check in"}</button><button type="button" className="secondary-button" onClick={() => onProgress(event.id)}>Update</button></>}
-                    {event.habit && <><button type="button" className="primary-button" onClick={() => onHabitCheckIn(event.id)} aria-pressed={checkedForPeriod}><Icon name="check" size={16} />{habitProgress && habitProgress.target > 1 ? `${habitProgress.done} of ${habitProgress.target} this week` : checkedForPeriod ? (event.habit.frequency === "weekly" ? "Done this week" : "Done today") : "Check in"}</button><button type="button" className="icon-button" onClick={() => onOpenHistory(event.id)} aria-label={`Open ${event.name} history`}><Icon name="history" size={17} /></button></>}
-                </div>
+                {(event.project || event.habit) && (
+                    <div className="focus-actions">
+                        {event.project && <><button type="button" className="primary-button" onClick={() => onProjectCheckIn(event.id)} aria-pressed={checkedForPeriod}><Icon name="check" size={16} />{checkedForPeriod ? "Checked in" : "Check in"}</button><button type="button" className="secondary-button" onClick={() => onProgress(event.id)}>Update</button></>}
+                        {event.habit && <><button type="button" className="primary-button" onClick={() => onHabitCheckIn(event.id)} aria-pressed={checkedForPeriod}><Icon name="check" size={16} />{habitProgress && habitProgress.target > 1 ? `${habitProgress.done} of ${habitProgress.target} this week` : checkedForPeriod ? (event.habit.frequency === "weekly" ? "Done this week" : "Done today") : "Check in"}</button><button type="button" className="icon-button" onClick={() => onOpenHistory(event.id)} aria-label={`Open ${event.name} history`}><Icon name="history" size={17} /></button></>}
+                    </div>
+                )}
             </article>;
         })}
     </div>;

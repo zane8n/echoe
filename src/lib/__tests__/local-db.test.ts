@@ -9,7 +9,7 @@ import {
     loadDashboardState,
     setRemoteVersion,
 } from "@/lib/local-db";
-import { seedState } from "@/lib/utils";
+import { addDays, localDate, seedState } from "@/lib/utils";
 
 describe("ordered IndexedDB repository", () => {
     beforeEach(async () => {
@@ -99,6 +99,25 @@ describe("ordered IndexedDB repository", () => {
         expect(loaded.events[0].project).toMatchObject({ plannedHours: 120, readiness: 42 });
         expect(loaded.events[0].project?.entries.map((entry) => entry.id)).toEqual(["first", "later"]);
         expect((await getAuditLog())[0]).toMatchObject({ action: "progress", entityId: "project-1" });
+    });
+
+    it("persists daily tasks and prunes anything older than yesterday", async () => {
+        await initializeLocalDatabase();
+        const state = seedState();
+        const today = localDate();
+        const yesterday = localDate(addDays(new Date(), -1));
+        const threeDaysAgo = localDate(addDays(new Date(), -3));
+        await commitDashboardState({
+            ...state,
+            dailyTasks: [
+                { id: "today-1", text: "Call the dentist", done: false, date: today, order: 0, createdAt: new Date().toISOString() },
+                { id: "yesterday-1", text: "Yesterday leftover", done: false, date: yesterday, order: 0, createdAt: new Date().toISOString() },
+                { id: "old-1", text: "Ancient task", done: false, date: threeDaysAgo, order: 0, createdAt: new Date().toISOString() },
+            ],
+        }, "edit", "Added My Day tasks");
+
+        const loaded = await loadDashboardState();
+        expect(loaded.dailyTasks.map((task) => task.id).sort()).toEqual(["today-1", "yesterday-1"]);
     });
 
     it("records the last verified cloud exchange separately from local saves", async () => {

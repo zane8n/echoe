@@ -58,6 +58,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         <nav className="mobile-nav" aria-label="Primary navigation">
             <Link href="/" aria-current={pathname === "/" ? "page" : undefined}><Icon name="home" size={19} /><span>Home</span></Link>
             <Link href="/paths" aria-current={pathname === "/paths" ? "page" : undefined}><Icon name="layers" size={19} /><span>Paths</span></Link>
+            <Link href="/my-day" aria-current={pathname === "/my-day" ? "page" : undefined}><Icon name="list-checks" size={19} /><span>My Day</span></Link>
             <button type="button" onClick={() => openEventEditor()} aria-label="Add a path"><span className="mobile-add"><Icon name="plus" size={23} /></span><span>Add</span></button>
             <Link href="/momentum" aria-current={pathname === "/momentum" ? "page" : undefined}><Icon name="trending-up" size={19} /><span>Momentum</span></Link>
             <Link href="/friends" aria-current={pathname === "/friends" ? "page" : undefined}><Icon name="users" size={19} /><span>Friends</span></Link>

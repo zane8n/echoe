@@ -65,12 +65,12 @@ export function PathDetail({ event, tick, profile, onEdit, onConfetti, onCheckIn
     const historyDays = Array.from({ length: 21 }, (_, index) => localDate(addDays(startOfDay(), index - 20)));
     const metric = kind === "ongoing"
         ? event.habit ? String(streak) : formatOpenDuration(event.start)
-        : event.isCountdown
+        : kind === "countdown" || event.isCountdown
         ? remaining > 0 ? String(remaining) : remaining === 0 ? "Today" : "Reached"
         : `${project?.overallPercent ?? spent.percent.toFixed(0)}%`;
     const metricLabel = kind === "ongoing"
         ? event.habit ? `${event.habit.frequency} rhythm` : "moving with you"
-        : event.isCountdown
+        : kind === "countdown" || event.isCountdown
         ? remaining > 0 ? `days until ${formatDate(event.target, { month: "short", day: "numeric" })}` : "target date"
         : project ? `${project.investedHours}h invested, ${project.readiness}% ready, ${project.requiredHoursPerWeek}h/week needed` : remaining > 0 ? `${remainingDisplay.value} ${remainingDisplay.unit} until target` : "target reached";
     const progressValue = project?.overallPercent ?? (kind === "ongoing" ? stats.rate : spent.percent);

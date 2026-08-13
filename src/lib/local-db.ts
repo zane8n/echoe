@@ -1,10 +1,11 @@
 import { deleteDB, openDB, type DBSchema, type IDBPDatabase } from "idb";
 import { LEGACY_STORAGE_KEYS, LEGACY_THEME_TO_ACCENT, LOCAL_DB_NAME, STALE_DATA_RESET_KEY } from "./constants";
-import { normalizeSettings, seedState } from "./utils";
+import { addDays, localDate, normalizeSettings, seedState } from "./utils";
 import type {
     Achievement,
     AuditAction,
     AuditEntry,
+    DailyTask,
     DashboardSettings,
     DashboardState,
     HabitConfig,
@@ -71,6 +72,11 @@ interface EchoeDatabase extends DBSchema {
         value: StateSnapshot;
         indexes: { "by-time": string };
     };
+    dailyTasks: {
+        key: string;
+        value: DailyTask;
+        indexes: { "by-date": string };
+    };
     meta: {
         key: string;
         value: MetaRecord;
@@ -83,29 +89,35 @@ const createId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Mat
 
 const getDatabase = () => {
     if (!databasePromise) {
-        databasePromise = openDB<EchoeDatabase>(LOCAL_DB_NAME, 1, {
-            upgrade(database) {
-                const milestones = database.createObjectStore("milestones", { keyPath: "id" });
-                milestones.createIndex("by-updated", "updatedAt");
-                milestones.createIndex("by-target", "target");
+        databasePromise = openDB<EchoeDatabase>(LOCAL_DB_NAME, 2, {
+            upgrade(database, oldVersion) {
+                if (oldVersion < 1) {
+                    const milestones = database.createObjectStore("milestones", { keyPath: "id" });
+                    milestones.createIndex("by-updated", "updatedAt");
+                    milestones.createIndex("by-target", "target");
 
-                const checkins = database.createObjectStore("checkins", { keyPath: "id" });
-                checkins.createIndex("by-event", "eventId");
-                checkins.createIndex("by-event-date", ["eventId", "date"], { unique: true });
-                checkins.createIndex("by-date", "date");
+                    const checkins = database.createObjectStore("checkins", { keyPath: "id" });
+                    checkins.createIndex("by-event", "eventId");
+                    checkins.createIndex("by-event-date", ["eventId", "date"], { unique: true });
+                    checkins.createIndex("by-date", "date");
 
-                const achievements = database.createObjectStore("achievements", { keyPath: "id" });
-                achievements.createIndex("by-date", "date");
+                    const achievements = database.createObjectStore("achievements", { keyPath: "id" });
+                    achievements.createIndex("by-date", "date");
 
-                database.createObjectStore("settings", { keyPath: "id" });
+                    database.createObjectStore("settings", { keyPath: "id" });
 
-                const audit = database.createObjectStore("audit", { keyPath: "seq", autoIncrement: true });
-                audit.createIndex("by-time", "occurredAt");
+                    const audit = database.createObjectStore("audit", { keyPath: "seq", autoIncrement: true });
+                    audit.createIndex("by-time", "occurredAt");
 
-                const snapshots = database.createObjectStore("snapshots", { keyPath: "seq", autoIncrement: true });
-                snapshots.createIndex("by-time", "createdAt");
+                    const snapshots = database.createObjectStore("snapshots", { keyPath: "seq", autoIncrement: true });
+                    snapshots.createIndex("by-time", "createdAt");
 
-                database.createObjectStore("meta", { keyPath: "key" });
+                    database.createObjectStore("meta", { keyPath: "key" });
+                }
+                if (oldVersion < 2) {
+                    const dailyTasks = database.createObjectStore("dailyTasks", { keyPath: "id" });
+                    dailyTasks.createIndex("by-date", "date");
+                }
             },
         });
     }
@@ -154,11 +166,12 @@ export async function initializeLocalDatabase(): Promise<void> {
 
 export async function loadDashboardState(): Promise<DashboardState> {
     const database = await getDatabase();
-    const transaction = database.transaction(["milestones", "checkins", "achievements", "settings", "meta"], "readonly");
-    const [milestones, checkins, achievements, settings, lastSaved] = await Promise.all([
+    const transaction = database.transaction(["milestones", "checkins", "achievements", "dailyTasks", "settings", "meta"], "readonly");
+    const [milestones, checkins, achievements, dailyTasks, settings, lastSaved] = await Promise.all([
         transaction.objectStore("milestones").getAll(),
         transaction.objectStore("checkins").getAll(),
         transaction.objectStore("achievements").getAll(),
+        transaction.objectStore("dailyTasks").getAll(),
         transaction.objectStore("settings").get("current"),
         transaction.objectStore("meta").get("last-saved-at"),
     ]);
@@ -187,6 +200,7 @@ export async function loadDashboardState(): Promise<DashboardState> {
         schemaVersion: 2,
         events,
         achievements: achievements.sort((a, b) => b.date.localeCompare(a.date)),
+        dailyTasks: dailyTasks.sort((a, b) => a.order - b.order),
         settings: normalizeSettings(settings?.value ?? fallback.settings),
         updatedAt: typeof lastSaved?.value === "string" ? lastSaved.value : fallback.updatedAt,
     };
@@ -200,6 +214,7 @@ export async function commitDashboardState(
 ): Promise<DashboardState> {
     const database = await getDatabase();
     const now = new Date().toISOString();
+    const oldestKeptDate = localDate(addDays(new Date(), -1));
     const state: DashboardState = {
         ...input,
         schemaVersion: 2,
@@ -211,17 +226,19 @@ export async function commitDashboardState(
                 checkIns: [...(event.project.checkIns ?? [])].sort((a, b) => a.date.localeCompare(b.date)),
             },
         } : event),
+        dailyTasks: (input.dailyTasks ?? []).filter((task) => task.date >= oldestKeptDate),
         settings: normalizeSettings(input.settings),
         updatedAt: now,
     };
     const transaction = database.transaction(
-        ["milestones", "checkins", "achievements", "settings", "audit", "snapshots", "meta"],
+        ["milestones", "checkins", "achievements", "dailyTasks", "settings", "audit", "snapshots", "meta"],
         "readwrite",
     );
 
     const milestoneStore = transaction.objectStore("milestones");
     const checkInStore = transaction.objectStore("checkins");
     const achievementStore = transaction.objectStore("achievements");
+    const dailyTaskStore = transaction.objectStore("dailyTasks");
     const existingMilestones = await milestoneStore.getAll();
     const activeIds = new Set(state.events.map((event) => event.id));
 
@@ -260,6 +277,10 @@ export async function commitDashboardState(
     const currentAchievementIds = new Set(state.achievements.map((achievement) => achievement.id));
     for (const achievement of state.achievements) await achievementStore.put(achievement);
     for (const key of await achievementStore.getAllKeys()) if (!currentAchievementIds.has(String(key))) await achievementStore.delete(key);
+
+    const currentDailyTaskIds = new Set(state.dailyTasks.map((task) => task.id));
+    for (const task of state.dailyTasks) await dailyTaskStore.put(task);
+    for (const key of await dailyTaskStore.getAllKeys()) if (!currentDailyTaskIds.has(String(key))) await dailyTaskStore.delete(key);
 
     await transaction.objectStore("settings").put({ id: "current", value: state.settings, updatedAt: now });
     await transaction.objectStore("meta").put({ key: "last-saved-at", value: now });
@@ -333,13 +354,14 @@ export async function setRemoteVersion(version: number): Promise<void> {
 export async function clearEchoeDatabase(): Promise<DashboardState> {
     const database = await getDatabase();
     const transaction = database.transaction(
-        ["milestones", "checkins", "achievements", "settings", "audit", "snapshots", "meta"],
+        ["milestones", "checkins", "achievements", "dailyTasks", "settings", "audit", "snapshots", "meta"],
         "readwrite",
     );
     await Promise.all([
         transaction.objectStore("milestones").clear(),
         transaction.objectStore("checkins").clear(),
         transaction.objectStore("achievements").clear(),
+        transaction.objectStore("dailyTasks").clear(),
         transaction.objectStore("audit").clear(),
         transaction.objectStore("snapshots").clear(),
     ]);

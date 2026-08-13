@@ -263,6 +263,7 @@ export const seedState = (): DashboardState => ({
     schemaVersion: 2,
     events: [],
     achievements: [],
+    dailyTasks: [],
     settings: normalizeSettings(),
     updatedAt: new Date().toISOString(),
 });

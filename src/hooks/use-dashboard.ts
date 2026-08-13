@@ -17,6 +17,7 @@ import { isBlockedExtraCheckIn, localDate, seedState } from "@/lib/utils";
 import type {
     Achievement,
     AuditAction,
+    DailyTask,
     DashboardState,
     HabitEntry,
     MilestoneEvent,
@@ -224,6 +225,50 @@ export function useDashboardState() {
         enqueueCommit(next, "edit", `Recorded achievement: ${label}`, achievement.id);
     }, [enqueueCommit]);
 
+    const addDailyTask = useCallback((text: string, time?: string) => {
+        const current = stateRef.current;
+        const trimmed = text.trim();
+        if (!current || !trimmed) return;
+        const now = new Date().toISOString();
+        const date = localDate();
+        const order = current.dailyTasks.filter((task) => task.date === date).length;
+        const task: DailyTask = { id: createId(), text: trimmed, done: false, time: time || undefined, date, order, createdAt: now };
+        const next = { ...current, dailyTasks: [...current.dailyTasks, task], updatedAt: now };
+        enqueueCommit(next, "edit", `Added "${trimmed}" to My Day`, task.id);
+    }, [enqueueCommit]);
+
+    const toggleDailyTask = useCallback((id: string) => {
+        const current = stateRef.current;
+        if (!current) return;
+        const now = new Date().toISOString();
+        const dailyTasks = current.dailyTasks.map((task) => task.id === id
+            ? { ...task, done: !task.done, completedAt: !task.done ? now : undefined }
+            : task);
+        enqueueCommit({ ...current, dailyTasks, updatedAt: now }, "edit", "Updated a My Day task", id);
+    }, [enqueueCommit]);
+
+    const updateDailyTask = useCallback((id: string, changes: { text?: string; time?: string | null }) => {
+        const current = stateRef.current;
+        if (!current) return;
+        const now = new Date().toISOString();
+        const dailyTasks = current.dailyTasks.map((task) => task.id === id
+            ? {
+                ...task,
+                text: changes.text !== undefined ? (changes.text.trim() || task.text) : task.text,
+                time: changes.time === null ? undefined : changes.time ?? task.time,
+            }
+            : task);
+        enqueueCommit({ ...current, dailyTasks, updatedAt: now }, "edit", "Updated a My Day task", id);
+    }, [enqueueCommit]);
+
+    const deleteDailyTask = useCallback((id: string) => {
+        const current = stateRef.current;
+        if (!current) return;
+        const now = new Date().toISOString();
+        const dailyTasks = current.dailyTasks.filter((task) => task.id !== id);
+        enqueueCommit({ ...current, dailyTasks, updatedAt: now }, "edit", "Removed a My Day task", id);
+    }, [enqueueCommit]);
+
     const checkInHabit = useCallback((
         eventId: string,
         status: HabitEntry["status"],
@@ -426,6 +471,10 @@ export function useDashboardState() {
         deleteEvent,
         restoreEvent,
         addAchievement,
+        addDailyTask,
+        toggleDailyTask,
+        updateDailyTask,
+        deleteDailyTask,
         checkInHabit,
         checkInProject,
         clearHabitCheckIn,

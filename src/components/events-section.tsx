@@ -24,6 +24,7 @@ const filters: Array<{ id: Filter; label: string }> = [
     { id: "project", label: "Projects" },
     { id: "habit", label: "Habits" },
     { id: "ongoing", label: "Ongoing" },
+    { id: "countdown", label: "Countdown" },
 ];
 
 export function EventsSection({ events, onEdit, onExport, onCheckIn, onProjectCheckIn, onOpenHistory, onProgress }: Props) {
@@ -74,7 +75,9 @@ export function EventsSection({ events, onEdit, onExport, onCheckIn, onProjectCh
                             ? `${project!.investedHours}h invested, ${project!.readiness}% ready`
                             : kind === "ongoing"
                                 ? event.habit ? `${habit!.rate}% consistency` : `${formatOpenDuration(event.start)} in motion`
-                                : habit?.total ? `${habit.rate}% consistency` : "Ready for your first check-in";
+                                : kind === "countdown"
+                                    ? "Counting down"
+                                    : habit?.total ? `${habit.rate}% consistency` : "Ready for your first check-in";
 
                         return (
                             <article key={event.id} className="path-row animate-soft-enter" style={{ "--path-color": palette.color, "--path-glow": palette.glow, animationDelay: `${Math.min(index, 6) * 35}ms` } as React.CSSProperties}>

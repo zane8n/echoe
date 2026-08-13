@@ -20,6 +20,7 @@ export const dashboardState: DashboardState = {
     schemaVersion: 2,
     events: [habitMilestone],
     achievements: [],
+    dailyTasks: [],
     settings: {
         accent: "amber",
         appearance: "system",

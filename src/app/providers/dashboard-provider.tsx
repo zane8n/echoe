@@ -8,7 +8,7 @@ import { getAuditLog } from "@/lib/local-db";
 import { buildNotifications } from "@/lib/notifications";
 import { getSocialSnapshot, sendCheer } from "@/lib/social-client";
 import { applyTheme } from "@/lib/theme";
-import type { AuditAction, DashboardState, EchoeNotification, HabitEntry, MilestoneEvent, MilestoneKind, SocialSnapshot, StorageSummary } from "@/lib/types";
+import type { AuditAction, DailyTask, DashboardState, EchoeNotification, HabitEntry, MilestoneEvent, MilestoneKind, SocialSnapshot, StorageSummary } from "@/lib/types";
 import { habitStreak, isBlockedExtraCheckIn, isDashboardState, localDate, normalizeSettings, seedState } from "@/lib/utils";
 
 type SnapshotSummary = { seq?: number; createdAt: string; action: AuditAction };
@@ -60,6 +60,11 @@ interface DashboardContextValue {
     snapshots: SnapshotSummary[];
     loadSnapshots: () => Promise<void>;
     restoreSnapshot: (seq: number) => Promise<void>;
+    todaysTasks: DailyTask[];
+    handleAddDailyTask: (text: string, time?: string) => void;
+    toggleDailyTask: ReturnType<typeof useDashboardState>["toggleDailyTask"];
+    updateDailyTask: ReturnType<typeof useDashboardState>["updateDailyTask"];
+    handleDeleteDailyTask: (id: string) => void;
     handleDelete: (id: string) => void;
     handleUndo: () => void;
     handleExport: () => Promise<void>;
@@ -86,6 +91,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         addAchievement, checkInHabit, checkInProject, clearHabitCheckIn, logProjectEffort, updateProjectReadiness,
         markNotificationsRead, syncNow, importState, clearAllData, resetForAccountSwitch,
         listSnapshots, restoreSnapshot: restoreSnapshotState,
+        addDailyTask, toggleDailyTask, updateDailyTask, deleteDailyTask,
     } = useDashboardState();
 
     const [snapshots, setSnapshots] = useState<SnapshotSummary[]>([]);
@@ -109,6 +115,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const notifications = useMemo(() => state ? buildNotifications(state.events, state.settings.profile) : [], [state]);
     const readIds = state?.settings.readNotificationIds ?? [];
     const unreadActionable = notifications.filter((item) => item.actionable && !readIds.includes(item.id));
+    const todaysTasks = useMemo(() => {
+        const today = localDate();
+        return (state?.dailyTasks ?? [])
+            .filter((task) => task.date === today)
+            .sort((a, b) => (a.time ?? "99:99").localeCompare(b.time ?? "99:99") || a.createdAt.localeCompare(b.createdAt));
+    }, [state?.dailyTasks]);
 
     useEffect(() => {
         applyTheme(state?.settings.accent ?? "blue", state?.settings.appearance ?? "system");
@@ -299,6 +311,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }, [addAchievement, checkInHabit, showToast, state?.events]);
     const handleProjectCheckIn = useCallback((id: string) => { checkInProject(id); showToast("Project check-in recorded"); }, [checkInProject, showToast]);
     const handleClearCheckIn = useCallback((id: string, date: string) => { clearHabitCheckIn(id, date); showToast("Check-in cleared"); }, [clearHabitCheckIn, showToast]);
+    const handleAddDailyTask = useCallback((text: string, time?: string) => { addDailyTask(text, time); showToast("Added to My Day"); }, [addDailyTask, showToast]);
+    const handleDeleteDailyTask = useCallback((id: string) => { deleteDailyTask(id); showToast("Removed from My Day"); }, [deleteDailyTask, showToast]);
     const handleAccountChange = useCallback(async () => { await resetForAccountSwitch(); window.location.reload(); }, [resetForAccountSwitch]);
     const handleNotification = useCallback((notification: EchoeNotification) => {
         markNotificationsRead([notification.id]); setNotificationsOpen(false);
@@ -320,6 +334,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         showToast, openEventEditor, openQuickStart, openSettings, closeSheet, goBack, navigateTo,
         updateSettings, updateAccent, updateAppearance, upsertEvent, syncNow, updateProjectReadiness, logProjectEffort, markNotificationsRead, clearAllData,
         snapshots, loadSnapshots, restoreSnapshot,
+        todaysTasks, handleAddDailyTask, toggleDailyTask, updateDailyTask, handleDeleteDailyTask,
         handleDelete, handleUndo, handleExport, handleImport, handleHabitCheckIn, handleProjectCheckIn, handleClearCheckIn, handleAccountChange, handleNotification,
     };
 

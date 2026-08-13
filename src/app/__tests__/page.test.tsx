@@ -14,6 +14,12 @@ const dashboardMock = vi.hoisted(() => ({
     deleteEvent: vi.fn(),
     restoreEvent: vi.fn(),
     addAchievement: vi.fn(),
+    addDailyTask: vi.fn(),
+    toggleDailyTask: vi.fn(),
+    updateDailyTask: vi.fn(),
+    deleteDailyTask: vi.fn(),
+    listSnapshots: vi.fn().mockResolvedValue([]),
+    restoreSnapshot: vi.fn().mockResolvedValue(undefined),
     checkInHabit: vi.fn(),
     clearHabitCheckIn: vi.fn(),
     checkInProject: vi.fn(),
@@ -58,13 +64,14 @@ describe("Echoe app shell", () => {
         routerMock.back.mockClear();
     });
 
-    it("uses a focused shell with one settings action and a five-item bottom navigation to real routes", async () => {
+    it("uses a focused shell with one settings action and a six-item bottom navigation to real routes", async () => {
         render(<AppShell><Home /></AppShell>);
         expect(screen.getByRole("link", { name: "Echoe home" })).toHaveTextContent("Echoe");
         expect(screen.getAllByRole("button", { name: "Settings" })).toHaveLength(1);
         const nav = screen.getByRole("navigation", { name: "Primary navigation" });
-        expect(nav.querySelectorAll("a, button")).toHaveLength(5);
+        expect(nav.querySelectorAll("a, button")).toHaveLength(6);
         expect(screen.getByRole("link", { name: "Paths" })).toHaveAttribute("href", "/paths");
+        expect(screen.getByRole("link", { name: "My Day" })).toHaveAttribute("href", "/my-day");
         expect(screen.getByRole("link", { name: "Momentum" })).toHaveAttribute("href", "/momentum");
         expect(screen.getByRole("link", { name: "Friends" })).toHaveAttribute("href", "/friends");
         expect(screen.getByRole("button", { name: "Add a path" })).toBeInTheDocument();

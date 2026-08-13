@@ -41,7 +41,7 @@ export interface HabitConfig {
     entries: HabitEntry[];
 }
 
-export type MilestoneKind = "project" | "habit" | "ongoing";
+export type MilestoneKind = "project" | "habit" | "ongoing" | "countdown";
 
 export interface ProjectEntry {
     id: string;
@@ -170,10 +170,22 @@ export interface AccountSummary {
     email?: string;
 }
 
+export interface DailyTask {
+    id: string;
+    text: string;
+    done: boolean;
+    time?: string;
+    date: string;
+    order: number;
+    createdAt: string;
+    completedAt?: string;
+}
+
 export interface DashboardState {
     schemaVersion: 2;
     events: MilestoneEvent[];
     achievements: Achievement[];
+    dailyTasks: DailyTask[];
     settings: DashboardSettings;
     updatedAt: string;
 }

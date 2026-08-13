@@ -11,6 +11,7 @@ const KINDS: Array<{ value: MilestoneKind; label: string; detail: string; icon: 
     { value: "project", label: "Project", detail: "Deadline and effort", icon: "target" },
     { value: "habit", label: "Habit", detail: "Repeatable rhythm", icon: "flame" },
     { value: "ongoing", label: "Ongoing", detail: "No finish line", icon: "history" },
+    { value: "countdown", label: "Countdown", detail: "Just a date", icon: "hourglass" },
 ];
 
 interface Props {
@@ -175,6 +176,8 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose, seed }:
                         )}
 
                         {kind === "ongoing" && !trackOngoing && <div className="tracking-rest"><Icon name="history" size={20} /><strong>Continuity only</strong><small>Echoe will quietly track how long this path has been part of your life.</small></div>}
+
+                        {kind === "countdown" && <div className="tracking-rest"><Icon name="hourglass" size={20} /><strong>Just a date to look forward to</strong><small>No check-ins, no tracking — just the days remaining.</small></div>}
 
                         <details className="editor-details">
                             <summary>Advanced</summary>
