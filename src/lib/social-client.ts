@@ -1,4 +1,4 @@
-import type { FriendInvite, FriendRole, SocialSnapshot } from "./types";
+import type { DailyTask, FriendInvite, FriendRole, SocialSnapshot } from "./types";
 import { localDate } from "./utils";
 
 const EMPTY_SOCIAL: SocialSnapshot = {
@@ -38,3 +38,4 @@ export const sharePath = (friendId: string, eventId: string, mode: FriendRole) =
 export const revokeShare = (shareId: string) => mutate({ action: "revoke-share", shareId });
 export const checkInSharedPath = (shareId: string) => mutate<{ ok: true; count: number }>({ action: "check-in", shareId, date: localDate() });
 export const sendCheer = (shareId: string) => mutate({ action: "cheer", shareId });
+export const peekFriendDay = (friendId: string) => mutate<{ tasks: Array<Pick<DailyTask, "id" | "text" | "done" | "time">> }>({ action: "peek-day", friendId, date: localDate() });

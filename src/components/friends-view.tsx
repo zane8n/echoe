@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { acceptInvite, checkInSharedPath, createInvite, removeFriend, revokeShare, sharePath } from "@/lib/social-client";
-import type { FriendInvite, FriendRole, MilestoneEvent, SocialSnapshot } from "@/lib/types";
+import { acceptInvite, checkInSharedPath, createInvite, peekFriendDay, removeFriend, revokeShare, sharePath } from "@/lib/social-client";
+import type { DailyTask, FriendInvite, FriendRole, MilestoneEvent, SocialSnapshot } from "@/lib/types";
 import { CoProgress } from "./co-progress";
 import { Icon } from "./icon";
 
@@ -29,6 +29,9 @@ export function FriendsView({ events, social: snapshot, socialLoading: loading, 
     const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
     const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
     const [cheeredIds, setCheeredIds] = useState<Set<string>>(new Set());
+    const [peekOpenId, setPeekOpenId] = useState<string | null>(null);
+    const [peekTasks, setPeekTasks] = useState<Record<string, Array<Pick<DailyTask, "id" | "text" | "done" | "time">>>>({});
+    const [peekLoading, setPeekLoading] = useState("");
 
     // Derived rather than synced via effect: falls back to the first option until the
     // user makes an explicit choice, without an extra render pass.
@@ -106,6 +109,21 @@ export function FriendsView({ events, social: snapshot, socialLoading: loading, 
         await onCheer(shareId);
     };
 
+    const togglePeek = async (friendPeekId: string) => {
+        if (peekOpenId === friendPeekId) { setPeekOpenId(null); return; }
+        setPeekOpenId(friendPeekId);
+        if (peekTasks[friendPeekId]) return;
+        setPeekLoading(friendPeekId);
+        try {
+            const { tasks } = await peekFriendDay(friendPeekId);
+            setPeekTasks((current) => ({ ...current, [friendPeekId]: tasks ?? [] }));
+        } catch (requestError) {
+            setError(requestError instanceof Error ? requestError.message : "That friend's day could not be loaded.");
+        } finally {
+            setPeekLoading("");
+        }
+    };
+
     const sharedIds = useMemo(() => new Set(snapshot.sharedByMe.map((share) => `${share.eventId}:${share.person.id}`)), [snapshot.sharedByMe]);
     const selectedEvent = events.find((event) => event.id === eventId) ?? null;
 
@@ -142,7 +160,37 @@ export function FriendsView({ events, social: snapshot, socialLoading: loading, 
 
         <section className="social-section" aria-labelledby="circleHeading">
             <div className="social-section-heading"><h2 id="circleHeading">Circle</h2><span>{snapshot.friends.length}</span></div>
-            {snapshot.friends.length === 0 ? <p className="social-empty">Only accepted friends will appear here.</p> : <div className="friend-list">{snapshot.friends.map((friend) => <div className="friend-row" key={friend.id}><span className="friend-initial">{friend.displayName.slice(0, 1).toUpperCase()}</span><span><strong>{friend.displayName}</strong><small>@{friend.handle}</small></span>{confirmRemove === friend.id ? <span className="friend-confirm"><button type="button" className="quiet-button" onClick={() => setConfirmRemove(null)}>Keep</button><button type="button" className="quiet-button text-[var(--color-danger)]" disabled={busy === `remove:${friend.id}`} onClick={() => void perform(`remove:${friend.id}`, async () => { await removeFriend(friend.id); setConfirmRemove(null); })}>Remove</button></span> : <button type="button" className="icon-button" onClick={() => setConfirmRemove(friend.id)} aria-label={`Friend options for ${friend.displayName}`}><Icon name="more-horiz" size={16} /></button>}</div>)}</div>}
+            {snapshot.friends.length === 0 ? <p className="social-empty">Only accepted friends will appear here.</p> : <div className="friend-list">{snapshot.friends.map((friend) => (
+                <div key={friend.id}>
+                    <div className="friend-row">
+                        <span className="friend-initial">{friend.displayName.slice(0, 1).toUpperCase()}</span>
+                        <span><strong>{friend.displayName}</strong><small>@{friend.handle}</small></span>
+                        <span className="flex items-center gap-1">
+                            <button type="button" className="icon-button" aria-pressed={peekOpenId === friend.id} onClick={() => void togglePeek(friend.id)} aria-label={`Peek at ${friend.displayName}'s day`} title="Peek at their day"><Icon name="eye" size={16} /></button>
+                            {confirmRemove === friend.id ? <span className="friend-confirm"><button type="button" className="quiet-button" onClick={() => setConfirmRemove(null)}>Keep</button><button type="button" className="quiet-button text-[var(--color-danger)]" disabled={busy === `remove:${friend.id}`} onClick={() => void perform(`remove:${friend.id}`, async () => { await removeFriend(friend.id); setConfirmRemove(null); })}>Remove</button></span> : <button type="button" className="icon-button" onClick={() => setConfirmRemove(friend.id)} aria-label={`Friend options for ${friend.displayName}`}><Icon name="more-horiz" size={16} /></button>}
+                        </span>
+                    </div>
+                    {peekOpenId === friend.id && (
+                        <div className="friend-peek" aria-live="polite">
+                            {peekLoading === friend.id ? (
+                                <p className="m-0 text-xs text-[var(--color-muted)]">Loading their day…</p>
+                            ) : (peekTasks[friend.id]?.length ?? 0) === 0 ? (
+                                <p className="m-0 text-xs text-[var(--color-muted)]">Nothing on {friend.displayName.split(/\s+/)[0]}&apos;s plate today.</p>
+                            ) : (
+                                <ul className="m-0 grid list-none gap-1.5 p-0">
+                                    {peekTasks[friend.id]?.map((task) => (
+                                        <li key={task.id} className="flex items-center gap-2 text-xs">
+                                            <Icon name={task.done ? "check" : "clock"} size={12} className={task.done ? "text-[var(--color-accent-ink)]" : "text-[var(--color-muted)]"} />
+                                            <span style={{ color: task.done ? "var(--color-muted)" : "var(--color-ink-soft)", textDecoration: task.done ? "line-through" : undefined }}>{task.text}</span>
+                                            {task.time && <span className="font-[var(--font-mono)] text-[var(--color-muted)]">{task.time}</span>}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    )}
+                </div>
+            ))}</div>}
         </section>
 
         {snapshot.friends.length > 0 && events.length > 0 && <section className="social-section" aria-labelledby="shareHeading">

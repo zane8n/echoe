@@ -4,6 +4,7 @@ import {
     checkInSharedPath,
     createFriendInvite,
     databaseConfigured,
+    peekDailyTasks,
     readSocialSnapshot,
     removeFriend,
     revokePathShare,
@@ -93,6 +94,12 @@ export async function POST(request: Request) {
             const shareId = String(payload.shareId ?? "");
             if (!ID_PATTERN.test(shareId)) return Response.json({ error: "Invalid share." }, { status: 400 });
             await sendCheer(ownerId, shareId);
+        } else if (action === "peek-day") {
+            const friendId = String(payload.friendId ?? "");
+            const date = String(payload.date ?? "");
+            if (!ID_PATTERN.test(friendId) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return Response.json({ error: "Invalid peek request." }, { status: 400 });
+            const tasks = await peekDailyTasks(ownerId, friendId, date);
+            return withOwnerCookie(Response.json({ tasks }), ownerId, isNew);
         } else {
             return Response.json({ error: "Unsupported social action." }, { status: 400 });
         }

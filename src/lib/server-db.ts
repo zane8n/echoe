@@ -2,7 +2,8 @@ import "server-only";
 
 import { neon } from "@neondatabase/serverless";
 import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
-import type { AccountSummary, AuditAction, CheerNotice, DashboardState, FriendInvite, FriendRole, FriendSummary, MilestoneEvent, SharedPathSummary, SocialSnapshot } from "./types";
+import type { AccountSummary, AuditAction, CheerNotice, DailyTask, DashboardState, FriendInvite, FriendRole, FriendSummary, MilestoneEvent, SharedPathSummary, SocialSnapshot } from "./types";
+import { projectProgress } from "./utils";
 
 export interface RemoteStateRecord {
     state: DashboardState;
@@ -518,6 +519,26 @@ export async function sendCheer(ownerId: string, shareId: string): Promise<void>
     await logSocialEvent(recipientId, "cheer", shareId, { fromOwnerId: ownerId, fromDisplayName: sender?.displayName ?? "A friend", eventName });
 }
 
+export async function peekDailyTasks(ownerId: string, friendId: string, date: string): Promise<Array<Pick<DailyTask, "id" | "text" | "done" | "time">>> {
+    await ensureSchema();
+    const sql = neon(connectionString());
+    const [ownerA, ownerB] = orderedOwners(ownerId, friendId);
+    const friendRows = await sql`
+        SELECT 1 FROM echoe_friendships
+        WHERE owner_a = ${ownerA}::uuid AND owner_b = ${ownerB}::uuid
+        LIMIT 1
+    `;
+    if (!friendRows[0]) throw new Error("FRIEND_REQUIRED");
+    const rows = await sql`
+        SELECT state FROM echoe_state WHERE owner_id = ${friendId}::uuid LIMIT 1
+    `;
+    const state = rows[0]?.state as DashboardState | undefined;
+    const safe = safeDate(date);
+    return (state?.dailyTasks ?? [])
+        .filter((task) => task.date === safe)
+        .map((task) => ({ id: task.id, text: task.text, done: task.done, time: task.time }));
+}
+
 const eventCheckIns = (event: MilestoneEvent, date?: string) => {
     const entries = event.project?.checkIns ?? event.habit?.entries ?? [];
     return entries.filter((entry) => entry.status === "done" && (!date || entry.date === date)).length;
@@ -590,6 +611,8 @@ export async function readSocialSnapshot(ownerId: string, requestedDate: string)
             guestToday: guest.today,
             ownerTotal: eventCheckIns(event),
             guestTotal: guest.total,
+            target: event.target,
+            overallPercent: event.project ? projectProgress(event).overallPercent : undefined,
             createdAt: new Date(row.created_at as string | Date).toISOString(),
         }];
     });

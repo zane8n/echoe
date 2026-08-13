@@ -100,6 +100,8 @@ export interface SharedPathSummary {
     guestToday: number;
     ownerTotal: number;
     guestTotal: number;
+    target: string;
+    overallPercent?: number;
     createdAt: string;
 }
 

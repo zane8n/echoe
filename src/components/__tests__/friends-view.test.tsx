@@ -12,6 +12,7 @@ const social = vi.hoisted(() => ({
     share: vi.fn(),
     revoke: vi.fn(),
     checkIn: vi.fn(),
+    peek: vi.fn().mockResolvedValue({ tasks: [] }),
 }));
 
 vi.mock("@/lib/social-client", () => ({
@@ -21,10 +22,11 @@ vi.mock("@/lib/social-client", () => ({
     sharePath: social.share,
     revokeShare: social.revoke,
     checkInSharedPath: social.checkIn,
+    peekFriendDay: social.peek,
 }));
 
 const friend = { id: "friend-1", displayName: "Amina", handle: "amina", friendsSince: "2026-08-01T00:00:00.000Z" };
-const participant = { id: "share-1", eventId: "remote-1", eventName: "Morning run", eventKind: "habit" as const, color: "teal" as const, role: "guest" as const, mode: "participant" as const, allowExtraCheckIns: false, person: friend, ownerToday: 1, guestToday: 0, ownerTotal: 8, guestTotal: 7, createdAt: "2026-08-02T00:00:00.000Z" };
+const participant = { id: "share-1", eventId: "remote-1", eventName: "Morning run", eventKind: "habit" as const, color: "teal" as const, role: "guest" as const, mode: "participant" as const, allowExtraCheckIns: false, person: friend, ownerToday: 1, guestToday: 0, ownerTotal: 8, guestTotal: 7, target: "2026-09-01", createdAt: "2026-08-02T00:00:00.000Z" };
 const snapshot: SocialSnapshot = { mode: "cloud", accountRequired: false, friends: [friend], sharedByMe: [], sharedWithMe: [participant], recentCheers: [] };
 
 const renderView = (overrides: Partial<Parameters<typeof FriendsView>[0]> = {}) => render(

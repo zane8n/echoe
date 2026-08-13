@@ -54,7 +54,7 @@ export function EventsSection({ events, onEdit, onExport, onCheckIn, onProjectCh
                     <QuickStart />
                 </div>
             ) : sorted.length === 0 ? (
-                <p className="border-y border-[var(--color-line)] py-8 text-center text-sm text-[var(--color-muted)]">No paths in this view yet.</p>
+                <p className="empty-paths py-8 text-center text-sm text-[var(--color-muted)]">No paths in this view yet.</p>
             ) : (
                 <div className="path-list">
                     {sorted.map((event, index) => {

@@ -21,6 +21,7 @@ import {
 } from "@/lib/utils";
 import { COLOR_MAP } from "@/lib/constants";
 import { Icon } from "./icon";
+import { ProgressRing } from "./progress-ring";
 
 interface Props {
     event: MilestoneEvent;
@@ -74,6 +75,8 @@ export function PathDetail({ event, tick, profile, onEdit, onConfetti, onCheckIn
         ? remaining > 0 ? `days until ${formatDate(event.target, { month: "short", day: "numeric" })}` : "target date"
         : project ? `${project.investedHours}h invested, ${project.readiness}% ready, ${project.requiredHoursPerWeek}h/week needed` : remaining > 0 ? `${remainingDisplay.value} ${remainingDisplay.unit} until target` : "target reached";
     const progressValue = project?.overallPercent ?? (kind === "ongoing" ? stats.rate : spent.percent);
+    const isCountdownLike = kind === "countdown" || event.isCountdown;
+    const ringPercent = isCountdownLike ? spent.percent : (project?.overallPercent ?? spent.percent);
 
     return (
         <section className="animate-soft-enter pb-10">
@@ -105,7 +108,13 @@ export function PathDetail({ event, tick, profile, onEdit, onConfetti, onCheckIn
                     </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end" aria-live="polite">
-                    <div className="font-[var(--font-mono)] text-[clamp(38px,7vw,58px)] font-semibold leading-[0.95] tabular-nums" style={{ color: palette.color }}>{metric}</div>
+                    {kind === "ongoing" ? (
+                        <div className="font-[var(--font-mono)] text-[clamp(38px,7vw,58px)] font-semibold leading-[0.95] tabular-nums" style={{ color: palette.color }}>{metric}</div>
+                    ) : (
+                        <ProgressRing percent={ringPercent} size={104} strokeWidth={7} color={palette.color}>
+                            <span className="text-[clamp(26px,5vw,34px)] font-semibold" style={{ color: palette.color }}>{metric}</span>
+                        </ProgressRing>
+                    )}
                     <div className="text-sm text-[var(--color-muted)]">{metricLabel}</div>
                 </div>
             </div>

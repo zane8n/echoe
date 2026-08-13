@@ -401,9 +401,9 @@ export function SettingsSheet({ settings, storage, onSave, onAccentChange, onApp
                                 </div>
 
                                 {snapshots.length > 0 && (
-                                    <div className="border-t border-[var(--color-line)] pt-5">
-                                        <strong className="block text-sm">History</strong>
-                                        <p className="m-0 mt-1 text-xs text-[var(--color-muted)]">Restore an earlier point in time. Restoring saves a fresh snapshot too, so it can be undone.</p>
+                                    <details className="editor-details">
+                                        <summary>History</summary>
+                                        <p className="m-0 mt-3 text-xs text-[var(--color-muted)]">Restore an earlier point in time. Restoring saves a fresh snapshot too, so it can be undone.</p>
                                         <ul className="m-0 mt-3 grid list-none gap-2 p-0">
                                             {snapshots.slice(0, 10).map((snapshot) => (
                                                 <li key={snapshot.seq} className="flex items-center justify-between gap-3 text-xs">
@@ -421,7 +421,7 @@ export function SettingsSheet({ settings, storage, onSave, onAccentChange, onApp
                                                 </li>
                                             ))}
                                         </ul>
-                                    </div>
+                                    </details>
                                 )}
 
                                 <div className="border-t border-[var(--color-line)] pt-5">
