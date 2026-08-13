@@ -34,7 +34,8 @@ export function CheckInSheet({ event, onCheckIn, onClear, onClose }: Props) {
     return (
         <>
             <div className="fixed inset-0 z-75 acrylic-backdrop animate-fade-in" onClick={onClose} />
-            <aside className="fixed inset-y-0 right-0 z-80 h-dvh w-[min(100%,500px)] overflow-y-auto acrylic-surface p-[clamp(22px,5vw,38px)] animate-slide-up" role="dialog" aria-modal="true" aria-labelledby="checkInTitle">
+            <aside className="sheet-surface fixed inset-y-0 right-0 z-80 h-dvh w-[min(100%,500px)] overflow-y-auto acrylic-surface p-[clamp(22px,5vw,38px)] animate-slide-up" role="dialog" aria-modal="true" aria-labelledby="checkInTitle">
+                <span className="sheet-grabber" aria-hidden="true" />
                 <div className="flex items-start justify-between gap-5 border-b border-[var(--color-line)] pb-5">
                     <div className="min-w-0">
                         <div className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--color-accent-ink)]">

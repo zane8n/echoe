@@ -33,6 +33,7 @@ export function ProgressSheet({ event, onEffort, onReadiness, onClose }: Props) 
     return <>
         <div className="fixed inset-0 z-60 acrylic-backdrop animate-fade-in" onClick={onClose} />
         <aside className="sheet-surface fixed inset-y-0 right-0 z-70 h-dvh w-[min(100%,500px)] overflow-y-auto acrylic-surface px-[clamp(20px,5vw,38px)] py-6 animate-slide-up" role="dialog" aria-modal="true" aria-label={`Update ${event.name}`}>
+            <span className="sheet-grabber" aria-hidden="true" />
             <div className="flex items-start justify-between gap-4 border-b border-[var(--color-line)] pb-5"><div><div className="text-xs font-semibold uppercase" style={{ color: palette.ink }}>Project details</div><h2 className="m-0 mt-1 text-[var(--text-xl)] font-semibold">{event.name}</h2></div><button onClick={onClose} className="icon-button" aria-label="Close progress"><Icon name="x" /></button></div>
             <div className="progress-summary my-6"><div><span>Overall</span><strong>{progress.overallPercent}%</strong></div><div><span>Invested</span><strong>{progress.investedHours}h</strong></div><div><span>Readiness</span><strong>{progress.readiness}%</strong></div></div>
             <div className="settings-segment grid-cols-2 mb-5" role="tablist" aria-label="Project update type"><button type="button" role="tab" aria-selected={mode === "readiness"} onClick={() => setMode("readiness")}>Readiness</button><button type="button" role="tab" aria-selected={mode === "effort"} onClick={() => setMode("effort")}>Effort</button></div>

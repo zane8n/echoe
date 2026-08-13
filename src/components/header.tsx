@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { Icon } from "./icon";
 
-interface Props { displayName?: string; notificationCount: number; onOpenNotifications: () => void; onOpenSettings: () => void; }
+interface Props { displayName?: string; notificationCount: number; onOpenAdd: () => void; onOpenNotifications: () => void; onOpenSettings: () => void; }
 
-export function Header({ displayName, notificationCount, onOpenNotifications, onOpenSettings }: Props) {
+export function Header({ displayName, notificationCount, onOpenAdd, onOpenNotifications, onOpenSettings }: Props) {
     const today = new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "long" }).format(new Date());
     const hour = new Date().getHours();
     const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
@@ -22,6 +22,9 @@ export function Header({ displayName, notificationCount, onOpenNotifications, on
                     {firstName ? <><span className="font-semibold text-[var(--color-accent-ink)]">{greeting}, {firstName}</span><span className="mx-2 text-[var(--color-line-strong)]">/</span></> : null}{today}
                 </div>
                 <nav className="flex items-center gap-1.5" aria-label="Application actions">
+                    <button onClick={onOpenAdd} className="icon-button" aria-label="Add a path" title="Add">
+                        <Icon name="plus" size={18} />
+                    </button>
                     <button onClick={onOpenNotifications} className="icon-button relative" aria-label={`Notifications${notificationCount ? `, ${notificationCount} unread` : ""}`} title="Notifications">
                         <Icon name="bell" size={17} />
                         {notificationCount > 0 && <span className="notification-count">{notificationCount > 9 ? "9+" : notificationCount}</span>}

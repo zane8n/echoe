@@ -129,6 +129,7 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose, seed }:
     return <>
         <div className="fixed inset-0 z-60 acrylic-backdrop animate-fade-in" onClick={onClose} />
         <aside ref={sheet} onKeyDown={handleDialogKeyDown} className="sheet-surface path-editor-sheet fixed inset-y-0 right-0 z-70 flex h-dvh w-[min(100%,520px)] flex-col overflow-hidden acrylic-surface animate-slide-up" role="dialog" aria-modal="true" aria-labelledby="eventSheetTitle">
+            <span className="sheet-grabber" aria-hidden="true" />
             <header className="path-editor-header">
                 <div><span>{isEdit ? "Edit path" : "New path"}</span><h2 id="eventSheetTitle">{isEdit ? event?.name : "Create a path"}</h2></div>
                 <button onClick={onClose} className="icon-button" aria-label="Close" title="Close"><Icon name="x" /></button>

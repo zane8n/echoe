@@ -190,6 +190,7 @@ export function SettingsSheet({ settings, storage, onSave, onAccentChange, onApp
         <>
             <div className="fixed inset-0 z-60 acrylic-backdrop animate-fade-in" onClick={onClose} />
             <aside className="sheet-surface fixed inset-y-0 right-0 z-70 flex h-dvh w-[min(100%,520px)] flex-col overflow-hidden acrylic-surface animate-slide-up" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+                <span className="sheet-grabber" aria-hidden="true" />
                 <div className="shrink-0 px-[clamp(22px,5vw,38px)] pt-7">
                     <div className="flex items-start justify-between gap-5">
                         <div>

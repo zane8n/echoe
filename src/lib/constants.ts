@@ -5,22 +5,27 @@ export const LEGACY_STORAGE_KEYS = ["echoe.v1", "echo.dashboard.v1", "echoe.audi
 export const STALE_DATA_RESET_KEY = "echoe.stale-data-cleared.v2";
 export const DAY_MS = 86_400_000;
 
-// One neutral shell shared by every user (light/dark), independent of accent color.
-// muted/inkSoft/ink are WCAG AA (4.5:1) checked against both bg and surface in each mode.
+// One neutral shell shared by every user (light/dark), modeled on Apple's grouped-background
+// + opacity-label system (systemGroupedBackground / secondarySystemGroupedBackground / label
+// at 100%/60%/30% opacity). muted/inkSoft/ink are WCAG AA (4.5:1) checked against both bg and
+// surface in each mode.
 export const NEUTRAL: { light: NeutralPalette; dark: NeutralPalette } = {
-    light: { bg: "#fbfbfc", surface: "#ffffff", panel: "#f4f5f7", ink: "#14151a", inkSoft: "#4b4e58", muted: "#6f7280", line: "#e4e5ea", lineStrong: "#cdcfd6" },
-    dark: { bg: "#0b0c0f", surface: "#131417", panel: "#1a1b1f", ink: "#f3f4f6", inkSoft: "#b4b7c1", muted: "#8b8e99", line: "#24262c", lineStrong: "#34363d" },
+    light: { bg: "#f2f2f7", surface: "#ffffff", panel: "#f2f2f7", ink: "#000000", inkSoft: "rgba(60,60,67,0.6)", muted: "rgba(60,60,67,0.3)", line: "rgba(60,60,67,0.29)", lineStrong: "#c6c6c8" },
+    dark: { bg: "#000000", surface: "#1c1c1e", panel: "#2c2c2e", ink: "#ffffff", inkSoft: "rgba(235,235,245,0.6)", muted: "rgba(235,235,245,0.3)", line: "rgba(84,84,88,0.6)", lineStrong: "#38383a" },
 };
 
-// Accent picker (Settings) — a single hue on top of the shared neutral shell.
-// accentInk is WCAG AA checked as text-on-neutral-bg/surface; onAccent (dark ink, #14151a)
-// is checked as text-on-the-solid-accent-fill (buttons) and clears 4.5:1 for every accent.
+// Accent picker (Settings) — a single hue on top of the shared neutral shell, mapped to
+// Apple's system colors (systemBlue/systemTeal/systemOrange/systemPink/systemPurple).
+// accentInk is WCAG AA checked as text-on-neutral-bg/surface (Apple's raw system colors fail
+// AA as small text on white — darkened here until they clear 4.5:1); onAccent (dark ink,
+// #14151a) is checked as text-on-the-solid-accent-fill (buttons) and clears 4.5:1 for every
+// accent — white text fails AA on all five, so dark ink stays the universal choice.
 export const ACCENTS: Record<AccentName, AccentConfig> = {
-    blue: { name: "blue", label: "Blue", light: { accent: "#3b82f6", accentInk: "#196cf4" }, dark: { accent: "#3b82f6", accentInk: "#3b82f6" }, onAccent: "#14151a" },
-    teal: { name: "teal", label: "Teal", light: { accent: "#14b8a6", accentInk: "#0e8174" }, dark: { accent: "#14b8a6", accentInk: "#14b8a6" }, onAccent: "#14151a" },
-    amber: { name: "amber", label: "Amber", light: { accent: "#f59e0b", accentInk: "#a06707" }, dark: { accent: "#f59e0b", accentInk: "#f59e0b" }, onAccent: "#14151a" },
-    rose: { name: "rose", label: "Rose", light: { accent: "#f43f5e", accentInk: "#e60d32" }, dark: { accent: "#f43f5e", accentInk: "#f43f5e" }, onAccent: "#14151a" },
-    violet: { name: "violet", label: "Violet", light: { accent: "#8b5cf6", accentInk: "#8452f5" }, dark: { accent: "#8b5cf6", accentInk: "#8e61f6" }, onAccent: "#14151a" },
+    blue: { name: "blue", label: "Blue", light: { accent: "#007AFF", accentInk: "#0062e7" }, dark: { accent: "#0A84FF", accentInk: "#0A84FF" }, onAccent: "#14151a" },
+    teal: { name: "teal", label: "Teal", light: { accent: "#30B0C7", accentInk: "#00748b" }, dark: { accent: "#40C8E0", accentInk: "#40C8E0" }, onAccent: "#14151a" },
+    amber: { name: "amber", label: "Amber", light: { accent: "#FF9500", accentInk: "#b74d00" }, dark: { accent: "#FF9F0A", accentInk: "#FF9F0A" }, onAccent: "#14151a" },
+    rose: { name: "rose", label: "Rose", light: { accent: "#FF2D55", accentInk: "#db0931" }, dark: { accent: "#FF375F", accentInk: "#FF375F" }, onAccent: "#14151a" },
+    violet: { name: "violet", label: "Violet", light: { accent: "#AF52DE", accentInk: "#9d40cc" }, dark: { accent: "#BF5AF2", accentInk: "#BF5AF2" }, onAccent: "#14151a" },
 };
 
 export const ACCENT_ORDER: AccentName[] = ["blue", "teal", "amber", "rose", "violet"];
