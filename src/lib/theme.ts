@@ -1,4 +1,4 @@
-import { ACCENTS, NEUTRAL } from "./constants";
+import { ACCENTS, THEME_COLOR } from "./constants";
 import type { AccentName, Appearance } from "./types";
 
 let media: MediaQueryList | null = null;
@@ -12,25 +12,22 @@ function resolveDark(appearance: Appearance): boolean {
     return media?.matches ?? false;
 }
 
+// Only the accent hue is written here; globals.css derives the tinted neutral shell from it
+// per mode, so switching accents recolours the whole app rather than just its buttons.
 function paint(root: HTMLElement, accentName: AccentName, appearance: Appearance): void {
     const accent = ACCENTS[accentName] ?? ACCENTS.blue;
     const dark = resolveDark(appearance);
-    const neutral = dark ? NEUTRAL.dark : NEUTRAL.light;
-    const accentVariant = dark ? accent.dark : accent.light;
+    const variant = dark ? accent.dark : accent.light;
     root.dataset.accent = accent.name;
     root.dataset.mode = dark ? "dark" : "light";
-    root.style.setProperty("--bg", neutral.bg);
-    root.style.setProperty("--surface", neutral.surface);
-    root.style.setProperty("--panel", neutral.panel);
-    root.style.setProperty("--ink", neutral.ink);
-    root.style.setProperty("--ink-soft", neutral.inkSoft);
-    root.style.setProperty("--muted", neutral.muted);
-    root.style.setProperty("--line", neutral.line);
-    root.style.setProperty("--line-strong", neutral.lineStrong);
-    root.style.setProperty("--accent", accentVariant.accent);
-    root.style.setProperty("--accent-ink", accentVariant.accentInk);
-    root.style.setProperty("--on-accent", accent.onAccent);
+    root.style.setProperty("--accent", variant.accent);
+    root.style.setProperty("--accent-ink", variant.ink);
+    root.style.setProperty("--accent-fill", variant.fill);
+    root.style.setProperty("--on-accent", variant.onFill);
     root.style.colorScheme = dark ? "dark" : "light";
+    if (typeof document !== "undefined" && root === document.documentElement) {
+        for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) meta.content = dark ? THEME_COLOR.dark : THEME_COLOR.light;
+    }
 }
 
 export function applyTheme(accent: AccentName, appearance: Appearance, root?: HTMLElement): void {

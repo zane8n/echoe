@@ -2,6 +2,27 @@
 
 Echoe is a calm, local-first milestone and habit tracker. It records milestones, dated check-ins, missed days, settings, ordered audit events, and state snapshots without framing progress around a lifetime countdown.
 
+## Using Echoe
+
+Echoe has four places: **Today**, **Paths**, **Momentum**, and **Friends**. Today holds everything that needs you now: the habits and projects due, your tasks, and the milestones you're counting toward. Each path's recent days are drawn as a beat strip, where a full beat is a check-in, a low beat a missed day, and a dot a day not recorded.
+
+**Add anything from one place.** The New button (or ⌘K / Ctrl K, N, or /) opens the composer. Write it the way you'd say it:
+
+| You type | Echoe creates |
+| --- | --- |
+| `Call the dentist 9:30` | A task for today at 09:30 |
+| `Gym tomorrow 7am`, `Laundry sunday` | A task planned for that day |
+| `Read 20 pages daily`, `Run 3x a week` | A daily or weekly habit |
+| `Lisbon trip Nov 8`, `Launch in 3 weeks` | A countdown |
+| `Thesis 40h by Dec 1` | A project with an effort budget |
+| `Life in Nairobi since March 2023` | An ongoing path |
+
+The chips under the input switch the type if the guess is wrong, and **More options** opens the full editor. Typing a path's name also finds it, and the composer doubles as a command palette for navigation, settings, appearance, and export.
+
+**Gestures and shortcuts.** Tap a ring to check in and tap it again to take it back. On touch screens, swipe a row right to check in, swipe left to mark a habit missed (or delete a task), and press and hold for more actions. With a mouse, right-click a row or use its ⋯ button. Changes confirm with a toast that offers Undo, and Ctrl+Z undoes the last one. Sheets close with Escape, a tap outside, or by dragging their header down. Keys `1` to `4` switch tabs, `S` opens settings, and `?` lists every shortcut.
+
+**History.** On a path's page, tap any day in the calendar to record, correct, or annotate it.
+
 ## Data Storage
 
 The browser database is IndexedDB, named `echoe-core-v2`. It contains normalized milestone, check-in, settings, achievement, audit, snapshot, and sync metadata stores. Mutations are committed in order, deletes are soft-archived, the latest 1,000 audit entries and 120 snapshots are retained, and exports include the state plus recent history.
@@ -64,4 +85,4 @@ pnpm test
 pnpm build
 ```
 
-Tests cover empty-state removal, time calculations, dynamic countdowns and progress bars, dated success/missed check-ins, growth prompts, acrylic add/edit/settings surfaces, immediate app theme persistence, milestone color selection, profile persistence, password and Google sign-in, clustered histograms, IndexedDB ordering and history, stale-data cleanup, and the sync API contract.
+Tests cover natural-language parsing in the composer, one-tap and undoable check-ins, path summaries, dated success/missed check-ins and history editing, the path editor, settings and theme persistence, profile persistence, password and Google sign-in, private friends and sharing, clustered histograms, IndexedDB ordering and history, stale-data cleanup, and the sync API contract.

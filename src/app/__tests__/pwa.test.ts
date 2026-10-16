@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("Echoe mobile web app shell", () => {
@@ -15,15 +15,16 @@ describe("Echoe mobile web app shell", () => {
 
     it("keeps the offline shell and iPhone safe-area navigation available", () => {
         const serviceWorker = readFileSync("public/sw.js", "utf8");
-        const css = readFileSync("src/app/globals.css", "utf8");
+        const css = [readFileSync("src/app/globals.css", "utf8"), ...readdirSync("src/app/styles").map((file) => readFileSync(`src/app/styles/${file}`, "utf8"))].join("\n");
         const app = readFileSync("src/app/providers/dashboard-provider.tsx", "utf8");
         expect(serviceWorker).toContain('"/apple-touch-icon.png"');
         expect(serviceWorker).toContain("request.mode === \"navigate\"");
         expect(serviceWorker).toContain("MAX_CACHE_ENTRIES = 80");
         expect(serviceWorker).toContain('url.pathname.startsWith("/api/")');
         expect(css).toContain("env(safe-area-inset-bottom)");
-        expect(css).toContain(".mobile-nav");
-        expect(css).toContain(".sheet-surface");
+        expect(css).toContain("env(safe-area-inset-top)");
+        expect(css).toContain(".tabbar");
+        expect(css).toContain(".sheet-footer");
         expect(app).toContain("setAppBadge");
     });
 });

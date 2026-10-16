@@ -4,20 +4,11 @@ export type AccentColor = "amber" | "coral" | "teal" | "lavender" | "mint" | "sk
 export type AccentName = "blue" | "teal" | "amber" | "rose" | "violet";
 export type Appearance = "system" | "light" | "dark";
 
-export interface NeutralPalette {
-    bg: string;
-    surface: string;
-    panel: string;
-    ink: string;
-    inkSoft: string;
-    muted: string;
-    line: string;
-    lineStrong: string;
-}
-
 export interface AccentVariant {
     accent: string;
-    accentInk: string;
+    ink: string;
+    fill: string;
+    onFill: string;
 }
 
 export interface AccentConfig {
@@ -25,7 +16,6 @@ export interface AccentConfig {
     label: string;
     light: AccentVariant;
     dark: AccentVariant;
-    onAccent: string;
 }
 
 export interface HabitEntry {

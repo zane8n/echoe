@@ -1,162 +1,206 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
-import type { MilestoneEvent, PersonalProfile } from "@/lib/types";
-import {
-    addDays,
-    daysUntil,
-    formatDate,
-    formatRemaining,
-    formatSpent,
-    habitInsight,
-    habitStats,
-    habitStreak,
-    localDate,
-    milestoneKind,
-    periodProgress,
-    projectProgress,
-    formatOpenDuration,
-    startOfDay,
-    timeSpent,
-} from "@/lib/utils";
-import { COLOR_MAP } from "@/lib/constants";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Origin } from "@/app/providers/dashboard-provider";
+import { useCountUp } from "@/hooks/use-count-up";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { riskLabel, summarizePath } from "@/lib/path-view";
+import type { HabitEntry, MilestoneEvent, PersonalProfile } from "@/lib/types";
+import { daysSince, daysUntil, formatDate, habitInsight, habitStats, localDate, milestoneKind, projectProgress, timeSpent } from "@/lib/utils";
+import { ActionMenu, type MenuAction } from "./action-menu";
+import { CheckButton } from "./check-button";
+import { DayEditor } from "./day-editor";
+import { HeatCalendar } from "./heat-calendar";
 import { Icon } from "./icon";
-import { ProgressRing } from "./progress-ring";
 
 interface Props {
     event: MilestoneEvent;
     tick: number;
     profile?: PersonalProfile;
     onEdit: (id: string) => void;
-    onConfetti: () => void;
-    onCheckIn: (id: string) => void;
-    onMiss: (id: string) => void;
-    onOpenHistory: (id: string) => void;
+    onCelebrate: () => void;
+    onToggleToday: (id: string, origin?: Origin) => void;
+    onEntry: (id: string, status: HabitEntry["status"], date: string, note?: string) => void;
+    onClearEntry: (id: string, date: string) => void;
     onProgress?: (id: string) => void;
+    onEffort?: (id: string, hours: number) => void;
+    onPin?: (id: string) => void;
+    onShare?: (id: string) => void;
+    onDelete?: (id: string) => void;
 }
 
-export function PathDetail({ event, tick, profile, onEdit, onConfetti, onCheckIn, onMiss, onOpenHistory, onProgress }: Props) {
-    const previousRemaining = useRef<number | null>(null);
+const QUICK_EFFORT = [0.5, 1, 2];
+const shortDate = (date: string) => formatDate(date, { day: "numeric", month: "short", year: undefined });
 
-    const display = useMemo(() => {
-        const spent = timeSpent(event.start, event.target);
-        const remaining = daysUntil(event.target);
+export function PathDetail({ event, tick, profile, onEdit, onCelebrate, onToggleToday, onEntry, onClearEntry, onProgress, onEffort, onPin, onShare, onDelete }: Props) {
+    const previousRemaining = useRef<number | null>(null);
+    const [selectedDate, setSelectedDate] = useState(localDate());
+    const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
+    // Wide screens show half a year instead of stretching a quarter into oversized cells.
+    const weeks = useMediaQuery("(min-width: 900px)") ? 26 : 13;
+
+    const view = useMemo(() => {
+        const kind = milestoneKind(event);
         return {
-            spent,
-            remaining,
-            remainingDisplay: formatRemaining(remaining),
-            streak: habitStreak(event),
+            kind,
+            summary: summarizePath(event),
+            remaining: kind === "ongoing" ? null : daysUntil(event.target),
+            spent: timeSpent(event.start, event.target || undefined),
             stats: habitStats(event),
-            palette: COLOR_MAP[event.color] ?? COLOR_MAP.amber,
-            kind: milestoneKind(event),
-            project: milestoneKind(event) === "project" ? projectProgress(event) : null,
+            project: event.project ? projectProgress(event) : null,
         };
-        // tick keeps date-driven milestones live without recalculating every render.
+        // tick keeps date-driven numbers live without recalculating every render.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [event, tick]);
+    const { kind, summary, remaining, spent, stats, project } = view;
 
     useEffect(() => {
-        if (previousRemaining.current !== null && previousRemaining.current > 0 && display.remaining === 0) onConfetti();
-        previousRemaining.current = display.remaining;
-    }, [display, onConfetti]);
+        if (remaining === null) return;
+        if (previousRemaining.current !== null && previousRemaining.current > 0 && remaining === 0) onCelebrate();
+        previousRemaining.current = remaining;
+    }, [remaining, onCelebrate]);
 
-    const { spent, remaining, remainingDisplay, streak, stats, palette, kind, project } = display;
-    const todayEntry = event.habit?.entries.find((entry) => entry.date === localDate());
-    const habitProgress = event.habit ? periodProgress(event.habit) : null;
-    const historyDays = Array.from({ length: 21 }, (_, index) => localDate(addDays(startOfDay(), index - 20)));
-    const metric = kind === "ongoing"
-        ? event.habit ? String(streak) : formatOpenDuration(event.start)
-        : kind === "countdown" || event.isCountdown
-        ? remaining > 0 ? String(remaining) : remaining === 0 ? "Today" : "Reached"
-        : `${project?.overallPercent ?? spent.percent.toFixed(0)}%`;
-    const metricLabel = kind === "ongoing"
-        ? event.habit ? `${event.habit.frequency} rhythm` : "moving with you"
-        : kind === "countdown" || event.isCountdown
-        ? remaining > 0 ? `days until ${formatDate(event.target, { month: "short", day: "numeric" })}` : "target date"
-        : project ? `${project.investedHours}h invested, ${project.readiness}% ready, ${project.requiredHoursPerWeek}h/week needed` : remaining > 0 ? `${remainingDisplay.value} ${remainingDisplay.unit} until target` : "target reached";
-    const progressValue = project?.overallPercent ?? (kind === "ongoing" ? stats.rate : spent.percent);
-    const isCountdownLike = kind === "countdown" || event.isCountdown;
-    const ringPercent = isCountdownLike ? spent.percent : (project?.overallPercent ?? spent.percent);
+    const countdownFirst = kind === "countdown" || Boolean(event.isCountdown);
+    const metric = countdownFirst && remaining !== null
+        ? { value: remaining > 0 ? remaining : remaining === 0 ? "Today" : Math.abs(remaining), label: remaining > 0 ? `${remaining === 1 ? "day" : "days"} until ${shortDate(event.target)}` : remaining === 0 ? "is the day" : `${Math.abs(remaining) === 1 ? "day" : "days"} since ${shortDate(event.target)}` }
+        : kind === "ongoing" && !event.habit
+            ? { value: summary.metric, label: `since ${formatDate(event.start, { day: undefined })}` }
+            : project
+                ? { value: `${project.overallPercent}%`, label: "overall progress" }
+                : { value: stats.streak, label: `${event.habit?.frequency === "weekly" ? "week" : "day"} streak` };
+    const animated = useCountUp(typeof metric.value === "number" ? metric.value : 0);
+    const metricText = typeof metric.value === "number" ? String(Math.round(animated)) : metric.value;
+
+    const entries = summary.entries;
+    const selectedEntry = entries.find((entry) => entry.date === selectedDate);
+    const tracked = Boolean(event.habit || event.project);
+    const notes = [
+        ...entries.filter((entry) => entry.note).map((entry) => ({ key: `c-${entry.date}`, date: entry.date, text: entry.note!, tag: entry.status === "done" ? "Checked in" : "Missed" })),
+        ...(event.project?.entries ?? []).filter((entry) => entry.note).map((entry) => ({ key: entry.id, date: entry.date, text: entry.note!, tag: entry.hours > 0 ? `+${entry.hours}h` : `${entry.readiness}% ready` })),
+    ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
+
+    const menu: MenuAction[] = [
+        ...(onPin && !event.pinned ? [{ label: "Keep in focus", icon: "pin" as const, onSelect: () => onPin(event.id) }] : []),
+        ...(onShare ? [{ label: "Share with a friend", icon: "share" as const, onSelect: () => onShare(event.id) }] : []),
+        ...(onProgress && event.project ? [{ label: "Log effort or readiness", icon: "timer" as const, onSelect: () => onProgress(event.id) }] : []),
+        { label: "Edit", icon: "pencil", onSelect: () => onEdit(event.id) },
+        ...(onDelete ? [{ label: "Delete", icon: "trash" as const, tone: "danger" as const, separatorBefore: true, onSelect: () => onDelete(event.id) }] : []),
+    ];
 
     return (
-        <section className="animate-soft-enter pb-10">
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase text-[var(--color-accent-ink)]">
-                    <Icon name="target" size={14} /> Path
-                </span>
-                {event.habit && streak > 0 && (
-                    <span className="status-pill" style={{ background: palette.glow, color: palette.ink }}>
-                        <Icon name="flame" size={12} /> {streak}{event.habit.frequency === "daily" ? "d" : "w"} rhythm
-                    </span>
-                )}
-                {event.habit && stats.total > 0 && (
-                    <span className="status-pill bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]">{stats.rate}% consistency</span>
-                )}
-                {habitProgress && habitProgress.target > 1 && (
-                    <span className="status-pill bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]">{habitProgress.done}/{habitProgress.target} this week</span>
-                )}
-                {event.achievedAt && (
-                    <span className="status-pill bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"><Icon name="check" size={12} /> Complete</span>
-                )}
-            </div>
-
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between sm:gap-10">
-                <div className="min-w-0 flex-1">
-                    <h1 className="m-0 [overflow-wrap:anywhere] text-[clamp(28px,5vw,42px)] font-semibold leading-[1.08] tracking-[-0.01em]">{event.name}</h1>
-                    <p className="mt-2 text-sm text-[var(--color-muted)]">
-                        {kind === "ongoing" ? `Since ${formatDate(event.start)}` : formatDate(event.target)} <span aria-hidden="true">·</span> <span className="font-medium" style={{ color: palette.ink }}>{kind === "ongoing" ? "No finish line" : formatSpent(spent)}</span>
-                    </p>
+        <article className="detail" data-hue={event.color}>
+            <header className="detail-head">
+                <div className="detail-kind">
+                    <span className="detail-dot" aria-hidden="true" />
+                    {summary.kindLabel}
+                    {event.pinned && <span className="pill pill-hue"><Icon name="pin" size={11} />In focus</span>}
+                    {project && <span className={`pill ${project.risk === "at-risk" ? "pill-danger" : project.risk === "watch" ? "pill-warn" : "pill-hue"}`}>{riskLabel[project.risk]}</span>}
                 </div>
-                <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end" aria-live="polite">
-                    {kind === "ongoing" ? (
-                        <div className="font-[var(--font-mono)] text-[clamp(38px,7vw,58px)] font-semibold leading-[0.95] tabular-nums" style={{ color: palette.color }}>{metric}</div>
-                    ) : (
-                        <ProgressRing percent={ringPercent} size={104} strokeWidth={7} color={palette.color}>
-                            <span className="text-[clamp(26px,5vw,34px)] font-semibold" style={{ color: palette.color }}>{metric}</span>
-                        </ProgressRing>
-                    )}
-                    <div className="text-sm text-[var(--color-muted)]">{metricLabel}</div>
+                <div className="detail-actions">
+                    <button type="button" className="icon-btn" onClick={() => onEdit(event.id)} aria-label={`Edit ${event.name}`} title="Edit"><Icon name="pencil" size={18} /></button>
+                    <button type="button" className="icon-btn" aria-label="More actions" onClick={(click) => { const rect = click.currentTarget.getBoundingClientRect(); setMenuAt({ x: rect.right, y: rect.bottom + 4 }); }}><Icon name="more-horiz" size={20} /></button>
                 </div>
-            </div>
+                <h1 style={{ viewTransitionName: `path-${event.id}` }}>{event.name}</h1>
+            </header>
 
-            <div className="mt-8 flex flex-wrap items-center gap-4">
-                <div className="min-w-[200px] flex-1">
-                    <div className="relative h-2 overflow-hidden rounded-full bg-[var(--color-line)]" role="progressbar" aria-label={`${event.name} progress`} aria-valuenow={Math.round(progressValue)} aria-valuemin={0} aria-valuemax={100}>
-                        <span className="progress-fill absolute inset-y-0 left-0 rounded-full" style={{ width: `${progressValue}%`, background: palette.color }} />
+            <section className="detail-hero" aria-live="polite">
+                <div className="detail-metric">
+                    <strong className="num">{metricText}</strong>
+                    <span>{metric.label}</span>
+                </div>
+                {summary.checkable && (
+                    <div className="detail-check">
+                        <CheckButton
+                            size="lg"
+                            done={summary.period && summary.period.target > 1 ? summary.doneToday : summary.doneForPeriod}
+                            progress={summary.period && summary.period.target > 1 ? { done: summary.period.done, target: summary.period.target } : undefined}
+                            label={summary.doneToday ? "Undo today's check-in" : "Check in for today"}
+                            onToggle={(origin) => onToggleToday(event.id, origin)}
+                        />
+                        <span>{summary.doneToday ? "Done today" : summary.doneForPeriod ? "Done this week" : "Check in"}</span>
                     </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    {event.habit && (
-                        <>
-                            <button onClick={() => onCheckIn(event.id)} className="compact-button" style={{ borderColor: palette.color, color: palette.ink, background: palette.glow }} aria-pressed={todayEntry?.status === "done"}>
-                                <Icon name="check" size={14} /> Done
-                            </button>
-                            <button onClick={() => onMiss(event.id)} className="compact-button text-[var(--color-muted)]" aria-pressed={todayEntry?.status === "missed"}>
-                                <Icon name="missed" size={14} /> Missed
-                            </button>
-                            <button onClick={() => onOpenHistory(event.id)} className="icon-button" aria-label="Open check-in history" title="Check-in history">
-                                <Icon name="calendar" size={16} />
-                            </button>
-                        </>
-                    )}
-                    {project && onProgress && <button onClick={() => onProgress(event.id)} className="compact-button" style={{ borderColor: palette.color, color: palette.ink, background: palette.glow }}><Icon name="trending-up" size={14} /> Update</button>}
-                    <button onClick={() => onEdit(event.id)} className="compact-button text-[var(--color-ink-soft)]">
-                        <Icon name="pencil" size={14} /> Edit
-                    </button>
-                </div>
-            </div>
+                )}
+            </section>
 
-            {event.habit && (
-                <div className="mt-5 flex flex-col gap-3 border-l-2 pl-4" style={{ borderColor: palette.color }}>
-                    <div className="flex items-center gap-1.5" aria-label="Recent habit history">
-                        {historyDays.map((date) => {
-                            const entry = event.habit?.entries.find((item) => item.date === date);
-                            return <span key={date} title={`${date}: ${entry?.status ?? "not recorded"}`} className="h-2.5 min-w-1 flex-1 rounded-[2px]" style={{ background: entry?.status === "done" ? palette.color : entry?.status === "missed" ? "var(--color-danger)" : "var(--color-line)" }} />;
-                        })}
+            <dl className="stat-row">
+                {event.habit && <>
+                    <div><dt>Consistency</dt><dd className="num">{stats.rate}%</dd></div>
+                    <div><dt>Check-ins</dt><dd className="num">{stats.done}</dd></div>
+                    {summary.period && summary.period.target > 1
+                        ? <div><dt>This week</dt><dd className="num">{summary.period.done}/{summary.period.target}</dd></div>
+                        : <div><dt>Missed</dt><dd className="num">{stats.missed}</dd></div>}
+                </>}
+                {project && <>
+                    <div><dt>Invested</dt><dd className="num">{project.investedHours}h<small>/{project.plannedHours}h</small></dd></div>
+                    <div><dt>Readiness</dt><dd className="num">{project.readiness}%</dd></div>
+                    <div><dt>Pace needed</dt><dd className="num">{project.requiredHoursPerWeek}h<small>/wk</small></dd></div>
+                </>}
+                {kind === "countdown" && <>
+                    <div><dt>Date</dt><dd>{formatDate(event.target, { weekday: "short", day: "numeric", month: "short", year: undefined })}</dd></div>
+                    <div><dt>Waited</dt><dd className="num">{spent.days}d</dd></div>
+                    <div><dt>Elapsed</dt><dd className="num">{Math.round(spent.percent)}%</dd></div>
+                </>}
+                {kind === "ongoing" && !event.habit && <>
+                    <div><dt>Began</dt><dd>{formatDate(event.start, { day: "numeric", month: "short" })}</dd></div>
+                    <div><dt>Days</dt><dd className="num">{daysSince(event.start).toLocaleString()}</dd></div>
+                </>}
+            </dl>
+
+            {kind !== "ongoing" && (
+                <div className="timeline">
+                    <div className="timeline-bar" role="progressbar" aria-label="Time elapsed" aria-valuenow={Math.round(spent.percent)} aria-valuemin={0} aria-valuemax={100}>
+                        <span style={{ width: `${spent.percent}%` }} />
                     </div>
-                    <p className="m-0 flex items-start gap-2 text-xs text-[var(--color-muted)]"><Icon name="sparkle" size={13} className="mt-0.5 shrink-0 text-[var(--color-accent)]" /> {habitInsight(event, profile?.supportStyle)}</p>
+                    <div className="timeline-labels"><span>{shortDate(event.start)}</span><span>{remaining && remaining > 0 ? `${remaining} ${remaining === 1 ? "day" : "days"} left` : "Target reached"}</span><span>{shortDate(event.target)}</span></div>
                 </div>
             )}
-        </section>
+
+            {project && onEffort && (
+                <section className="detail-section">
+                    <div className="section-head"><h2>Log effort</h2><span className="section-meta">{project.remainingHours}h to go</span></div>
+                    <div className="flex flex-wrap gap-2">
+                        {QUICK_EFFORT.map((hours) => <button key={hours} type="button" className="btn btn-secondary btn-sm" onClick={() => onEffort(event.id, hours)}><Icon name="plus" size={14} />{hours < 1 ? `${hours * 60} min` : `${hours}h`}</button>)}
+                        {onProgress && <button type="button" className="btn btn-ghost btn-sm" onClick={() => onProgress(event.id)}>Readiness and more</button>}
+                    </div>
+                </section>
+            )}
+
+            {tracked && (
+                <section className="detail-section">
+                    <div className="section-head"><h2>History</h2><span className="section-meta">Tap a day to change it</span></div>
+                    <HeatCalendar entries={entries} weeks={weeks} start={event.start} selected={selectedDate} onSelect={setSelectedDate} label={`${event.name} history, last ${weeks} weeks`} />
+                    <div className="heat-legend" aria-hidden="true">
+                        <span><i style={{ background: "var(--hue)" }} />Checked in</span>
+                        <span><i style={{ boxShadow: "inset 0 0 0 1.5px var(--color-line-strong)" }} />Missed</span>
+                        <span><i style={{ background: "color-mix(in srgb, var(--color-ink) 7%, transparent)" }} />Not recorded</span>
+                    </div>
+                    <DayEditor
+                        key={selectedDate}
+                        date={selectedDate}
+                        entry={selectedEntry}
+                        onSave={(status, note) => onEntry(event.id, status, selectedDate, note)}
+                        onClear={() => onClearEntry(event.id, selectedDate)}
+                    />
+                </section>
+            )}
+
+            {event.habit && <p className="insight-note"><Icon name="sparkle" size={16} />{habitInsight(event, profile?.supportStyle)}</p>}
+
+            {notes.length > 0 && (
+                <section className="detail-section">
+                    <div className="section-head"><h2>Notes</h2></div>
+                    <ol className="history-list">
+                        {notes.map((note) => (
+                            <li key={note.key}>
+                                <span><strong>{formatDate(note.date, { weekday: "short", year: undefined })}</strong><small>{note.text}</small></span>
+                                <span className="num">{note.tag}</span>
+                            </li>
+                        ))}
+                    </ol>
+                </section>
+            )}
+
+            {menuAt && <ActionMenu x={menuAt.x} y={menuAt.y} title={event.name} actions={menu} onClose={() => setMenuAt(null)} />}
+        </article>
     );
 }

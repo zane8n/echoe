@@ -2,17 +2,12 @@
 
 import { useMemo } from "react";
 import { useCountUp } from "@/hooks/use-count-up";
-import type { Achievement, MilestoneEvent, ProjectProgress } from "@/lib/types";
+import type { Achievement, MilestoneEvent } from "@/lib/types";
 import { addDays, formatDate, localDate, projectProgress, startOfDay } from "@/lib/utils";
 import { Icon } from "./icon";
-import { NeuronLineChart } from "./neuron-line-chart";
+import { TransitionLink } from "./transition-link";
 
-interface Props { events: MilestoneEvent[]; achievements: Achievement[]; tick: number; }
-
-function AttentionRow({ event, progress }: { event: MilestoneEvent; progress: ProjectProgress }) {
-    const gap = useCountUp(Math.max(0, Math.round(progress.elapsedPercent - progress.overallPercent)));
-    return <div className="momentum-attention"><span>{event.name}</span><strong>{Math.round(gap)}% pace gap</strong></div>;
-}
+interface Props { events: MilestoneEvent[]; achievements: Achievement[]; tick: number }
 
 export function MomentumOverview({ events, achievements, tick }: Props) {
     const analysis = useMemo(() => {
@@ -48,47 +43,94 @@ export function MomentumOverview({ events, achievements, tick }: Props) {
 
         const opportunities = events.reduce((total, event) => {
             const frequency = event.habit?.frequency ?? event.project?.checkInFrequency;
-            return total + (frequency === "daily" ? 7 : frequency === "weekly" ? 1 : 0);
+            const perWeek = event.habit?.frequency === "weekly" ? event.habit.targetPerPeriod ?? 1 : 1;
+            return total + (frequency === "daily" ? 7 : frequency === "weekly" ? perWeek : 0);
         }, 0);
         const completion = opportunities ? Math.min(100, Math.round((currentCheckIns / opportunities) * 100)) : 0;
-        const delta = currentCheckIns - previousCheckIns;
         const attention = events
             .filter((event) => event.project && ["watch", "at-risk"].includes(projectProgress(event).risk))
-            .sort((a, b) => projectProgress(b).elapsedPercent - projectProgress(b).overallPercent - (projectProgress(a).elapsedPercent - projectProgress(a).overallPercent));
-        return { days, scores, currentCheckIns, currentHours: Math.round(currentHours * 10) / 10, activeDays: [...activeDays].filter((date) => days.indexOf(date) >= 7).length, completion, delta, missed, attention };
+            .map((event) => ({ event, gap: Math.max(0, Math.round(projectProgress(event).elapsedPercent - projectProgress(event).overallPercent)) }))
+            .sort((a, b) => b.gap - a.gap);
+        return { days, scores, currentCheckIns, previousCheckIns, currentHours: Math.round(currentHours * 10) / 10, activeDays: [...activeDays].filter((date) => days.indexOf(date) >= 7).length, completion, delta: currentCheckIns - previousCheckIns, missed, attention };
         // tick advances date windows without recalculating on every render.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [events, tick]);
 
-    const signal = analysis.delta > 0 ? `${analysis.delta} more check-ins than last week` : analysis.delta < 0 ? `${Math.abs(analysis.delta)} fewer check-ins than last week` : "Your check-in pace is steady";
     const completion = useCountUp(analysis.completion);
     const activeDays = useCountUp(analysis.activeDays);
     const currentHours = useCountUp(analysis.currentHours);
+    const max = Math.max(1, ...analysis.scores.values());
+    const today = localDate();
+    const signal = analysis.delta > 0
+        ? `${analysis.delta} more check-in${analysis.delta === 1 ? "" : "s"} than last week. The rhythm is building.`
+        : analysis.delta < 0
+            ? `${Math.abs(analysis.delta)} fewer check-in${analysis.delta === -1 ? "" : "s"} than last week. A lighter week is still a week.`
+            : analysis.currentCheckIns ? "Holding the same pace as last week." : "This week is still open. One check-in starts the rhythm.";
 
-    return <section className="momentum-overview animate-soft-enter">
-        <header className="momentum-heading"><div className="section-kicker"><Icon name="trending-up" size={14} />Momentum</div><h1>What your rhythm is saying</h1><p>{signal}.</p></header>
-        <dl className="momentum-stats">
-            <div><dt>Follow-through</dt><dd>{Math.round(completion)}%</dd><small>planned rhythm, 7 days</small></div>
-            <div><dt>Active days</dt><dd>{Math.round(activeDays)}</dd><small>of the last 7</small></div>
-            <div><dt>Deep work</dt><dd>{currentHours.toFixed(1)}h</dd><small>logged this week</small></div>
-        </dl>
-        <div className="momentum-fortnight"><NeuronLineChart compact values={analysis.days.map((date) => analysis.scores.get(date) ?? 0)} titles={analysis.days.map((date) => `${date}: ${Math.round(analysis.scores.get(date) ?? 0)} activity points`)} ariaLabel="Daily activity over the last fourteen days" /><div><span>Last 14 days</span></div></div>
-        {achievements.length > 0 && (
-            <div className="momentum-achievements">
-                <div className="section-kicker"><Icon name="trophy" size={14} />Achievements</div>
-                <ul>
-                    {achievements.slice(0, 12).map((achievement) => (
-                        <li key={achievement.id} className="achievement-chip" title={formatDate(achievement.date, { month: "short", day: "numeric", year: undefined })}>
-                            <Icon name="trophy" size={14} />
-                            <span>{achievement.label}</span>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-        )}
-        <div className="momentum-review">
-            <div><span>Next review</span><strong>{analysis.attention.length ? `${analysis.attention.length} ${analysis.attention.length === 1 ? "path" : "paths"} need a decision` : "No path is asking for intervention"}</strong></div>
-            {analysis.attention.slice(0, 2).map((event) => <AttentionRow key={event.id} event={event} progress={projectProgress(event)} />)}
-        </div>
-    </section>;
+    return (
+        <>
+            <header className="page-head">
+                <div>
+                    <h1>Momentum</h1>
+                    <p>{signal}</p>
+                </div>
+            </header>
+
+            <section className="fortnight" aria-label="Check-ins and effort over the last two weeks">
+                {[0, 1].map((week) => (
+                    <div key={week} className="fortnight-week">
+                        <div className="fortnight-bars">
+                            {analysis.days.slice(week * 7, week * 7 + 7).map((date, index) => {
+                                const score = analysis.scores.get(date) ?? 0;
+                                return (
+                                    <div key={date} className="fortnight-day" data-today={date === today} title={`${formatDate(date, { weekday: "long", year: undefined })}: ${Math.round(score)} activity`}>
+                                        <span className="fortnight-bar" style={{ "--h": `${Math.max(6, (score / max) * 100)}%`, "--i": week * 7 + index } as React.CSSProperties} data-empty={score === 0} />
+                                        <small>{new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: "narrow" })}</small>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <span className="fortnight-label">{week === 0 ? `Last week, ${analysis.previousCheckIns}` : `This week, ${analysis.currentCheckIns}`}</span>
+                    </div>
+                ))}
+            </section>
+
+            <dl className="stat-row momentum-stats">
+                <div><dt>Follow-through</dt><dd className="num">{Math.round(completion)}%</dd><small>of planned check-ins, 7 days</small></div>
+                <div><dt>Active days</dt><dd className="num">{Math.round(activeDays)}<small>/7</small></dd><small>with any progress</small></div>
+                <div><dt>Deep work</dt><dd className="num">{currentHours.toFixed(1)}h</dd><small>logged this week</small></div>
+            </dl>
+
+            {analysis.attention.length > 0 && (
+                <section className="section" aria-labelledby="attentionHeading">
+                    <div className="section-head"><h2 id="attentionHeading">Needs a decision</h2><span className="section-meta">{analysis.attention.length}</span></div>
+                    <ul className="rhythm-list group">
+                        {analysis.attention.slice(0, 3).map(({ event, gap }) => (
+                            <li key={event.id} data-hue={event.color} className="path-row">
+                                <TransitionLink href={`/paths/${event.id}`} className="path-row-link">
+                                    <span className="path-row-main"><span className="path-row-title"><strong>{event.name}</strong></span><span className="path-row-meta">Behind the calendar by {gap}%</span></span>
+                                    <Icon name="chevron-right" size={18} className="text-[var(--color-muted)]" />
+                                </TransitionLink>
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            )}
+
+            {achievements.length > 0 && (
+                <section className="section" aria-labelledby="achievementsHeading">
+                    <div className="section-head"><h2 id="achievementsHeading">Achievements</h2><span className="section-meta">{achievements.length}</span></div>
+                    <ul className="trophy-shelf">
+                        {achievements.slice(0, 12).map((achievement) => (
+                            <li key={achievement.id}>
+                                <span className="trophy-medal" aria-hidden="true"><Icon name="trophy" size={20} /></span>
+                                <strong>{achievement.label}</strong>
+                                <small>{formatDate(achievement.date, { month: "short", day: "numeric", year: undefined })}</small>
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            )}
+        </>
+    );
 }
