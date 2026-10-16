@@ -1,8 +1,9 @@
 import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { dashboardState, storageSummary } from "@/test/fixtures";
+import { localDate } from "@/lib/utils";
 
 const dashboardMock = vi.hoisted(() => ({
     state: undefined as unknown,
@@ -14,16 +15,19 @@ const dashboardMock = vi.hoisted(() => ({
     deleteEvent: vi.fn(),
     restoreEvent: vi.fn(),
     addAchievement: vi.fn(),
-    addDailyTask: vi.fn(),
+    addDailyTask: vi.fn(() => "task-1"),
     toggleDailyTask: vi.fn(),
     updateDailyTask: vi.fn(),
     deleteDailyTask: vi.fn(),
+    restoreDailyTask: vi.fn(),
     listSnapshots: vi.fn().mockResolvedValue([]),
     restoreSnapshot: vi.fn().mockResolvedValue(undefined),
     checkInHabit: vi.fn(),
     clearHabitCheckIn: vi.fn(),
     checkInProject: vi.fn(),
+    clearProjectCheckIn: vi.fn(),
     logProjectEffort: vi.fn(),
+    removeProjectEntry: vi.fn(),
     updateProjectReadiness: vi.fn(),
     markNotificationsRead: vi.fn(),
     syncNow: vi.fn(),
@@ -59,26 +63,54 @@ describe("Echoe app shell", () => {
         window.history.replaceState({}, "", "/");
         dashboardMock.state = { ...dashboardState, events: [] };
         dashboardMock.storageSummary = { ...storageSummary, milestoneCount: 0, checkInCount: 0, historyCount: 0, syncStatus: "local" };
-        routerMock.push.mockClear();
-        routerMock.replace.mockClear();
-        routerMock.back.mockClear();
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ mode: "local", account: null }), { status: 503 })));
     });
 
-    it("uses a focused shell with a header Add action and a five-item bottom navigation to real routes", async () => {
+    it("uses one New button and a four-tab navigation to real routes", () => {
         render(<AppShell><Home /></AppShell>);
         expect(screen.getByRole("link", { name: "Echoe home" })).toHaveTextContent("Echoe");
         expect(screen.getAllByRole("button", { name: "Settings" })).toHaveLength(1);
         const nav = screen.getByRole("navigation", { name: "Primary navigation" });
-        expect(nav.querySelectorAll("a, button")).toHaveLength(5);
-        expect(screen.getByRole("link", { name: "Paths" })).toHaveAttribute("href", "/paths");
-        expect(screen.getByRole("link", { name: "My Day" })).toHaveAttribute("href", "/my-day");
-        expect(screen.getByRole("link", { name: "Momentum" })).toHaveAttribute("href", "/momentum");
-        expect(screen.getByRole("link", { name: "Friends" })).toHaveAttribute("href", "/friends");
-        expect(screen.getAllByRole("button", { name: "Add a path" })).toHaveLength(1);
-        expect(screen.queryByRole("heading", { name: /what you're building/i })).not.toBeInTheDocument();
+        expect(nav.querySelectorAll("a")).toHaveLength(4);
+        expect(within(nav).getByRole("link", { name: "Today" })).toHaveAttribute("aria-current", "page");
+        expect(within(nav).getByRole("link", { name: "Paths" })).toHaveAttribute("href", "/paths");
+        expect(within(nav).getByRole("link", { name: "Momentum" })).toHaveAttribute("href", "/momentum");
+        expect(within(nav).getByRole("link", { name: "Friends" })).toHaveAttribute("href", "/friends");
+        expect(screen.getAllByRole("button", { name: "New" })).toHaveLength(1);
     });
 
-    it("previews an accent color across the app and opens frosted add/edit surfaces", async () => {
+    it("navigates between tabs through the router", async () => {
+        const user = userEvent.setup();
+        render(<AppShell><Home /></AppShell>);
+        await user.click(within(screen.getByRole("navigation", { name: "Primary navigation" })).getByRole("link", { name: "Paths" }));
+        expect(routerMock.push).toHaveBeenCalledWith("/paths");
+    });
+
+    it("creates a weekly habit straight from plain language", async () => {
+        const user = userEvent.setup();
+        render(<AppShell><Home /></AppShell>);
+        await user.click(screen.getByRole("button", { name: "New" }));
+        const dialog = screen.getByRole("dialog", { name: "Add anything" });
+        await user.type(within(dialog).getByRole("combobox", { name: /what would you like to add/i }), "Run 3x a week");
+        expect(within(dialog).getByRole("radio", { name: "Habit" })).toHaveAttribute("aria-checked", "true");
+        await user.keyboard("{Enter}");
+        expect(dashboardMock.upsertEvent).toHaveBeenCalledWith(expect.objectContaining({ name: "Run", kind: "habit", habit: expect.objectContaining({ frequency: "weekly", targetPerPeriod: 3 }) }));
+        expect(screen.queryByRole("dialog", { name: "Add anything" })).not.toBeInTheDocument();
+        expect(screen.getByText("Run created")).toBeInTheDocument();
+    });
+
+    it("adds a timed task for today and offers undo", async () => {
+        const user = userEvent.setup();
+        render(<AppShell><Home /></AppShell>);
+        await user.click(screen.getByRole("button", { name: "New" }));
+        await user.type(screen.getByRole("combobox", { name: /what would you like to add/i }), "Call the dentist 9:30");
+        await user.click(screen.getByRole("button", { name: "Add to today" }));
+        expect(dashboardMock.addDailyTask).toHaveBeenCalledWith("Call the dentist", "09:30", localDate());
+        await user.click(screen.getByRole("button", { name: "Undo" }));
+        expect(dashboardMock.deleteDailyTask).toHaveBeenCalledWith("task-1");
+    });
+
+    it("previews an accent color across the app and opens the path editor from the composer", async () => {
         const user = userEvent.setup();
         render(<AppShell><Home /></AppShell>);
 
@@ -89,8 +121,26 @@ describe("Echoe app shell", () => {
         expect(screen.getByRole("dialog", { name: "Settings" })).toHaveClass("acrylic-surface");
         await user.click(screen.getByRole("button", { name: "Close settings" }));
 
-        await user.click(screen.getByRole("button", { name: "Add a path" }));
+        await user.click(screen.getByRole("button", { name: "New" }));
+        await user.type(screen.getByRole("combobox", { name: /what would you like to add/i }), "Thesis 40h");
+        await user.click(screen.getByRole("button", { name: "More options" }));
         expect(screen.getByRole("dialog", { name: "Create a path" })).toHaveClass("acrylic-surface");
+        expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue("Thesis");
+        expect(screen.getByRole("radio", { name: "Project" })).toHaveAttribute("aria-checked", "true");
+    });
+
+    it("checks in to a habit from Today with one tap, and taps again to undo", async () => {
+        const user = userEvent.setup();
+        dashboardMock.state = dashboardState;
+        const { rerender } = render(<AppShell><Home /></AppShell>);
+        await user.click(screen.getByRole("button", { name: "Check in to Practice deliberately" }));
+        expect(dashboardMock.checkInHabit).toHaveBeenCalledWith("habit-1", "done", localDate(), undefined);
+
+        const today = localDate();
+        dashboardMock.state = { ...dashboardState, events: [{ ...dashboardState.events[0], habit: { ...dashboardState.events[0].habit!, entries: [{ date: today, status: "done" as const }] } }] };
+        rerender(<AppShell><Home /></AppShell>);
+        await user.click(screen.getByRole("button", { name: /undo today's check-in for practice deliberately/i }));
+        expect(dashboardMock.clearHabitCheckIn).toHaveBeenCalledWith("habit-1", today);
     });
 
     it("shows a meaningful notification behind an actionable badge", async () => {

@@ -1,18 +1,29 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { COLOR_MAP } from "@/lib/constants";
+import { useRef, useState } from "react";
+import type { EditorSeed } from "@/app/providers/dashboard-provider";
+import { PATH_COLORS } from "@/lib/constants";
 import type { AccentColor, MilestoneEvent, MilestoneKind } from "@/lib/types";
-import { addDays, localDate, milestoneKind } from "@/lib/utils";
+import { addDays, daysUntil, localDate, milestoneKind } from "@/lib/utils";
 import { Icon, type IconName } from "./icon";
+import { Segmented } from "./segmented";
+import { Sheet, SheetBody, SheetFooter, SheetHeader, useSheet } from "./sheet";
 
-const COLORS: AccentColor[] = ["amber", "coral", "teal", "lavender", "mint", "sky"];
-const KINDS: Array<{ value: MilestoneKind; label: string; detail: string; icon: IconName }> = [
-    { value: "project", label: "Project", detail: "Deadline and effort", icon: "target" },
-    { value: "habit", label: "Habit", detail: "Repeatable rhythm", icon: "flame" },
-    { value: "ongoing", label: "Ongoing", detail: "No finish line", icon: "history" },
-    { value: "countdown", label: "Countdown", detail: "Just a date", icon: "hourglass" },
+const KINDS: Array<{ value: MilestoneKind; label: string; icon: IconName }> = [
+    { value: "habit", label: "Habit", icon: "repeat" },
+    { value: "project", label: "Project", icon: "target" },
+    { value: "countdown", label: "Countdown", icon: "hourglass" },
+    { value: "ongoing", label: "Ongoing", icon: "history" },
 ];
+
+const KIND_HINT: Record<MilestoneKind, string> = {
+    habit: "Something you repeat. Check in each day or week.",
+    project: "A deadline with an effort budget and honest readiness.",
+    countdown: "Just a date to look forward to. No check-ins, no tracking.",
+    ongoing: "No finish line. Echoe counts up from when it began.",
+};
+
+const TARGET_PRESETS = [{ label: "2 weeks", days: 14 }, { label: "1 month", days: 30 }, { label: "3 months", days: 91 }, { label: "6 months", days: 182 }];
 
 interface Props {
     eventId: string | null;
@@ -20,63 +31,40 @@ interface Props {
     onSave: (event: MilestoneEvent) => void;
     onDelete: (id: string) => void;
     onClose: () => void;
-    seed?: { kind: MilestoneKind; frequency?: "daily" | "weekly" } | null;
+    seed?: EditorSeed | null;
 }
 
-export function EventSheet({ eventId, events, onSave, onDelete, onClose, seed }: Props) {
-    const event = eventId ? events.find((item) => item.id === eventId) ?? null : null;
+export function EventSheet(props: Props) {
+    const event = props.eventId ? props.events.find((item) => item.id === props.eventId) ?? null : null;
+    const nameInput = useRef<HTMLInputElement>(null);
+    const [color, setColor] = useState<AccentColor>(event?.color ?? PATH_COLORS[props.events.length % PATH_COLORS.length] ?? "teal");
+    return (
+        <Sheet onClose={props.onClose} label={event ? event.name : "Create a path"} hue={color} initialFocus={nameInput} size="md">
+            <EventForm {...props} event={event} nameInput={nameInput} color={color} setColor={setColor} />
+        </Sheet>
+    );
+}
+
+function EventForm({ event, events, onSave, onDelete, seed, nameInput, color, setColor }: Props & { event: MilestoneEvent | null; nameInput: React.RefObject<HTMLInputElement | null>; color: AccentColor; setColor: (color: AccentColor) => void }) {
+    const { close } = useSheet();
     const isEdit = Boolean(event);
-    const [kind, setKind] = useState<MilestoneKind>(event ? milestoneKind(event) : seed?.kind ?? "project");
-    const [name, setName] = useState(event?.name ?? "");
-    const [start, setStart] = useState(event?.start ?? localDate());
-    const [target, setTarget] = useState(event?.target || localDate(addDays(new Date(), 30)));
-    const [color, setColor] = useState<AccentColor>(event?.color ?? "teal");
+    const [kind, setKind] = useState<MilestoneKind>(event ? milestoneKind(event) : seed?.kind ?? "habit");
+    const [name, setName] = useState(event?.name ?? seed?.name ?? "");
+    const [start, setStart] = useState(event?.start ?? seed?.start ?? localDate());
+    const [target, setTarget] = useState(event?.target || seed?.target || localDate(addDays(new Date(), 30)));
     const [pinned, setPinned] = useState(event?.pinned ?? events.length === 0);
     const [isCountdown, setIsCountdown] = useState(event?.isCountdown ?? false);
     const [habitFreq, setHabitFreq] = useState<"daily" | "weekly">(event?.habit?.frequency ?? seed?.frequency ?? "daily");
-    const [targetPerPeriod, setTargetPerPeriod] = useState(event?.habit?.targetPerPeriod ?? 1);
+    const [targetPerPeriod, setTargetPerPeriod] = useState(event?.habit?.targetPerPeriod ?? seed?.targetPerPeriod ?? 3);
     const [trackOngoing, setTrackOngoing] = useState(Boolean(event?.habit));
-    const [plannedHours, setPlannedHours] = useState(event?.project?.plannedHours ?? 40);
+    const [plannedHours, setPlannedHours] = useState(event?.project?.plannedHours ?? seed?.plannedHours ?? 40);
     const [readiness, setReadiness] = useState(event?.project?.readiness ?? 0);
     const [projectFreq, setProjectFreq] = useState<"daily" | "weekly">(event?.project?.checkInFrequency ?? "daily");
     const [nameError, setNameError] = useState("");
     const [dateError, setDateError] = useState("");
-    const [confirmDelete, setConfirmDelete] = useState(false);
-    const firstInput = useRef<HTMLInputElement>(null);
     const targetInput = useRef<HTMLInputElement>(null);
-    const sheet = useRef<HTMLElement>(null);
-
-    useEffect(() => {
-        const previousOverflow = document.body.style.overflow;
-        document.body.style.overflow = "hidden";
-        const timer = window.matchMedia("(pointer: fine)").matches
-            ? window.setTimeout(() => firstInput.current?.focus(), 120)
-            : null;
-        return () => {
-            document.body.style.overflow = previousOverflow;
-            if (timer) window.clearTimeout(timer);
-        };
-    }, []);
-
-    const handleDialogKeyDown = (keyEvent: React.KeyboardEvent<HTMLElement>) => {
-        if (keyEvent.key === "Escape") {
-            keyEvent.preventDefault();
-            onClose();
-            return;
-        }
-        if (keyEvent.key !== "Tab") return;
-        const focusable = Array.from(sheet.current?.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex='-1'])") ?? []);
-        if (!focusable.length) return;
-        const first = focusable[0];
-        const last = focusable.at(-1)!;
-        if (keyEvent.shiftKey && document.activeElement === first) {
-            keyEvent.preventDefault();
-            last.focus();
-        } else if (!keyEvent.shiftKey && document.activeElement === last) {
-            keyEvent.preventDefault();
-            first.focus();
-        }
-    };
+    const tracksHabit = kind === "habit" || (kind === "ongoing" && trackOngoing);
+    const days = daysUntil(target);
 
     const handleSubmit = (submitEvent: React.FormEvent) => {
         submitEvent.preventDefault();
@@ -84,25 +72,20 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose, seed }:
         let hasError = false;
         if (!trimmed) {
             setNameError("Give this path a name.");
-            firstInput.current?.focus();
+            nameInput.current?.focus();
             hasError = true;
-        } else {
-            setNameError("");
-        }
+        } else setNameError("");
         if (!start || (kind !== "ongoing" && !target)) {
-            setDateError("This path needs a start date" + (kind === "ongoing" ? "." : " and a target date."));
+            setDateError(kind === "ongoing" ? "This path needs a start date." : "This path needs a start date and a target date.");
             if (!hasError) targetInput.current?.focus();
             hasError = true;
         } else if (kind !== "ongoing" && new Date(target) <= new Date(start)) {
-            setDateError("The target date must be after the start date.");
+            setDateError("The target date needs to come after the start date.");
             if (!hasError) targetInput.current?.focus();
             hasError = true;
-        } else {
-            setDateError("");
-        }
+        } else setDateError("");
         if (hasError) return;
 
-        const habitEnabled = kind === "habit" || (kind === "ongoing" && trackOngoing);
         onSave({
             id: event?.id ?? (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`),
             name: trimmed,
@@ -113,7 +96,7 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose, seed }:
             kind,
             isCountdown: kind === "project" ? isCountdown : false,
             allowExtraCheckIns: event?.allowExtraCheckIns ?? false,
-            habit: habitEnabled
+            habit: tracksHabit
                 ? { frequency: habitFreq, targetPerPeriod: habitFreq === "weekly" ? targetPerPeriod : undefined, entries: event?.habit?.entries ?? [] }
                 : undefined,
             project: kind === "project"
@@ -123,87 +106,110 @@ export function EventSheet({ eventId, events, onSave, onDelete, onClose, seed }:
             createdAt: event?.createdAt,
             updatedAt: event?.updatedAt,
         });
-        onClose();
+        close();
     };
 
-    return <>
-        <div className="fixed inset-0 z-60 acrylic-backdrop animate-fade-in" onClick={onClose} />
-        <aside ref={sheet} onKeyDown={handleDialogKeyDown} className="sheet-surface path-editor-sheet fixed inset-y-0 right-0 z-70 flex h-dvh w-[min(100%,520px)] flex-col overflow-hidden acrylic-surface animate-slide-up" role="dialog" aria-modal="true" aria-labelledby="eventSheetTitle">
-            <span className="sheet-grabber" aria-hidden="true" />
-            <header className="path-editor-header">
-                <div><span>{isEdit ? "Edit path" : "New path"}</span><h2 id="eventSheetTitle">{isEdit ? event?.name : "Create a path"}</h2></div>
-                <button onClick={onClose} className="icon-button" aria-label="Close" title="Close"><Icon name="x" /></button>
-            </header>
+    const rhythmControl = (
+        <div className="grid gap-2">
+            <span className="field-label">Check-in rhythm</span>
+            <Segmented label="Check-in rhythm" value={habitFreq} onChange={setHabitFreq} options={[{ value: "daily", label: "Every day" }, { value: "weekly", label: "Each week" }]} />
+            {habitFreq === "weekly" && (
+                <div className="stepper" role="group" aria-label="Times per week">
+                    <button type="button" className="icon-btn" aria-label="Fewer times per week" disabled={targetPerPeriod <= 1} onClick={() => setTargetPerPeriod(Math.max(1, targetPerPeriod - 1))}><Icon name="minus" size={18} /></button>
+                    <span><strong className="num">{targetPerPeriod}</strong> {targetPerPeriod === 1 ? "time" : "times"} a week</span>
+                    <button type="button" className="icon-btn" aria-label="More times per week" disabled={targetPerPeriod >= 7} onClick={() => setTargetPerPeriod(Math.min(7, targetPerPeriod + 1))}><Icon name="plus" size={18} /></button>
+                </div>
+            )}
+        </div>
+    );
 
-            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-                <div className="path-editor-body">
-                    <div className="path-editor-panel">
-                        <label className="grid gap-2">
-                            <span className="field-label">Name</span>
-                            <input ref={firstInput} value={name} onChange={(input) => { setName(input.target.value); setNameError(""); }} maxLength={48} placeholder="e.g. CCNP Enterprise" className="field" autoComplete="off" enterKeyHint="next" aria-invalid={Boolean(nameError)} />
-                            {nameError && <p className="editor-error" role="alert">{nameError}</p>}
-                        </label>
+    return (
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col" noValidate>
+            <SheetHeader title={isEdit ? "Edit path" : "New path"} />
+            <SheetBody className="editor">
+                <label className="grid gap-2">
+                    <span className="sr-only">Name</span>
+                    <input ref={nameInput} value={name} onChange={(input) => { setName(input.target.value); setNameError(""); }} maxLength={48} placeholder="Name it, like “Morning pages”" className="editor-name" autoComplete="off" enterKeyHint="done" aria-label="Name" aria-invalid={Boolean(nameError)} />
+                    {nameError && <p className="field-error" role="alert">{nameError}</p>}
+                </label>
 
-                        <fieldset className="m-0 grid gap-2 border-0 p-0">
-                            <legend className="field-label mb-1">Path type</legend>
-                            <div className="editor-kind-grid" role="radiogroup" aria-label="Milestone type">
-                                {KINDS.map((item) => <button key={item.value} type="button" role="radio" aria-label={item.label} aria-checked={kind === item.value} onClick={() => setKind(item.value)} className="editor-kind" data-active={kind === item.value}><Icon name={item.icon} size={16} /><span><strong>{item.label}</strong><small>{item.detail}</small></span></button>)}
-                            </div>
-                        </fieldset>
-
-                        <div className={`path-date-grid ${kind === "ongoing" ? "path-date-single" : ""}`}>
-                            <label className="grid min-w-0 gap-2"><span className="field-label">Starts</span><input type="date" value={start} onChange={(input) => { setStart(input.target.value); setDateError(""); }} className="field min-w-0" /></label>
-                            {kind !== "ongoing" && <label className="grid min-w-0 gap-2"><span className="field-label">Target date</span><input ref={targetInput} type="date" value={target} onChange={(input) => { setTarget(input.target.value); setDateError(""); }} className="field min-w-0" aria-invalid={Boolean(dateError)} /></label>}
-                        </div>
-                        {dateError && <p className="editor-error" role="alert">{dateError}</p>}
-
-                        {kind === "project" && <>
-                            <div className="tracking-pair">
-                                <label className="grid min-w-0 gap-2"><span className="field-label">Effort budget</span><span className="field-with-unit"><input type="number" inputMode="decimal" min={1} max={10000} step={1} value={plannedHours} onChange={(input) => setPlannedHours(Number(input.target.value))} aria-label="Planned effort hours" /><span>hours</span></span></label>
-                                <label className="grid min-w-0 gap-2"><span className="field-label">Readiness</span><span className="field-with-unit"><input type="number" inputMode="numeric" min={0} max={100} value={readiness} onChange={(input) => setReadiness(Number(input.target.value))} aria-label="Current readiness" /><span>%</span></span></label>
-                            </div>
-                            <label className="grid gap-2"><span className="field-label">Check-in rhythm</span><select value={projectFreq} onChange={(input) => setProjectFreq(input.target.value as "daily" | "weekly")} className="field"><option value="daily">Once each day</option><option value="weekly">Once each week</option></select></label>
-                        </>}
-
-                        {kind === "ongoing" && <label className="editor-toggle"><span><strong>Track consistency</strong><small>Leave off for tenure; turn on for an ongoing practice.</small></span><input type="checkbox" checked={trackOngoing} onChange={(input) => setTrackOngoing(input.target.checked)} className="theme-checkbox" /></label>}
-
-                        {(kind === "habit" || (kind === "ongoing" && trackOngoing)) && (
-                            <div className="tracking-pair">
-                                <label className="grid min-w-0 gap-2"><span className="field-label">Check-in rhythm</span><select value={habitFreq} onChange={(input) => setHabitFreq(input.target.value as "daily" | "weekly")} className="field"><option value="daily">Once each day</option><option value="weekly">Once each week</option></select></label>
-                                {habitFreq === "weekly" && (
-                                    <label className="grid min-w-0 gap-2"><span className="field-label">Times per week</span><select value={targetPerPeriod} onChange={(input) => setTargetPerPeriod(Number(input.target.value))} className="field" aria-label="Times per week">{[1, 2, 3, 4, 5, 6, 7].map((n) => <option key={n} value={n}>{n}×</option>)}</select></label>
-                                )}
-                            </div>
-                        )}
-
-                        {kind === "ongoing" && !trackOngoing && <div className="tracking-rest"><Icon name="history" size={20} /><strong>Continuity only</strong><small>Echoe will quietly track how long this path has been part of your life.</small></div>}
-
-                        {kind === "countdown" && <div className="tracking-rest"><Icon name="hourglass" size={20} /><strong>Just a date to look forward to</strong><small>No check-ins, no tracking — just the days remaining.</small></div>}
-
-                        <details className="editor-details">
-                            <summary>Advanced</summary>
-                            <div className="mt-4 grid gap-4">
-                                <label className="editor-toggle"><span><strong>Keep in focus</strong><small>Place this path first on Home.</small></span><input type="checkbox" checked={pinned} onChange={(input) => setPinned(input.target.checked)} className="theme-checkbox" /></label>
-                                {kind === "project" && <label className="editor-toggle"><span><strong>Countdown emphasis</strong><small>Make the remaining time the primary signal.</small></span><input type="checkbox" checked={isCountdown} onChange={(input) => setIsCountdown(input.target.checked)} className="theme-checkbox" /></label>}
-                                <fieldset className="m-0 grid gap-3 border-0 p-0"><legend className="field-label">Path color</legend><div className="editor-color-grid" role="radiogroup" aria-label="Milestone color">{COLORS.map((choice) => { const palette = COLOR_MAP[choice]; const active = color === choice; const label = choice.charAt(0).toUpperCase() + choice.slice(1); return <button key={choice} type="button" role="radio" aria-checked={active} aria-label={label} onClick={() => setColor(choice)} className="editor-color" style={{ "--swatch": palette.color, "--swatch-glow": palette.glow } as React.CSSProperties}><span /> <small>{label}</small>{active && <Icon name="check" size={13} />}</button>; })}</div></fieldset>
-                            </div>
-                        </details>
-                    </div>
+                <div className="swatches" role="radiogroup" aria-label="Milestone color">
+                    {PATH_COLORS.map((choice) => {
+                        const label = choice.charAt(0).toUpperCase() + choice.slice(1);
+                        return (
+                            <button key={choice} type="button" role="radio" aria-checked={color === choice} aria-label={label} title={label} onClick={() => setColor(choice)} className="swatch" data-hue={choice}>
+                                {color === choice && <Icon name="check" size={15} strokeWidth={2.6} />}
+                            </button>
+                        );
+                    })}
                 </div>
 
-                <footer className="path-editor-actions acrylic-actions">
-                    {isEdit && (confirmDelete ? (
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-[var(--color-muted)]">Delete?</span>
-                            <button type="button" onClick={() => onDelete(event!.id)} className="quiet-button text-[var(--color-danger)]">Yes</button>
-                            <button type="button" onClick={() => setConfirmDelete(false)} className="quiet-button">Cancel</button>
+                <fieldset className="grid gap-2">
+                    <legend className="field-label mb-2">What kind of path?</legend>
+                    <div className="kind-grid" role="radiogroup" aria-label="Milestone type">
+                        {KINDS.map((item) => (
+                            <button key={item.value} type="button" role="radio" aria-label={item.label} aria-checked={kind === item.value} onClick={() => setKind(item.value)} className="kind-choice">
+                                <Icon name={item.icon} size={20} />
+                                <span>{item.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                    <p className="field-hint">{KIND_HINT[kind]}</p>
+                </fieldset>
+
+                {kind === "habit" && rhythmControl}
+
+                {kind === "ongoing" && (
+                    <>
+                        <label className="grid min-w-0 gap-2"><span className="field-label">Started</span><input type="date" value={start} max={localDate()} onChange={(input) => { setStart(input.target.value); setDateError(""); }} className="field" /></label>
+                        <label className="toggle-row"><span><strong>Track consistency</strong><small>Leave off to simply count the time. Turn on for an ongoing practice with check-ins.</small></span><input type="checkbox" className="switch" checked={trackOngoing} onChange={(input) => setTrackOngoing(input.target.checked)} /></label>
+                        {trackOngoing && rhythmControl}
+                    </>
+                )}
+
+                {kind !== "ongoing" && (
+                    <div className="grid gap-2">
+                        <label className="grid min-w-0 gap-2">
+                            <span className="flex items-baseline justify-between"><span className="field-label">Target date</span>{days > 0 && <span className="field-hint">{days} day{days === 1 ? "" : "s"} from today</span>}</span>
+                            <input ref={targetInput} type="date" value={target} onChange={(input) => { setTarget(input.target.value); setDateError(""); }} className="field" aria-invalid={Boolean(dateError)} />
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                            {TARGET_PRESETS.map((preset) => <button key={preset.label} type="button" className="chip" onClick={() => { setTarget(localDate(addDays(new Date(), preset.days))); setDateError(""); }}>{preset.label}</button>)}
                         </div>
-                    ) : (
-                        <button type="button" onClick={() => setConfirmDelete(true)} className="icon-button text-[var(--color-danger)]" aria-label="Delete path" title="Delete"><Icon name="trash" size={17} /></button>
-                    ))}
-                    <div><button type="button" onClick={onClose} className="secondary-button">Cancel</button><button type="submit" className="primary-button">{isEdit ? "Save changes" : "Create path"}</button></div>
-                </footer>
-            </form>
-        </aside>
-    </>;
+                    </div>
+                )}
+                {dateError && <p className="field-error" role="alert">{dateError}</p>}
+
+                {kind === "countdown" && <div className="editor-note"><Icon name="hourglass" size={18} /><span><strong>Just a date to look forward to</strong><small>No check-ins, no tracking. Only the days remaining.</small></span></div>}
+
+                {kind === "project" && (
+                    <>
+                        <div className="grid grid-cols-2 gap-3">
+                            <label className="grid min-w-0 gap-2"><span className="field-label">Effort budget</span><span className="unit-field"><input className="field" type="number" inputMode="decimal" min={1} max={10000} step={1} value={plannedHours} onChange={(input) => setPlannedHours(Number(input.target.value))} aria-label="Planned effort hours" /><span>hours</span></span></label>
+                            <label className="grid min-w-0 gap-2"><span className="field-label">Readiness now</span><span className="unit-field"><input className="field" type="number" inputMode="numeric" min={0} max={100} value={readiness} onChange={(input) => setReadiness(Number(input.target.value))} aria-label="Current readiness" /><span>%</span></span></label>
+                        </div>
+                        <div className="grid gap-2">
+                            <span className="field-label">Check-in rhythm</span>
+                            <Segmented label="Project check-in rhythm" value={projectFreq} onChange={setProjectFreq} options={[{ value: "daily", label: "Every day" }, { value: "weekly", label: "Each week" }]} />
+                        </div>
+                    </>
+                )}
+
+                <details className="fold editor-advanced">
+                    <summary><Icon name="chevron-right" size={16} />Advanced</summary>
+                    <div className="grid gap-2 pt-2">
+                        {kind !== "ongoing" && <label className="grid min-w-0 gap-2"><span className="field-label">Starts</span><input type="date" value={start} onChange={(input) => { setStart(input.target.value); setDateError(""); }} className="field" /></label>}
+                        <label className="toggle-row"><span><strong>Keep in focus</strong><small>Show this path first on Today.</small></span><input type="checkbox" className="switch" checked={pinned} onChange={(input) => setPinned(input.target.checked)} /></label>
+                        {kind === "project" && <label className="toggle-row"><span><strong>Countdown emphasis</strong><small>Make the days remaining the main number.</small></span><input type="checkbox" className="switch" checked={isCountdown} onChange={(input) => setIsCountdown(input.target.checked)} /></label>}
+                    </div>
+                </details>
+            </SheetBody>
+            <SheetFooter>
+                {isEdit && <button type="button" onClick={() => onDelete(event!.id)} className="icon-btn text-[var(--color-danger)]" aria-label="Delete path" title="Delete"><Icon name="trash" size={19} /></button>}
+                <span className="spacer" />
+                <button type="button" onClick={close} className="btn btn-ghost">Cancel</button>
+                <button type="submit" className="btn btn-hue">{isEdit ? "Save changes" : "Create path"}</button>
+            </SheetFooter>
+        </form>
+    );
 }

@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useCountUp } from "@/hooks/use-count-up";
-import { COLOR_MAP } from "@/lib/constants";
+import { riskLabel } from "@/lib/path-view";
 import type { MilestoneEvent } from "@/lib/types";
 import { formatDate, localDate, projectProgress } from "@/lib/utils";
 import { Icon } from "./icon";
+import { Segmented } from "./segmented";
+import { Sheet, SheetBody, SheetHeader, useSheet } from "./sheet";
 
 interface Props {
     event: MilestoneEvent;
@@ -14,45 +16,105 @@ interface Props {
     onClose: () => void;
 }
 
+const QUICK_HOURS = [0.25, 0.5, 1, 2, 3];
+const hoursLabel = (hours: number) => hours < 1 ? `${Math.round(hours * 60)}m` : `${hours}h`;
+
 export function ProgressSheet({ event, onEffort, onReadiness, onClose }: Props) {
+    return (
+        <Sheet onClose={onClose} label={`Update ${event.name}`} hue={event.color}>
+            <ProgressBody event={event} onEffort={onEffort} onReadiness={onReadiness} />
+        </Sheet>
+    );
+}
+
+function ProgressBody({ event, onEffort, onReadiness }: Omit<Props, "onClose">) {
+    const { close } = useSheet();
     const progress = projectProgress(event);
-    const palette = COLOR_MAP[event.color];
-    const [mode, setMode] = useState<"effort" | "readiness">("readiness");
+    const [mode, setMode] = useState<"readiness" | "effort">("readiness");
     const [hours, setHours] = useState(1);
     const [readiness, setReadiness] = useState(progress.readiness);
     const [date, setDate] = useState(localDate());
     const [note, setNote] = useState("");
     const entries = [...(event.project?.entries ?? [])].sort((a, b) => b.date.localeCompare(a.date) || (b.recordedAt ?? "").localeCompare(a.recordedAt ?? ""));
-    const overallPercent = useCountUp(progress.overallPercent);
-    const investedHours = useCountUp(progress.investedHours);
-    const readinessPercent = useCountUp(progress.readiness);
+    const overall = useCountUp(progress.overallPercent);
+    const invested = useCountUp(progress.investedHours);
+    const ready = useCountUp(progress.readiness);
 
     const submit = (submitEvent: React.FormEvent) => {
         submitEvent.preventDefault();
         if (mode === "effort") onEffort(event.id, hours, date, note);
         else onReadiness(event.id, readiness, note);
-        onClose();
+        close();
     };
 
-    return <>
-        <div className="fixed inset-0 z-60 acrylic-backdrop animate-fade-in" onClick={onClose} />
-        <aside className="sheet-surface fixed inset-y-0 right-0 z-70 h-dvh w-[min(100%,500px)] overflow-y-auto acrylic-surface px-[clamp(20px,5vw,38px)] py-6 animate-slide-up" role="dialog" aria-modal="true" aria-label={`Update ${event.name}`}>
-            <span className="sheet-grabber" aria-hidden="true" />
-            <div className="flex items-start justify-between gap-4 border-b border-[var(--color-line)] pb-5"><div><div className="text-xs font-semibold uppercase" style={{ color: palette.ink }}>Project details</div><h2 className="m-0 mt-1 text-[var(--text-xl)] font-semibold">{event.name}</h2></div><button onClick={onClose} className="icon-button" aria-label="Close progress"><Icon name="x" /></button></div>
-            <div className="progress-summary my-6"><div><span>Overall</span><strong>{Math.round(overallPercent)}%</strong></div><div><span>Invested</span><strong>{investedHours.toFixed(1)}h</strong></div><div><span>Readiness</span><strong>{Math.round(readinessPercent)}%</strong></div></div>
-            <div className="settings-segment grid-cols-2 mb-5" role="tablist" aria-label="Project update type"><button type="button" role="tab" aria-selected={mode === "readiness"} onClick={() => setMode("readiness")}>Readiness</button><button type="button" role="tab" aria-selected={mode === "effort"} onClick={() => setMode("effort")}>Effort</button></div>
-            <form onSubmit={submit} className="grid gap-4 border-y border-[var(--color-line)] py-5">
-                {mode === "readiness" ? <>
-                    <label className="grid gap-3"><span className="flex justify-between text-[13px] font-semibold text-[var(--color-ink-soft)]"><span>Honest readiness</span><strong>{readiness}%</strong></span><input className="readiness-slider" type="range" min={0} max={100} step={1} value={readiness} onChange={(input) => setReadiness(Number(input.target.value))} aria-label="Readiness now" /></label>
-                    <label className="grid gap-2"><span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">What changed? <small className="font-normal text-[var(--color-muted)]">optional</small></span><textarea className="field min-h-20 resize-none" maxLength={180} value={note} onChange={(input) => setNote(input.target.value)} /></label>
-                    <button type="submit" className="primary-button">Update readiness</button>
-                </> : <>
-                    <div className="grid grid-cols-2 gap-3"><label className="grid gap-2"><span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Hours invested</span><input className="field" type="number" min={0.25} max={168} step={0.25} value={hours} onChange={(input) => setHours(Number(input.target.value))} /></label><label className="grid gap-2"><span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Date</span><input className="field" type="date" max={localDate()} value={date} onChange={(input) => setDate(input.target.value)} /></label></div>
-                    <label className="grid gap-2"><span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">A useful note <small className="font-normal text-[var(--color-muted)]">optional</small></span><textarea className="field min-h-20 resize-none" maxLength={180} value={note} onChange={(input) => setNote(input.target.value)} /></label>
-                    <button type="submit" className="primary-button">Log effort</button>
-                </>}
-            </form>
-            <section className="pt-6"><h3 className="m-0 text-sm font-semibold">Update history</h3>{entries.length === 0 ? <p className="text-xs text-[var(--color-muted)]">Updates will collect here without affecting check-ins.</p> : <ol className="m-0 mt-3 grid list-none p-0">{entries.slice(0, 12).map((entry) => <li key={entry.id} className="grid grid-cols-[1fr_auto] gap-3 border-b border-[var(--color-line)] py-3 text-xs"><span><strong className="block text-[var(--color-ink-soft)]">{formatDate(entry.date, { year: undefined })}</strong>{entry.note && <span className="text-[var(--color-muted)]">{entry.note}</span>}</span><span className="text-right"><strong className="block">{entry.hours > 0 ? `+${entry.hours}h` : `${entry.readiness}% ready`}</strong><span className="text-[var(--color-muted)]">{entry.hours > 0 ? "effort" : "readiness"}</span></span></li>)}</ol>}</section>
-        </aside>
-    </>;
+    return (
+        <>
+            <SheetHeader title={event.name} kicker={<><Icon name="target" size={15} />{riskLabel[progress.risk]}</>} closeLabel="Close progress" />
+            <SheetBody>
+                <dl className="stat-row">
+                    <div><dt>Overall</dt><dd className="num">{Math.round(overall)}%</dd></div>
+                    <div><dt>Invested</dt><dd className="num">{invested.toFixed(1)}h</dd></div>
+                    <div><dt>Readiness</dt><dd className="num">{Math.round(ready)}%</dd></div>
+                </dl>
+
+                <Segmented
+                    label="Project update type"
+                    role="tablist"
+                    value={mode}
+                    onChange={setMode}
+                    options={[{ value: "readiness", label: "Readiness" }, { value: "effort", label: "Effort" }]}
+                />
+
+                <form onSubmit={submit} className="mt-5 grid gap-5">
+                    {mode === "readiness" ? (
+                        <>
+                            <label className="grid gap-3">
+                                <span className="flex items-baseline justify-between"><span className="field-label">How ready are you, honestly?</span><strong className="num text-2xl">{readiness}%</strong></span>
+                                <input className="range" type="range" min={0} max={100} step={1} value={readiness} onChange={(input) => setReadiness(Number(input.target.value))} aria-label="Readiness now" style={{ "--fill": `${readiness}%` } as React.CSSProperties} />
+                            </label>
+                            <label className="grid gap-2">
+                                <span className="field-label">What changed? <span className="field-hint">Optional</span></span>
+                                <textarea className="field" rows={2} maxLength={180} value={note} onChange={(input) => setNote(input.target.value)} aria-label="What changed?" />
+                            </label>
+                            <button type="submit" className="btn btn-primary btn-block">Update readiness</button>
+                        </>
+                    ) : (
+                        <>
+                            <div className="grid gap-2">
+                                <span className="field-label">Time spent</span>
+                                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Quick amounts">
+                                    {QUICK_HOURS.map((amount) => <button key={amount} type="button" role="radio" aria-checked={hours === amount} className="chip" onClick={() => setHours(amount)}>{hoursLabel(amount)}</button>)}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <label className="grid gap-2"><span className="field-label">Hours invested</span><input className="field" type="number" inputMode="decimal" min={0.25} max={168} step={0.25} value={hours} onChange={(input) => setHours(Number(input.target.value))} /></label>
+                                <label className="grid gap-2"><span className="field-label">Date</span><input className="field" type="date" max={localDate()} value={date} onChange={(input) => setDate(input.target.value)} /></label>
+                            </div>
+                            <label className="grid gap-2">
+                                <span className="field-label">A useful note <span className="field-hint">Optional</span></span>
+                                <textarea className="field" rows={2} maxLength={180} value={note} onChange={(input) => setNote(input.target.value)} />
+                            </label>
+                            <button type="submit" className="btn btn-primary btn-block" disabled={!(hours > 0)}>Log {hoursLabel(hours)}</button>
+                        </>
+                    )}
+                </form>
+
+                <section className="mt-8">
+                    <h3 className="m-0 text-base">Update history</h3>
+                    {entries.length === 0
+                        ? <p className="mt-2 text-sm text-[var(--color-muted)]">Updates collect here, separate from check-ins.</p>
+                        : (
+                            <ol className="history-list">
+                                {entries.slice(0, 12).map((entry) => (
+                                    <li key={entry.id}>
+                                        <span><strong>{formatDate(entry.date, { weekday: "short", year: undefined })}</strong>{entry.note && <small>{entry.note}</small>}</span>
+                                        <span className="num">{entry.hours > 0 ? `+${entry.hours}h` : `${entry.readiness}%`}<small>{entry.hours > 0 ? "effort" : "ready"}</small></span>
+                                    </li>
+                                ))}
+                            </ol>
+                        )}
+                </section>
+            </SheetBody>
+        </>
+    );
 }

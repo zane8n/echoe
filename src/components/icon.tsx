@@ -1,50 +1,62 @@
 import type { ComponentProps } from "react";
 import {
-    CalendarDays,
+    ArrowUpRight,
     Bell,
+    BookOpen,
+    CalendarClock,
+    CalendarDays,
     Check,
-    ChevronRight,
+    ChevronDown,
     ChevronLeft,
+    ChevronRight,
     CircleX,
     Clock3,
     Cloud,
     CloudOff,
+    Command,
+    CornerDownLeft,
     Database,
     Download,
-    Flower2,
+    Ellipsis,
+    Eye,
     Flame,
+    Footprints,
     Heart,
     History,
+    Home,
     Hourglass,
-    Leaf,
+    Inbox,
+    Keyboard,
     Layers3,
     ListChecks,
-    MoreHorizontal,
+    LogIn,
+    Minus,
     Moon,
-    Mountain,
+    NotebookPen,
     Palette,
     Pencil,
+    Pin,
+    PinOff,
+    Plane,
     Plus,
     RefreshCw,
-    LogIn,
+    Repeat,
+    Search,
     Settings,
+    Share2,
+    Smartphone,
     Sparkles,
-    Star,
-    Snowflake,
     SunMedium,
     Target,
+    Timer,
     Trash2,
     TrendingUp,
+    Trophy,
+    Undo2,
     Upload,
     UserRound,
     UserRoundPlus,
     UsersRound,
-    Share2,
-    Eye,
-    Trophy,
-    Home,
-    Smartphone,
-    Waves,
     X,
     type LucideIcon,
 } from "lucide-react";
@@ -52,12 +64,12 @@ import {
 export type IconName =
     | "settings" | "plus" | "download" | "pencil" | "x" | "trash" | "upload"
     | "sparkle" | "flame" | "clock" | "check" | "calendar" | "target"
-    | "trending-up" | "layers" | "star" | "more-horiz" | "chevron-right"
+    | "trending-up" | "layers" | "more-horiz" | "chevron-right" | "chevron-left" | "chevron-down"
     | "database" | "cloud" | "cloud-off" | "history" | "refresh" | "missed"
-    | "flower" | "leaf" | "mountain" | "palette" | "snowflake" | "sun"
-    | "user" | "waves" | "log-in" | "bell" | "users" | "user-plus" | "share"
-    | "eye" | "trophy" | "home" | "chevron-left" | "smartphone" | "moon" | "heart"
-    | "hourglass" | "list-checks";
+    | "palette" | "sun" | "moon" | "user" | "log-in" | "bell" | "users" | "user-plus" | "share"
+    | "eye" | "trophy" | "home" | "smartphone" | "heart" | "hourglass" | "list-checks"
+    | "search" | "repeat" | "pin" | "pin-off" | "undo" | "keyboard" | "inbox" | "open"
+    | "note" | "minus" | "command" | "enter" | "calendar-clock" | "timer" | "book" | "walk" | "plane";
 
 const icons: Record<IconName, LucideIcon> = {
     settings: Settings,
@@ -75,23 +87,20 @@ const icons: Record<IconName, LucideIcon> = {
     target: Target,
     "trending-up": TrendingUp,
     layers: Layers3,
-    star: Star,
-    "more-horiz": MoreHorizontal,
+    "more-horiz": Ellipsis,
     "chevron-right": ChevronRight,
+    "chevron-left": ChevronLeft,
+    "chevron-down": ChevronDown,
     database: Database,
     cloud: Cloud,
     "cloud-off": CloudOff,
     history: History,
     refresh: RefreshCw,
     missed: CircleX,
-    flower: Flower2,
-    leaf: Leaf,
-    mountain: Mountain,
     palette: Palette,
-    snowflake: Snowflake,
     sun: SunMedium,
+    moon: Moon,
     user: UserRound,
-    waves: Waves,
     "log-in": LogIn,
     bell: Bell,
     users: UsersRound,
@@ -100,12 +109,27 @@ const icons: Record<IconName, LucideIcon> = {
     eye: Eye,
     trophy: Trophy,
     home: Home,
-    "chevron-left": ChevronLeft,
     smartphone: Smartphone,
-    moon: Moon,
     heart: Heart,
     hourglass: Hourglass,
     "list-checks": ListChecks,
+    search: Search,
+    repeat: Repeat,
+    pin: Pin,
+    "pin-off": PinOff,
+    undo: Undo2,
+    keyboard: Keyboard,
+    inbox: Inbox,
+    open: ArrowUpRight,
+    note: NotebookPen,
+    minus: Minus,
+    command: Command,
+    enter: CornerDownLeft,
+    "calendar-clock": CalendarClock,
+    timer: Timer,
+    book: BookOpen,
+    walk: Footprints,
+    plane: Plane,
 };
 
 interface Props extends Omit<ComponentProps<LucideIcon>, "ref"> {
@@ -113,7 +137,7 @@ interface Props extends Omit<ComponentProps<LucideIcon>, "ref"> {
     size?: number;
 }
 
-export function Icon({ name, size = 18, strokeWidth = 1.5, ...props }: Props) {
+export function Icon({ name, size = 18, strokeWidth = 1.75, ...props }: Props) {
     const Component = icons[name];
     return <Component aria-hidden="true" size={size} strokeWidth={strokeWidth} {...props} />;
 }

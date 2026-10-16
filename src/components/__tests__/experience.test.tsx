@@ -11,7 +11,7 @@ import { CheckInSheet } from "@/components/check-in-sheet";
 import { EventSheet } from "@/components/event-sheet";
 import { PathDetail } from "@/components/path-detail";
 import { ProgressSheet } from "@/components/progress-sheet";
-import { PathCarousel } from "@/components/path-carousel";
+import { RhythmRow } from "@/components/rhythm-row";
 import { SettingsSheet } from "@/components/settings-sheet";
 import { WeeksGrid } from "@/components/weeks-grid";
 import { habitMilestone, storageSummary } from "@/test/fixtures";
@@ -28,18 +28,32 @@ describe("Echoe milestone experience", () => {
 
     it("renders countdown mode dynamically and exposes direct habit check-ins", async () => {
         const user = userEvent.setup();
-        const onCheckIn = vi.fn();
-        const onOpenHistory = vi.fn();
-        render(<PathDetail event={{ ...habitMilestone, isCountdown: true }} tick={1} onEdit={vi.fn()} onConfetti={vi.fn()} onCheckIn={onCheckIn} onMiss={vi.fn()} onOpenHistory={onOpenHistory} />);
+        const onToggleToday = vi.fn();
+        const onEntry = vi.fn();
+        render(<PathDetail event={{ ...habitMilestone, isCountdown: true }} tick={1} onEdit={vi.fn()} onCelebrate={vi.fn()} onToggleToday={onToggleToday} onEntry={onEntry} onClearEntry={vi.fn()} />);
 
         expect(screen.getByText("8")).toBeInTheDocument();
         expect(screen.getByText(/days until/i)).toBeInTheDocument();
-        expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "20");
+        expect(screen.getByRole("progressbar", { name: "Time elapsed" })).toHaveAttribute("aria-valuenow", "20");
 
+        await user.click(screen.getByRole("button", { name: "Check in for today" }));
+        expect(onToggleToday).toHaveBeenCalledWith("habit-1", expect.objectContaining({ x: expect.any(Number) }));
         await user.click(screen.getByRole("button", { name: "Done" }));
-        await user.click(screen.getByRole("button", { name: /open check-in history/i }));
-        expect(onCheckIn).toHaveBeenCalledWith("habit-1");
-        expect(onOpenHistory).toHaveBeenCalledWith("habit-1");
+        expect(onEntry).toHaveBeenCalledWith("habit-1", "done", "2026-08-03", "");
+    });
+
+    it("edits any past day from the history calendar on the path page", async () => {
+        const user = userEvent.setup();
+        const onEntry = vi.fn();
+        const onClearEntry = vi.fn();
+        render(<PathDetail event={habitMilestone} tick={1} onEdit={vi.fn()} onCelebrate={vi.fn()} onToggleToday={vi.fn()} onEntry={onEntry} onClearEntry={onClearEntry} />);
+
+        await user.click(screen.getByRole("button", { name: /August 1, 2026: done/i }));
+        await user.type(screen.getByRole("textbox", { name: /a useful note/i }), "Early start");
+        await user.click(screen.getByRole("button", { name: "Missed" }));
+        expect(onEntry).toHaveBeenCalledWith("habit-1", "missed", "2026-08-01", "Early start");
+        await user.click(screen.getByRole("button", { name: "Clear" }));
+        expect(onClearEntry).toHaveBeenCalledWith("habit-1", "2026-08-01");
     });
 
     it("supports backdated missed days, notes, and clearing history", async () => {
@@ -56,9 +70,8 @@ describe("Echoe milestone experience", () => {
         await user.type(screen.getByRole("textbox", { name: /a useful note/i }), "Needed a lighter plan");
         await user.click(screen.getByRole("button", { name: "Missed" }));
         expect(onCheckIn).toHaveBeenCalledWith("habit-1", "missed", "2026-08-02", "Needed a lighter plan");
+        // Clearing is immediate; the app offers Undo in a toast instead of asking first.
         await user.click(screen.getByRole("button", { name: "Clear" }));
-        expect(onClear).not.toHaveBeenCalled();
-        await user.click(screen.getByRole("button", { name: "Yes" }));
         expect(onClear).toHaveBeenCalledWith("habit-1", "2026-08-02");
         expect(screen.getByText(/missed day is information/i)).toBeInTheDocument();
     });
@@ -129,7 +142,7 @@ describe("Echoe milestone experience", () => {
         await user.click(screen.getByRole("tab", { name: "You" }));
         await user.type(screen.getByRole("textbox", { name: "Your name" }), "Kikandi");
         await user.type(screen.getByRole("textbox", { name: /what are you building toward/i }), "Move with purpose and patience.");
-        await user.selectOptions(screen.getByRole("combobox", { name: /how Echoe should encourage you/i }), "reflective");
+        await user.click(screen.getByRole("radio", { name: /reflective/i }));
         await user.click(screen.getByRole("button", { name: "Save changes" }));
 
         expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
@@ -177,7 +190,7 @@ describe("Echoe milestone experience", () => {
         expect(screen.getByRole("radio", { name: "Sky" })).toHaveAttribute("aria-checked", "true");
         await user.click(screen.getByRole("button", { name: "Create path" }));
 
-        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ color: "sky", name: "Write the first chapter", kind: "project", project: expect.objectContaining({ plannedHours: 40 }) }));
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ color: "sky", name: "Write the first chapter", kind: "habit", habit: expect.objectContaining({ frequency: "daily" }) }));
     });
 
     it("creates open-ended paths without a fake end date or ambiguous check-in count", async () => {
@@ -216,14 +229,26 @@ describe("Echoe milestone experience", () => {
         expect(onReadiness).toHaveBeenCalledWith("habit-1", 40, "Finished the routing lab");
     });
 
-    it("keeps project check-in separate from readiness on the home carousel", async () => {
+    it("checks in from a rhythm row with one tap and shows the pressed state", async () => {
         const user = userEvent.setup();
-        const onProjectCheckIn = vi.fn();
-        const project = { ...habitMilestone, kind: "project" as const, habit: undefined, project: { plannedHours: 80, readiness: 25, entries: [], checkInFrequency: "daily" as const, checkIns: [] } };
-        render(<PathCarousel events={[project]} profile={{ displayName: "Kikandi", intention: "", supportStyle: "gentle" }} sharedByMe={[]} sharedWithMe={[]} onHabitCheckIn={vi.fn()} onProjectCheckIn={onProjectCheckIn} onOpenHistory={vi.fn()} onProgress={vi.fn()} onCheer={vi.fn()} />);
+        const onToggle = vi.fn();
+        const { rerender } = render(<ul><RhythmRow hue="teal" title="CCNP Enterprise" meta="13h of 80h" href="/paths/p1" entries={[]} done={false} checkLabel="Check in to CCNP Enterprise" onToggle={onToggle} /></ul>);
         expect(screen.queryByRole("slider", { name: /readiness/i })).not.toBeInTheDocument();
-        await user.click(screen.getByRole("button", { name: "Check in" }));
-        expect(onProjectCheckIn).toHaveBeenCalledWith("habit-1");
+        await user.click(screen.getByRole("button", { name: "Check in to CCNP Enterprise" }));
+        expect(onToggle).toHaveBeenCalledOnce();
+        rerender(<ul><RhythmRow hue="teal" title="CCNP Enterprise" meta="13h of 80h" href="/paths/p1" entries={[]} done checkLabel="Undo today's check-in for CCNP Enterprise" onToggle={onToggle} /></ul>);
+        expect(screen.getByRole("button", { name: /undo today's check-in/i })).toHaveAttribute("aria-pressed", "true");
+        expect(screen.getByRole("link", { name: /CCNP Enterprise/ })).toHaveAttribute("href", "/paths/p1");
+    });
+
+    it("opens a shortcut menu from a row's more button", async () => {
+        const user = userEvent.setup();
+        const onSelect = vi.fn();
+        render(<ul><RhythmRow hue="teal" title="Practice" meta="Day 1" done={false} checkLabel="Check in to Practice" onToggle={vi.fn()} menu={[{ label: "Mark today as missed", icon: "minus", onSelect }]} /></ul>);
+        await user.click(screen.getByRole("button", { name: "More for Practice" }));
+        await user.click(screen.getByRole("menuitem", { name: "Mark today as missed" }));
+        expect(onSelect).toHaveBeenCalledOnce();
+        expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     });
 
     it("uses the same acrylic treatment for adding and editing milestones", () => {

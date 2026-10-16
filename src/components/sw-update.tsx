@@ -34,9 +34,10 @@ export function SwUpdate() {
     if (!show) return null;
 
     return (
-        <div className="fixed bottom-5 right-5 z-85 flex items-center gap-[14px] rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-surface)] px-[18px] py-3 text-[var(--text-sm)] font-medium shadow-[var(--shadow-md)] animate-slide-up">
-            <span>Update available</span>
+        <div className="update-pill" role="status">
+            <span>A new version of Echoe is ready</span>
             <button
+                type="button"
                 onClick={() => {
                     setShow(false);
                     navigator.serviceWorker.getRegistration().then((reg) => {
@@ -44,7 +45,7 @@ export function SwUpdate() {
                     });
                     window.location.reload();
                 }}
-                className="primary-button min-h-[40px] px-[13px]"
+                className="btn btn-primary btn-sm"
             >
                 Refresh
             </button>

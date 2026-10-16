@@ -225,16 +225,23 @@ export function useDashboardState() {
         enqueueCommit(next, "edit", `Recorded achievement: ${label}`, achievement.id);
     }, [enqueueCommit]);
 
-    const addDailyTask = useCallback((text: string, time?: string) => {
+    const addDailyTask = useCallback((text: string, time?: string, date = localDate()) => {
         const current = stateRef.current;
         const trimmed = text.trim();
-        if (!current || !trimmed) return;
+        if (!current || !trimmed) return null;
         const now = new Date().toISOString();
-        const date = localDate();
         const order = current.dailyTasks.filter((task) => task.date === date).length;
         const task: DailyTask = { id: createId(), text: trimmed, done: false, time: time || undefined, date, order, createdAt: now };
         const next = { ...current, dailyTasks: [...current.dailyTasks, task], updatedAt: now };
         enqueueCommit(next, "edit", `Added "${trimmed}" to My Day`, task.id);
+        return task.id;
+    }, [enqueueCommit]);
+
+    const restoreDailyTask = useCallback((task: DailyTask) => {
+        const current = stateRef.current;
+        if (!current || current.dailyTasks.some((item) => item.id === task.id)) return;
+        const now = new Date().toISOString();
+        enqueueCommit({ ...current, dailyTasks: [...current.dailyTasks, task], updatedAt: now }, "restore", `Restored "${task.text}" to My Day`, task.id);
     }, [enqueueCommit]);
 
     const toggleDailyTask = useCallback((id: string) => {
@@ -321,6 +328,16 @@ export function useDashboardState() {
         enqueueCommit({ ...current, events, updatedAt: now }, "check-in", `Checked in to project on ${date}`, eventId);
     }, [enqueueCommit]);
 
+    const clearProjectCheckIn = useCallback((eventId: string, date: string) => {
+        const current = stateRef.current;
+        if (!current) return;
+        const now = new Date().toISOString();
+        const events = current.events.map((event) => event.id === eventId && event.project
+            ? { ...event, updatedAt: now, project: { ...event.project, checkIns: (event.project.checkIns ?? []).filter((entry) => entry.date !== date) } }
+            : event);
+        enqueueCommit({ ...current, events, updatedAt: now }, "clear-check-in", `Cleared the project check-in for ${date}`, eventId);
+    }, [enqueueCommit]);
+
     const logProjectEffort = useCallback((
         eventId: string,
         hours: number,
@@ -328,12 +345,13 @@ export function useDashboardState() {
         note?: string,
     ) => {
         const current = stateRef.current;
-        if (!current) return;
+        if (!current) return null;
         const now = new Date().toISOString();
+        const entryId = createId();
         const events = current.events.map((event) => {
             if (event.id !== eventId || !event.project) return event;
             const entry = {
-                id: createId(),
+                id: entryId,
                 date,
                 hours: Math.max(0, Math.round(hours * 10) / 10),
                 note: note?.trim() || undefined,
@@ -349,6 +367,17 @@ export function useDashboardState() {
             };
         });
         enqueueCommit({ ...current, events, updatedAt: now }, "progress", `Logged ${hours} hours of project effort`, eventId);
+        return entryId;
+    }, [enqueueCommit]);
+
+    const removeProjectEntry = useCallback((eventId: string, entryId: string) => {
+        const current = stateRef.current;
+        if (!current) return;
+        const now = new Date().toISOString();
+        const events = current.events.map((event) => event.id === eventId && event.project
+            ? { ...event, updatedAt: now, project: { ...event.project, entries: event.project.entries.filter((entry) => entry.id !== entryId) } }
+            : event);
+        enqueueCommit({ ...current, events, updatedAt: now }, "progress", "Removed a project update", eventId);
     }, [enqueueCommit]);
 
     const updateProjectReadiness = useCallback((eventId: string, readiness: number, note?: string) => {
@@ -475,10 +504,13 @@ export function useDashboardState() {
         toggleDailyTask,
         updateDailyTask,
         deleteDailyTask,
+        restoreDailyTask,
         checkInHabit,
         checkInProject,
         clearHabitCheckIn,
+        clearProjectCheckIn,
         logProjectEffort,
+        removeProjectEntry,
         updateProjectReadiness,
         markNotificationsRead,
         syncNow,

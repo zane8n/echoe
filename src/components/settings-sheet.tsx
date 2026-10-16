@@ -7,6 +7,8 @@ import { applyTheme } from "@/lib/theme";
 import { installState, requestInstall, subscribeToInstall } from "@/lib/install";
 import type { AccentName, AccountSummary, Appearance, AuditAction, DashboardSettings, StorageSummary, SupportStyle } from "@/lib/types";
 import { Icon, type IconName } from "./icon";
+import { Segmented } from "./segmented";
+import { Sheet, SheetBody, SheetFooter, SheetHeader, useSheet } from "./sheet";
 
 type SnapshotSummary = { seq?: number; createdAt: string; action: AuditAction };
 
@@ -29,23 +31,17 @@ interface Props {
 
 type SettingsTab = "appearance" | "personal" | "data";
 
-const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
-    { id: "appearance", label: "Appearance", icon: "palette" },
-    { id: "personal", label: "You", icon: "user" },
-    { id: "data", label: "Data", icon: "database" },
+const SUPPORT_STYLES: Array<{ id: SupportStyle; label: string; example: string }> = [
+    { id: "gentle", label: "Gentle", example: "“A missed day is information. Make the next step smaller.”" },
+    { id: "direct", label: "Direct", example: "“Review the obstacle, reduce the next step, resume today.”" },
+    { id: "reflective", label: "Reflective", example: "“Keep what the missed day taught you, then begin again.”" },
 ];
 
-const appearanceOptions: Array<{ id: Appearance; label: string; icon: IconName }> = [
-    { id: "system", label: "System", icon: "smartphone" },
-    { id: "light", label: "Light", icon: "sun" },
-    { id: "dark", label: "Dark", icon: "moon" },
-];
-
-const statusDetails = {
-    local: { icon: "database" as const, label: "Saved on this device" },
-    syncing: { icon: "refresh" as const, label: "Saving securely" },
-    synced: { icon: "cloud" as const, label: "Synced securely" },
-    offline: { icon: "cloud-off" as const, label: "Cloud unavailable, saved locally" },
+const statusDetails: Record<StorageSummary["syncStatus"], { icon: IconName; label: string }> = {
+    local: { icon: "database", label: "Saved on this device" },
+    syncing: { icon: "refresh", label: "Saving securely" },
+    synced: { icon: "cloud", label: "Synced securely" },
+    offline: { icon: "cloud-off", label: "Cloud unavailable, saved locally" },
 };
 
 const actionLabels: Partial<Record<AuditAction, string>> = {
@@ -62,7 +58,18 @@ const actionLabels: Partial<Record<AuditAction, string>> = {
     "remote-pull": "Synced from the cloud",
 };
 
-export function SettingsSheet({ settings, storage, onSave, onAccentChange, onAppearanceChange, onSync, onExport, onImport, onClearData, onAccountChange, onClose, snapshots, onLoadSnapshots, onRestoreSnapshot }: Props) {
+const dateTime = (value: string) => new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+
+export function SettingsSheet(props: Props) {
+    return (
+        <Sheet onClose={props.onClose} labelledBy="settingsTitle" size="full">
+            <SettingsBody {...props} />
+        </Sheet>
+    );
+}
+
+function SettingsBody({ settings, storage, onSave, onAccentChange, onAppearanceChange, onSync, onExport, onImport, onClearData, onAccountChange, snapshots, onLoadSnapshots, onRestoreSnapshot }: Props) {
+    const { close } = useSheet();
     const [tab, setTab] = useState<SettingsTab>("appearance");
     const [confirmRestoreSeq, setConfirmRestoreSeq] = useState<number | null>(null);
     const [restoring, setRestoring] = useState(false);
@@ -122,14 +129,9 @@ export function SettingsSheet({ settings, storage, onSave, onAccentChange, onApp
                 setAccount(response.account);
             })
             .catch(() => {
-                if (active) {
-                    setAccountAvailable(false);
-                    setGoogleAvailable(false);
-                }
+                if (active) { setAccountAvailable(false); setGoogleAvailable(false); }
             })
-            .finally(() => {
-                if (active) setAccountLoading(false);
-            });
+            .finally(() => { if (active) setAccountLoading(false); });
         return () => { active = false; };
     }, []);
 
@@ -148,8 +150,7 @@ export function SettingsSheet({ settings, storage, onSave, onAccentChange, onApp
 
     const enableBadge = async () => {
         if (!("Notification" in window)) return;
-        const permission = await Notification.requestPermission();
-        setBadgePermission(permission);
+        setBadgePermission(await Notification.requestPermission());
     };
 
     const submitAccount = async () => {
@@ -187,266 +188,226 @@ export function SettingsSheet({ settings, storage, onSave, onAccentChange, onApp
     };
 
     return (
-        <>
-            <div className="fixed inset-0 z-60 acrylic-backdrop animate-fade-in" onClick={onClose} />
-            <aside className="sheet-surface fixed inset-y-0 right-0 z-70 flex h-dvh w-[min(100%,520px)] flex-col overflow-hidden acrylic-surface animate-slide-up" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-                <span className="sheet-grabber" aria-hidden="true" />
-                <div className="shrink-0 px-[clamp(22px,5vw,38px)] pt-7">
-                    <div className="flex items-start justify-between gap-5">
-                        <div>
-                            <h2 id="settingsTitle" className="m-0 text-[var(--text-xl)] font-semibold">Settings</h2>
-                            <p className="m-0 mt-1 text-xs text-[var(--color-muted)]">A quieter Echoe, shaped around you.</p>
+        <form onSubmit={(event) => { event.preventDefault(); onSave(buildSettings()); close(); }} className="flex min-h-0 flex-1 flex-col">
+            <SheetHeader titleId="settingsTitle" title="Settings" closeLabel="Close settings" />
+            <div className="settings-tabs">
+                <Segmented
+                    label="Settings sections"
+                    role="tablist"
+                    value={tab}
+                    onChange={setTab}
+                    options={[
+                        { value: "appearance", label: "Appearance", icon: "palette", controls: "settings-appearance" },
+                        { value: "personal", label: "You", icon: "user", controls: "settings-personal" },
+                        { value: "data", label: "Data", icon: "database", controls: "settings-data" },
+                    ]}
+                />
+            </div>
+
+            <SheetBody className="settings">
+                {tab === "appearance" && (
+                    <section id="settings-appearance" role="tabpanel" className="settings-panel" aria-label="Appearance">
+                        <div className="grid gap-3">
+                            <span className="field-label">Mode</span>
+                            <Segmented
+                                label="Appearance mode"
+                                value={appearance}
+                                onChange={chooseAppearance}
+                                options={[{ value: "system", label: "System", icon: "smartphone" }, { value: "light", label: "Light", icon: "sun" }, { value: "dark", label: "Dark", icon: "moon" }]}
+                            />
                         </div>
-                        <button onClick={onClose} className="icon-button" aria-label="Close settings" title="Close">
-                            <Icon name="x" size={18} />
-                        </button>
-                    </div>
 
-                    <div className="mt-6 grid grid-cols-3 gap-1 border-b border-[var(--color-line)]" role="tablist" aria-label="Settings sections">
-                        {tabs.map((item) => (
-                            <button
-                                key={item.id}
-                                type="button"
-                                role="tab"
-                                aria-selected={tab === item.id}
-                                aria-controls={`settings-${item.id}`}
-                                onClick={() => setTab(item.id)}
-                                className="settings-tab"
-                            >
-                                <Icon name={item.icon} size={15} /> {item.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                        <fieldset className="grid gap-3">
+                            <legend className="field-label mb-3">Accent</legend>
+                            <p className="field-hint -mt-1">Your accent gently tints the whole app, not just its buttons.</p>
+                            <div className="accent-grid" role="radiogroup" aria-label="Accent color">
+                                {ACCENT_ORDER.map((name) => {
+                                    const config = ACCENTS[name];
+                                    return (
+                                        <button key={name} type="button" role="radio" aria-checked={accent === name} aria-label={config.label} onClick={() => chooseAccent(name)} className="accent-card" style={{ "--swatch": config.light.accent, "--swatch-dark": config.dark.accent } as React.CSSProperties}>
+                                            <span className="accent-preview" aria-hidden="true"><i /><i /><i /></span>
+                                            <span>{config.label}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </fieldset>
 
-                <form onSubmit={(event) => { event.preventDefault(); onSave(buildSettings()); onClose(); }} className="flex min-h-0 flex-1 flex-col">
-                    <div className="min-h-0 flex-1 overflow-y-auto px-[clamp(22px,5vw,38px)] py-7">
-                        {tab === "appearance" && (
-                            <section id="settings-appearance" role="tabpanel" className="grid gap-7" aria-labelledby="appearanceTitle">
-                                <div>
-                                    <h3 id="appearanceTitle" className="m-0 text-sm font-semibold text-[var(--color-ink)]">Appearance</h3>
-                                    <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--color-muted)]">A neutral shell, tuned to one accent color.</p>
+                        <label className="toggle-row">
+                            <span><strong>Show the long-view chart</strong><small>Keep the six-month activity rhythm on Momentum.</small></span>
+                            <input type="checkbox" className="switch" checked={showHistogram} onChange={(event) => setShowHistogram(event.target.checked)} />
+                        </label>
+                    </section>
+                )}
+
+                {tab === "personal" && (
+                    <section id="settings-personal" role="tabpanel" className="settings-panel" aria-labelledby="profileTitle">
+                        <div className="grid gap-4">
+                            <div>
+                                <h3 id="profileTitle" className="settings-heading">Your Echoe</h3>
+                                <p className="field-hint">Your name and the direction you want this space to hold.</p>
+                            </div>
+                            <label className="grid gap-2">
+                                <span className="field-label">Your name</span>
+                                <input className="field" value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={40} autoComplete="name" placeholder="The name Echoe should use" />
+                            </label>
+                            <label className="grid gap-2">
+                                <span className="field-label">What are you building toward?</span>
+                                <textarea className="field" rows={3} value={intention} onChange={(event) => setIntention(event.target.value)} maxLength={140} placeholder="A private intention, in your own words" />
+                            </label>
+                            <fieldset className="grid gap-2">
+                                <legend className="field-label mb-2">How Echoe should encourage you</legend>
+                                <div className="choice-list" role="radiogroup" aria-label="How Echoe should encourage you">
+                                    {SUPPORT_STYLES.map((style) => (
+                                        <button key={style.id} type="button" role="radio" aria-checked={supportStyle === style.id} className="choice" onClick={() => setSupportStyle(style.id)}>
+                                            <span className="choice-radio" aria-hidden="true" />
+                                            <span><strong>{style.label}</strong><small>{style.example}</small></span>
+                                        </button>
+                                    ))}
                                 </div>
+                            </fieldset>
+                        </div>
 
-                                <fieldset className="m-0 grid gap-3 border-0 p-0">
-                                    <legend className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Mode</legend>
-                                    <div className="settings-segment grid grid-cols-3 gap-1" role="radiogroup" aria-label="Appearance mode">
-                                        {appearanceOptions.map((option) => (
-                                            <button
-                                                key={option.id}
-                                                type="button"
-                                                role="radio"
-                                                aria-checked={appearance === option.id}
-                                                onClick={() => chooseAppearance(option.id)}
-                                            >
-                                                <Icon name={option.icon} size={14} /> {option.label}
+                        <div className="grid gap-4 border-t border-[var(--color-line)] pt-6">
+                            <div>
+                                <h3 className="settings-heading">Your account</h3>
+                                <p className="field-hint">Reconnect to the same paths and history on another browser.</p>
+                            </div>
+                            {accountLoading ? (
+                                <div className="h-14 animate-pulse rounded-[var(--radius-md)] bg-[var(--color-panel)]" aria-label="Checking account" />
+                            ) : account ? (
+                                <div className="account-card">
+                                    <span className="avatar-btn" aria-hidden="true">{account.displayName.charAt(0).toUpperCase()}</span>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="font-semibold">{account.displayName}</div>
+                                        <div className="truncate text-sm text-[var(--color-muted)]">{account.authProvider?.includes("google") ? account.email ?? "Google connected" : `@${account.handle}`}</div>
+                                    </div>
+                                    <button type="button" onClick={handleSignOut} disabled={accountBusy} className="btn btn-ghost btn-sm">Sign out</button>
+                                </div>
+                            ) : (
+                                <div className="grid gap-3">
+                                    {googleAvailable ? (
+                                        <a href="/api/auth/google" onClick={() => onSave(buildSettings())} className="btn btn-primary btn-block">
+                                            <Icon name="log-in" size={17} /> Continue with Google
+                                        </a>
+                                    ) : (
+                                        <button type="button" disabled className="btn btn-secondary btn-block"><Icon name="cloud-off" size={16} /> Cloud sign-in unavailable</button>
+                                    )}
+                                    {!accountAvailable && <p className="field-hint">This deployment is local-only for now. Your profile and paths still save on this device.</p>}
+
+                                    <details className="fold">
+                                        <summary><Icon name="chevron-right" size={16} />Use a private handle instead</summary>
+                                        <div className="mt-3 grid gap-3">
+                                            <Segmented label="Account action" value={accountMode} onChange={(mode) => { setAccountMode(mode); setAccountError(""); }} options={[{ value: "register", label: "Create account" }, { value: "sign-in", label: "Sign in" }]} />
+                                            <label className="grid gap-2">
+                                                <span className="field-label">Private handle</span>
+                                                <input className="field" value={handle} onChange={(event) => setHandle(event.target.value.toLowerCase())} minLength={3} maxLength={24} autoComplete="username" placeholder="your-handle" />
+                                            </label>
+                                            <label className="grid gap-2">
+                                                <span className="field-label">Password</span>
+                                                <input className="field" type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} maxLength={128} autoComplete={accountMode === "register" ? "new-password" : "current-password"} placeholder="At least 8 characters" />
+                                            </label>
+                                            {accountError && <p className="field-error" role="alert">{accountError}</p>}
+                                            <button type="button" disabled={accountBusy || !accountAvailable || !handle || !password || (accountMode === "register" && !displayName.trim())} onClick={submitAccount} className="btn btn-secondary">
+                                                <Icon name={accountMode === "register" ? "database" : "log-in"} size={16} />
+                                                {accountBusy ? "Please wait" : accountMode === "register" ? "Create my account" : "Sign in"}
                                             </button>
-                                        ))}
-                                    </div>
-                                </fieldset>
-
-                                <fieldset className="m-0 grid gap-3 border-0 p-0">
-                                    <legend className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Accent color</legend>
-                                    <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Accent color">
-                                        {ACCENT_ORDER.map((name) => {
-                                            const config = ACCENTS[name];
-                                            const active = accent === name;
-                                            return (
-                                                <button
-                                                    key={name}
-                                                    type="button"
-                                                    role="radio"
-                                                    aria-checked={active}
-                                                    aria-label={config.label}
-                                                    onClick={() => chooseAccent(name)}
-                                                    className="accent-dot"
-                                                    style={{ "--accent-dot": config.light.accent } as React.CSSProperties}
-                                                >
-                                                    {active && <Icon name="check" size={13} />}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </fieldset>
-
-                                <label className="grid cursor-pointer grid-cols-[auto_1fr] items-start gap-3 border-t border-[var(--color-line)] pt-6">
-                                    <input type="checkbox" checked={showHistogram} onChange={(event) => setShowHistogram(event.target.checked)} className="theme-checkbox mt-[3px]" />
-                                    <span className="grid gap-[2px]">
-                                        <strong className="text-sm font-semibold">Show activity rhythm</strong>
-                                        <small className="text-xs leading-relaxed text-[var(--color-muted)]">Keep the quiet two-week activity clusters in Momentum.</small>
-                                    </span>
-                                </label>
-                            </section>
-                        )}
-
-                        {tab === "personal" && (
-                            <section id="settings-personal" role="tabpanel" className="grid gap-7" aria-labelledby="profileTitle">
-                                <div className="grid gap-4">
-                                    <div>
-                                        <h3 id="profileTitle" className="m-0 text-sm font-semibold text-[var(--color-ink)]">Your Echoe</h3>
-                                        <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--color-muted)]">Give this space your name and the direction you want it to hold.</p>
-                                    </div>
-                                    <label className="grid gap-2">
-                                        <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Your name</span>
-                                        <input className="field" value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={40} autoComplete="name" placeholder="The name Echoe should use" />
-                                    </label>
-                                    <label className="grid gap-2">
-                                        <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">What are you building toward?</span>
-                                        <textarea className="field min-h-[84px] resize-y" value={intention} onChange={(event) => setIntention(event.target.value)} maxLength={140} placeholder="A private intention, in your own words" />
-                                    </label>
-                                    <label className="grid gap-2">
-                                        <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">How Echoe should encourage you</span>
-                                        <select className="field" value={supportStyle} onChange={(event) => setSupportStyle(event.target.value as SupportStyle)}>
-                                            <option value="gentle">Gentle and steady</option>
-                                            <option value="direct">Clear and practical</option>
-                                            <option value="reflective">Reflective and thoughtful</option>
-                                        </select>
-                                    </label>
-                                </div>
-
-                                <div className="grid gap-4 border-t border-[var(--color-line)] pt-6">
-                                    <div>
-                                        <h3 className="m-0 text-sm font-semibold text-[var(--color-ink)]">Your account</h3>
-                                        <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--color-muted)]">Reconnect to the same milestones and history on another browser.</p>
-                                    </div>
-                                    {accountLoading ? (
-                                        <div className="h-12 animate-pulse rounded-[var(--radius-sm)] bg-[var(--color-panel)]" aria-label="Checking account" />
-                                    ) : account ? (
-                                        <div className="flex flex-wrap items-center justify-between gap-3 border-l-2 border-[var(--color-accent)] pl-4">
-                                            <div>
-                                                <div className="text-sm font-semibold text-[var(--color-ink)]">{account.displayName}</div>
-                                                <div className="text-xs text-[var(--color-muted)]">{account.authProvider?.includes("google") ? account.email ?? "Google connected" : `@${account.handle}`}</div>
-                                            </div>
-                                            <button type="button" onClick={handleSignOut} disabled={accountBusy} className="quiet-button">Sign out</button>
                                         </div>
-                                    ) : (
-                                        <div className="grid gap-4">
-                                            {googleAvailable ? (
-                                                <a href="/api/auth/google" onClick={() => onSave(buildSettings())} className="primary-button w-full no-underline">
-                                                    <Icon name="log-in" size={16} /> Continue with Google
-                                                </a>
-                                            ) : (
-                                                <button type="button" disabled className="secondary-button w-full"><Icon name="cloud-off" size={15} /> Cloud sign-in unavailable</button>
-                                            )}
-                                            {!accountAvailable && <p className="m-0 text-xs text-[var(--color-muted)]">This deployment is currently local-only. Your profile and milestones still save on this device.</p>}
-
-                                            <details className="account-details">
-                                                <summary>Use a private handle instead</summary>
-                                                <div className="mt-4 grid gap-3">
-                                                    <div className="grid grid-cols-2 gap-2" aria-label="Account action">
-                                                        <button type="button" className="secondary-button" aria-pressed={accountMode === "register"} onClick={() => { setAccountMode("register"); setAccountError(""); }}>Create account</button>
-                                                        <button type="button" className="secondary-button" aria-pressed={accountMode === "sign-in"} onClick={() => { setAccountMode("sign-in"); setAccountError(""); }}>Sign in</button>
-                                                    </div>
-                                                    <label className="grid gap-2">
-                                                        <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Private handle</span>
-                                                        <input className="field" value={handle} onChange={(event) => setHandle(event.target.value.toLowerCase())} minLength={3} maxLength={24} autoComplete="username" placeholder="your-handle" />
-                                                    </label>
-                                                    <label className="grid gap-2">
-                                                        <span className="text-[13px] font-semibold text-[var(--color-ink-soft)]">Password</span>
-                                                        <input className="field" type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} maxLength={128} autoComplete={accountMode === "register" ? "new-password" : "current-password"} placeholder="At least 8 characters" />
-                                                    </label>
-                                                    {accountError && <p className="m-0 text-xs text-[var(--color-danger)]" role="alert">{accountError}</p>}
-                                                    <button type="button" disabled={accountBusy || !accountAvailable || !handle || !password || (accountMode === "register" && !displayName.trim())} onClick={submitAccount} className="secondary-button">
-                                                        <Icon name={accountMode === "register" ? "database" : "log-in"} size={15} />
-                                                        {accountBusy ? "Please wait" : accountMode === "register" ? "Create my account" : "Sign in"}
-                                                    </button>
-                                                </div>
-                                            </details>
-                                        </div>
-                                    )}
-                                    {account && accountError && <p className="m-0 text-xs text-[var(--color-danger)]" role="alert">{accountError}</p>}
-                                </div>
-                            </section>
-                        )}
-
-                        {tab === "data" && (
-                            <section id="settings-data" role="tabpanel" className="grid gap-6" aria-labelledby="storageTitle">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div>
-                                        <h3 id="storageTitle" className="m-0 text-sm font-semibold text-[var(--color-ink)]">Data and history</h3>
-                                        <p className="m-0 mt-1 text-xs leading-relaxed text-[var(--color-muted)]">Every change is saved locally first, then reconciled with your private cloud copy when reachable.</p>
-                                    </div>
-                                    <span className="status-pill shrink-0 bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]">
-                                        <Icon name={status.icon} size={12} /> {status.label}
-                                    </span>
-                                </div>
-
-                                <dl className="m-0 grid grid-cols-3 gap-2">
-                                    <div className="data-stat"><dt>Milestones</dt><dd>{storage.milestoneCount}</dd></div>
-                                    <div className="data-stat"><dt>Check-ins</dt><dd>{storage.checkInCount}</dd></div>
-                                    <div className="data-stat"><dt>Snapshots</dt><dd>{storage.historyCount}</dd></div>
-                                </dl>
-
-                                <div className="flex items-center justify-between gap-4 border-y border-[var(--color-line)] py-4">
-                                    <div className="min-w-0"><strong className="block text-sm">Cloud sync</strong><span className="block truncate text-xs text-[var(--color-muted)]">{storage.lastSyncedAt ? `Last synced ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(storage.lastSyncedAt))}` : storage.isOnline ? "Waiting for the first cloud sync" : "Will retry when this device reconnects"}</span></div>
-                                    <button type="button" onClick={() => void onSync()} disabled={!storage.isOnline || storage.syncStatus === "syncing"} className="compact-button shrink-0"><Icon name="refresh" size={14} />Sync now</button>
-                                </div>
-
-                                <div className="flex items-start justify-between gap-4 text-xs text-[var(--color-muted)]">
-                                    <div className="flex items-start gap-3"><Icon name="smartphone" size={15} className="mt-0.5 shrink-0 text-[var(--color-accent-ink)]" /><p className="m-0">{installation.installed ? "Echoe is installed in standalone app mode." : installation.isIos ? "On iPhone or iPad, install Echoe from Safari's Share menu using Add to Home Screen." : "Install Echoe for standalone Android app access and a resilient offline shell."}</p></div>
-                                    {installation.canPrompt && !installation.installed && <button type="button" onClick={() => void requestInstall()} className="compact-button shrink-0">Install</button>}
-                                    {installation.installed && <span className="status-pill shrink-0 bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"><Icon name="check" size={11} />Installed</span>}
-                                </div>
-
-                                <div className="flex items-start justify-between gap-4 text-xs text-[var(--color-muted)]">
-                                    <div className="flex items-start gap-3"><Icon name="bell" size={15} className="mt-0.5 shrink-0 text-[var(--color-accent-ink)]" /><p className="m-0">App badges reflect unread check-ins and paths that need a decision on supported installed devices.</p></div>
-                                    {badgePermission === "default" && <button type="button" onClick={() => void enableBadge()} className="compact-button shrink-0">Enable badge</button>}
-                                    {badgePermission === "granted" && <span className="status-pill shrink-0 bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"><Icon name="check" size={11} />Badge on</span>}
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button type="button" onClick={onExport} className="secondary-button"><Icon name="download" size={15} /> Export</button>
-                                    <button type="button" onClick={() => fileInput.current?.click()} className="secondary-button"><Icon name="upload" size={15} /> Import</button>
-                                    <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={(event) => { if (event.target.files?.[0]) { onImport(event.target.files[0]); event.target.value = ""; } }} />
-                                </div>
-
-                                {snapshots.length > 0 && (
-                                    <details className="editor-details">
-                                        <summary>History</summary>
-                                        <p className="m-0 mt-3 text-xs text-[var(--color-muted)]">Restore an earlier point in time. Restoring saves a fresh snapshot too, so it can be undone.</p>
-                                        <ul className="m-0 mt-3 grid list-none gap-2 p-0">
-                                            {snapshots.slice(0, 10).map((snapshot) => (
-                                                <li key={snapshot.seq} className="flex items-center justify-between gap-3 text-xs">
-                                                    <span className="min-w-0 truncate text-[var(--color-ink-soft)]">
-                                                        {actionLabels[snapshot.action] ?? snapshot.action} <span className="text-[var(--color-muted)]">· {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(snapshot.createdAt))}</span>
-                                                    </span>
-                                                    {confirmRestoreSeq === snapshot.seq ? (
-                                                        <span className="flex shrink-0 items-center gap-2">
-                                                            <button type="button" disabled={restoring} onClick={async () => { setRestoring(true); await onRestoreSnapshot(snapshot.seq!); setRestoring(false); setConfirmRestoreSeq(null); }} className="quiet-button text-[var(--color-accent-ink)]">Yes, restore</button>
-                                                            <button type="button" onClick={() => setConfirmRestoreSeq(null)} className="quiet-button">Cancel</button>
-                                                        </span>
-                                                    ) : (
-                                                        <button type="button" onClick={() => setConfirmRestoreSeq(snapshot.seq ?? null)} className="quiet-button shrink-0">Restore</button>
-                                                    )}
-                                                </li>
-                                            ))}
-                                        </ul>
                                     </details>
-                                )}
-
-                                <div className="border-t border-[var(--color-line)] pt-5">
-                                    {!confirmClear ? (
-                                        <button type="button" onClick={() => setConfirmClear(true)} className="quiet-button text-[var(--color-danger)]"><Icon name="trash" size={14} /> Clear all data</button>
-                                    ) : (
-                                        <div className="grid gap-3 border-l-2 border-[var(--color-danger)] pl-4">
-                                            <span className="text-xs text-[var(--color-ink-soft)]">This starts a fresh local and cloud history.</span>
-                                            <div className="flex gap-2">
-                                                <button type="button" onClick={() => setConfirmClear(false)} className="secondary-button">Cancel</button>
-                                                <button type="button" onClick={async () => { await onClearData(); onClose(); }} className="secondary-button text-[var(--color-danger)]">Clear now</button>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
-                                <p className="m-0 border-t border-[var(--color-line)] pt-4 text-right text-[10px] text-[var(--color-muted)]">Designed by <strong className="text-[var(--color-accent-ink)]">Kikandi</strong></p>
-                            </section>
-                        )}
-                    </div>
+                            )}
+                            {account && accountError && <p className="field-error" role="alert">{accountError}</p>}
+                        </div>
+                    </section>
+                )}
 
-                    <div className="acrylic-actions shrink-0 border-t border-[var(--color-line)] px-[clamp(22px,5vw,38px)] py-4">
-                        <button type="submit" className="primary-button w-full">{tab === "data" ? "Done" : "Save changes"}</button>
-                    </div>
-                </form>
-            </aside>
-        </>
+                {tab === "data" && (
+                    <section id="settings-data" role="tabpanel" className="settings-panel" aria-labelledby="storageTitle">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <h3 id="storageTitle" className="settings-heading">Data and history</h3>
+                                <p className="field-hint">Every change is saved locally first, then reconciled with your private cloud copy when reachable.</p>
+                            </div>
+                            <span className="pill pill-accent shrink-0"><Icon name={status.icon} size={12} /> {status.label}</span>
+                        </div>
+
+                        <dl className="stat-row">
+                            <div><dt>Paths</dt><dd className="num">{storage.milestoneCount}</dd></div>
+                            <div><dt>Check-ins</dt><dd className="num">{storage.checkInCount}</dd></div>
+                            <div><dt>Snapshots</dt><dd className="num">{storage.historyCount}</dd></div>
+                        </dl>
+
+                        <div className="group">
+                            <div className="group-row">
+                                <Icon name="cloud" size={18} className="shrink-0 text-[var(--color-accent-ink)]" />
+                                <div className="min-w-0 flex-1"><strong className="block text-sm">Cloud sync</strong><span className="block truncate text-xs text-[var(--color-muted)]">{storage.lastSyncedAt ? `Last synced ${dateTime(storage.lastSyncedAt)}` : storage.isOnline ? "Waiting for the first cloud sync" : "Will retry when this device reconnects"}</span></div>
+                                <button type="button" onClick={() => void onSync()} disabled={!storage.isOnline || storage.syncStatus === "syncing"} className="btn btn-secondary btn-sm shrink-0"><Icon name="refresh" size={14} />Sync now</button>
+                            </div>
+                            <div className="group-row">
+                                <Icon name="smartphone" size={18} className="shrink-0 text-[var(--color-accent-ink)]" />
+                                <p className="m-0 min-w-0 flex-1 text-xs text-[var(--color-muted)]">{installation.installed ? "Echoe is installed as an app." : installation.isIos ? "On iPhone or iPad, install Echoe from Safari's Share menu with Add to Home Screen." : "Install Echoe for an app of its own that keeps working offline."}</p>
+                                {installation.canPrompt && !installation.installed && <button type="button" onClick={() => void requestInstall()} className="btn btn-secondary btn-sm shrink-0">Install</button>}
+                                {installation.installed && <span className="pill pill-accent shrink-0"><Icon name="check" size={11} />Installed</span>}
+                            </div>
+                            <div className="group-row">
+                                <Icon name="bell" size={18} className="shrink-0 text-[var(--color-accent-ink)]" />
+                                <p className="m-0 min-w-0 flex-1 text-xs text-[var(--color-muted)]">The app icon badge counts check-ins due and paths that need a decision, on devices that support it.</p>
+                                {badgePermission === "default" && <button type="button" onClick={() => void enableBadge()} className="btn btn-secondary btn-sm shrink-0">Turn on</button>}
+                                {badgePermission === "granted" && <span className="pill pill-accent shrink-0"><Icon name="check" size={11} />On</span>}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <button type="button" onClick={onExport} className="btn btn-secondary"><Icon name="download" size={16} /> Export</button>
+                            <button type="button" onClick={() => fileInput.current?.click()} className="btn btn-secondary"><Icon name="upload" size={16} /> Import</button>
+                            <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={(event) => { if (event.target.files?.[0]) { onImport(event.target.files[0]); event.target.value = ""; } }} />
+                        </div>
+
+                        {snapshots.length > 0 && (
+                            <details className="fold">
+                                <summary><Icon name="chevron-right" size={16} />Restore an earlier version</summary>
+                                <p className="field-hint mt-2">Restoring saves a fresh snapshot too, so it can be undone.</p>
+                                <ul className="history-list">
+                                    {snapshots.slice(0, 10).map((snapshot) => (
+                                        <li key={snapshot.seq} className="items-center">
+                                            <span><strong>{actionLabels[snapshot.action] ?? snapshot.action}</strong><small>{dateTime(snapshot.createdAt)}</small></span>
+                                            {confirmRestoreSeq === snapshot.seq ? (
+                                                <span className="flex flex-row items-center gap-1">
+                                                    <button type="button" onClick={() => setConfirmRestoreSeq(null)} className="btn btn-ghost btn-sm">Cancel</button>
+                                                    <button type="button" disabled={restoring} onClick={async () => { setRestoring(true); await onRestoreSnapshot(snapshot.seq!); setRestoring(false); setConfirmRestoreSeq(null); }} className="btn btn-primary btn-sm">Restore</button>
+                                                </span>
+                                            ) : (
+                                                <button type="button" onClick={() => setConfirmRestoreSeq(snapshot.seq ?? null)} className="btn btn-ghost btn-sm">Restore</button>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </details>
+                        )}
+
+                        <div className="border-t border-[var(--color-line)] pt-5">
+                            {!confirmClear ? (
+                                <button type="button" onClick={() => setConfirmClear(true)} className="btn btn-ghost btn-sm text-[var(--color-danger)]"><Icon name="trash" size={15} /> Clear all data</button>
+                            ) : (
+                                <div className="danger-confirm" role="alert">
+                                    <strong>Clear everything?</strong>
+                                    <span>This permanently erases your paths and history here and in the cloud. Export a backup first if you might want it back.</span>
+                                    <div className="flex gap-2">
+                                        <button type="button" onClick={() => setConfirmClear(false)} className="btn btn-secondary btn-sm">Keep my data</button>
+                                        <button type="button" onClick={async () => { await onClearData(); close(); }} className="btn btn-danger btn-sm">Clear all data</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <p className="design-credit">Designed by <strong>Kikandi</strong></p>
+                    </section>
+                )}
+            </SheetBody>
+
+            <SheetFooter>
+                <span className="spacer" />
+                <button type="submit" className="btn btn-primary">{tab === "data" ? "Done" : "Save changes"}</button>
+            </SheetFooter>
+        </form>
     );
 }

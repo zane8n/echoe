@@ -64,7 +64,7 @@ describe("Friends view", () => {
     it("shares a selected path only with an accepted friend", async () => {
         const user = userEvent.setup();
         renderView();
-        await screen.findByText("Your private circle");
+        await screen.findByRole("heading", { name: "Friends" });
         await user.click(screen.getByRole("radio", { name: /participant/i }));
         await user.click(screen.getByRole("button", { name: "Share privately" }));
         expect(social.share).toHaveBeenCalledWith("friend-1", "habit-1", "participant");

@@ -7,7 +7,7 @@ export default function FriendsPage() {
     const { state, social, socialLoading, refreshSocial, cheerShare, syncNow, openSettings, showToast, upsertEvent } = useDashboard();
 
     return (
-        <main className="app-page friends-page relative z-10 mx-auto w-[min(calc(100%-40px),920px)]">
+        <main className="page">
             <FriendsView
                 events={state.events}
                 social={social}
@@ -16,7 +16,7 @@ export default function FriendsPage() {
                 onCheer={cheerShare}
                 onSync={syncNow}
                 onOpenSettings={openSettings}
-                onToast={showToast}
+                onToast={(message) => showToast(message)}
                 onUpdateEvent={upsertEvent}
             />
         </main>

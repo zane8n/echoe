@@ -1,126 +1,140 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useRowGestures } from "@/hooks/use-row-gestures";
+import { parseQuickInput } from "@/lib/quick-parse";
 import type { DailyTask } from "@/lib/types";
+import { formatDate, localDate } from "@/lib/utils";
+import { ActionMenu } from "./action-menu";
 import { Icon } from "./icon";
 
 interface Props {
     tasks: DailyTask[];
-    onAdd: (text: string, time?: string) => void;
+    later?: DailyTask[];
+    onAdd: (text: string, time?: string, date?: string) => void;
     onToggle: (id: string) => void;
     onUpdate: (id: string, changes: { text?: string; time?: string | null }) => void;
     onDelete: (id: string) => void;
 }
 
-export function MyDayView({ tasks, onAdd, onToggle, onUpdate, onDelete }: Props) {
-    const [text, setText] = useState("");
-    const [time, setTime] = useState("");
-    const [editingId, setEditingId] = useState<string | null>(null);
-    const [editText, setEditText] = useState("");
+function TaskRow({ task, onToggle, onUpdate, onDelete, showDate }: { task: DailyTask; onToggle: (id: string) => void; onUpdate: Props["onUpdate"]; onDelete: (id: string) => void; showDate?: boolean }) {
+    const [editing, setEditing] = useState(false);
+    const [draft, setDraft] = useState(task.text);
+    const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
+    const { rowRef, innerRef, handlers } = useRowGestures({
+        onSwipeRight: () => onToggle(task.id),
+        onSwipeLeft: () => onDelete(task.id),
+        onMenu: setMenuAt,
+        leftKind: "delete",
+    });
 
-    const pending = tasks.filter((task) => !task.done);
-    const done = tasks.filter((task) => task.done);
-
-    const submitAdd = (event: React.FormEvent) => {
-        event.preventDefault();
-        if (!text.trim()) return;
-        onAdd(text, time || undefined);
-        setText("");
-        setTime("");
+    const commit = () => {
+        if (draft.trim() && draft.trim() !== task.text) onUpdate(task.id, { text: draft });
+        setEditing(false);
     };
 
-    const startEdit = (task: DailyTask) => {
-        setEditingId(task.id);
-        setEditText(task.text);
-    };
-
-    const commitEdit = (id: string) => {
-        if (editText.trim()) onUpdate(id, { text: editText });
-        setEditingId(null);
-    };
-
-    const renderTask = (task: DailyTask) => (
-        <article key={task.id} className="path-row" style={{ "--path-color": "var(--color-accent)", "--path-glow": "var(--color-accent-soft)" } as React.CSSProperties}>
-            <span className="path-marker" aria-hidden="true" />
-            <div className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-3">
+    return (
+        <li ref={rowRef as React.RefObject<HTMLLIElement>} className="rhythm-row task-row" data-hue="accent" data-done={task.done} {...(editing ? {} : handlers)}>
+            <div className="swipe-reveal" aria-hidden="true">
+                <span><Icon name={task.done ? "undo" : "check"} size={18} />{task.done ? "Not done" : "Done"}</span>
+                <span>Delete<Icon name="trash" size={18} /></span>
+            </div>
+            <div ref={innerRef as React.RefObject<HTMLDivElement>} className="rhythm-row-inner task-inner">
                 <button
                     type="button"
                     onClick={() => onToggle(task.id)}
                     aria-pressed={task.done}
                     aria-label={task.done ? `Mark "${task.text}" not done` : `Mark "${task.text}" done`}
-                    className="grid h-6 w-6 shrink-0 place-items-center rounded-[var(--radius-sm)] border transition-colors duration-150"
-                    style={{ borderColor: task.done ? "var(--color-accent)" : "var(--color-line)", background: task.done ? "var(--color-accent)" : "transparent" }}
+                    className="task-check"
                 >
-                    {task.done && <Icon name="check" size={13} style={{ color: "var(--color-on-accent)" }} />}
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" /><path d="M7.5 12.4l3 3 6-6.4" /></svg>
                 </button>
-
-                {editingId === task.id ? (
+                {editing ? (
                     <input
                         autoFocus
-                        value={editText}
-                        onChange={(input) => setEditText(input.target.value)}
-                        onBlur={() => commitEdit(task.id)}
-                        onKeyDown={(keyEvent) => { if (keyEvent.key === "Enter") commitEdit(task.id); if (keyEvent.key === "Escape") setEditingId(null); }}
-                        className="field min-h-0 flex-1 py-1"
+                        value={draft}
+                        onChange={(input) => setDraft(input.target.value)}
+                        onBlur={commit}
+                        onKeyDown={(keyEvent) => { if (keyEvent.key === "Enter") commit(); if (keyEvent.key === "Escape") { keyEvent.stopPropagation(); setDraft(task.text); setEditing(false); } }}
+                        className="task-edit"
+                        aria-label="Edit task"
                         maxLength={140}
                     />
                 ) : (
-                    <button type="button" onClick={() => startEdit(task)} className="min-w-0 flex-1 truncate text-left text-[var(--text-base)]" style={{ color: task.done ? "var(--color-muted)" : "var(--color-ink)", textDecoration: task.done ? "line-through" : undefined }}>
+                    <button type="button" onClick={() => { setDraft(task.text); setEditing(true); }} className="task-text" title="Edit">
                         {task.text}
                     </button>
                 )}
-
-                {task.time && <span className="shrink-0 font-[var(--font-mono)] text-xs tabular-nums text-[var(--color-muted)]">{task.time}</span>}
-
-                <button type="button" onClick={() => onDelete(task.id)} className="icon-button shrink-0" aria-label={`Delete "${task.text}"`} title="Delete">
-                    <Icon name="x" size={14} />
+                {(task.time || showDate) && <span className="task-time num">{showDate ? formatDate(task.date, { weekday: "short", day: "numeric", month: "short", year: undefined }) : null}{showDate && task.time ? ", " : ""}{task.time}</span>}
+                <button type="button" onClick={() => onDelete(task.id)} className="icon-btn icon-btn-sm task-delete" aria-label={`Delete "${task.text}"`} title="Delete">
+                    <Icon name="x" size={16} />
                 </button>
             </div>
-        </article>
+            {menuAt && (
+                <ActionMenu x={menuAt.x} y={menuAt.y} title={task.text} onClose={() => setMenuAt(null)} actions={[
+                    { label: task.done ? "Mark not done" : "Mark done", icon: "check", onSelect: () => onToggle(task.id) },
+                    { label: "Edit", icon: "pencil", onSelect: () => { setDraft(task.text); setEditing(true); } },
+                    ...(task.time ? [{ label: "Remove the time", icon: "clock" as const, onSelect: () => onUpdate(task.id, { time: null }) }] : []),
+                    { label: "Delete", icon: "trash", tone: "danger", separatorBefore: true, onSelect: () => onDelete(task.id) },
+                ]} />
+            )}
+        </li>
     );
+}
+
+export function MyDayView({ tasks, later = [], onAdd, onToggle, onUpdate, onDelete }: Props) {
+    const [text, setText] = useState("");
+    const pending = tasks.filter((task) => !task.done);
+    const done = tasks.filter((task) => task.done);
+    const parsed = useMemo(() => text.trim() ? parseQuickInput(text, new Date(), "task") : null, [text]);
+    const today = localDate();
+
+    const submitAdd = (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!parsed?.name) return;
+        if (parsed.date && parsed.date !== today) onAdd(parsed.name, parsed.time, parsed.date);
+        else onAdd(parsed.name, parsed.time);
+        setText("");
+    };
+
+    const row = (task: DailyTask, showDate = false) => <TaskRow key={task.id} task={task} onToggle={onToggle} onUpdate={onUpdate} onDelete={onDelete} showDate={showDate} />;
 
     return (
-        <section id="my-day" className="scroll-mt-24 animate-soft-enter">
-            <div className="mb-5">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--color-accent-ink)]"><Icon name="list-checks" size={14} />My Day</div>
-                <h1 className="m-0 mt-1 text-[clamp(26px,5vw,38px)] font-semibold leading-tight tracking-[-0.01em]">What&apos;s on your plate today</h1>
+        <section id="tasks" className="section tasks" aria-labelledby="tasksHeading">
+            <div className="section-head">
+                <h2 id="tasksHeading">Tasks</h2>
+                {tasks.length > 0 && <span className="section-meta">{pending.length ? `${pending.length} left` : "All done"}</span>}
+            </div>
+            <div className="group">
+                {tasks.length === 0 ? (
+                    <div className="task-empty">
+                        <p>Nothing on your plate yet.</p>
+                        <small>Add the small things here. Your paths already hold the big ones.</small>
+                    </div>
+                ) : pending.length > 0 ? (
+                    <ul className="rhythm-list">{pending.map((task) => row(task))}</ul>
+                ) : (
+                    <p className="task-empty task-all-done"><Icon name="check" size={16} />Everything for today is done.</p>
+                )}
+                <form onSubmit={submitAdd} className="task-add">
+                    <span className="task-add-icon" aria-hidden="true"><Icon name="plus" size={18} /></span>
+                    <input value={text} onChange={(input) => setText(input.target.value)} placeholder="Add a task, like “gym 6pm”" maxLength={140} aria-label="Add something" enterKeyHint="done" />
+                    {parsed && parsed.tokens.length > 0 && <span className="task-add-parsed">{parsed.date && parsed.date !== today ? formatDate(parsed.date, { weekday: "short", day: "numeric", month: "short", year: undefined }) : "Today"}{parsed.time ? `, ${parsed.time}` : ""}</span>}
+                    <button type="submit" className="btn btn-sm btn-primary" disabled={!text.trim()}>Add</button>
+                </form>
             </div>
 
-            <form onSubmit={submitAdd} className="tracking-pair mb-5">
-                <label className="grid min-w-0 gap-2">
-                    <span className="field-label">Add something</span>
-                    <input value={text} onChange={(input) => setText(input.target.value)} placeholder="e.g. Call the dentist" maxLength={140} className="field" enterKeyHint="done" />
-                </label>
-                <label className="grid min-w-0 gap-2">
-                    <span className="field-label">Time <span className="font-normal text-[var(--color-muted)]">(optional)</span></span>
-                    <span className="flex gap-2">
-                        <input type="time" value={time} onChange={(input) => setTime(input.target.value)} className="field min-w-0 flex-1" aria-label="Task time" />
-                        <button type="submit" className="primary-button shrink-0" disabled={!text.trim()}><Icon name="plus" size={16} />Add</button>
-                    </span>
-                </label>
-            </form>
-
-            {tasks.length === 0 ? (
-                <div className="empty-paths py-10 text-center">
-                    <span className="echo-orb mx-auto mb-4 block" aria-hidden="true" />
-                    <p className="m-0 text-sm text-[var(--color-muted)]">Nothing on your plate yet.</p>
-                    <p className="m-0 mt-2 text-xs text-[var(--color-accent-ink)]">Add the small things — the paths above already hold the big ones.</p>
-                </div>
-            ) : (
-                <>
-                    {pending.length > 0 ? (
-                        <div className="path-list">{pending.map(renderTask)}</div>
-                    ) : (
-                        <p className="border-y border-[var(--color-line)] py-8 text-center text-sm text-[var(--color-muted)]">Everything for today is done.</p>
-                    )}
-
-                    {done.length > 0 && (
-                        <details className="editor-details mt-5">
-                            <summary>Done today ({done.length})</summary>
-                            <div className="path-list mt-4">{done.map(renderTask)}</div>
-                        </details>
-                    )}
-                </>
+            {done.length > 0 && (
+                <details className="fold">
+                    <summary><Icon name="chevron-right" size={16} />Done today ({done.length})</summary>
+                    <ul className="rhythm-list group">{done.map((task) => row(task))}</ul>
+                </details>
+            )}
+            {later.length > 0 && (
+                <details className="fold">
+                    <summary><Icon name="chevron-right" size={16} />Later ({later.length})</summary>
+                    <ul className="rhythm-list group">{later.map((task) => row(task, true))}</ul>
+                </details>
             )}
         </section>
     );
