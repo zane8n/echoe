@@ -7,6 +7,7 @@ import { CheckButton } from "./check-button";
 import { CoProgress } from "./co-progress";
 import { Icon } from "./icon";
 import { Segmented } from "./segmented";
+import { TransitionLink } from "./transition-link";
 
 interface Props {
     events: MilestoneEvent[];
@@ -180,9 +181,9 @@ export function FriendsView({ events, social: snapshot, socialLoading: loading, 
                             const participant = share.mode === "participant";
                             const canCheckAgain = participant && (share.allowExtraCheckIns || share.guestToday === 0);
                             return (
-                                <li key={share.id} className="shared-row" data-hue={share.color ?? "teal"}>
+                                <li key={share.id} className="shared-row" data-hue="shared">
                                     <div className="shared-row-main">
-                                        <span className="shared-row-title"><small>{share.person.displayName}, {share.mode}</small><strong>{share.eventName}</strong></span>
+                                        <TransitionLink href={`/friends/shared/${share.id}`} className="shared-row-title shared-row-link" aria-label={`Open ${share.person.displayName}'s ${share.eventName}`}><small>{share.person.displayName}, {share.mode}</small><strong>{share.eventName}<Icon name="chevron-right" size={16} /></strong></TransitionLink>
                                         {participant
                                             ? <CheckButton done={share.guestToday > 0 && !share.allowExtraCheckIns} disabled={!canCheckAgain || busy === `check:${share.id}`} label={share.guestToday ? share.allowExtraCheckIns ? "Check in again" : "Checked in" : "Check in"} onToggle={() => void perform(`check:${share.id}`, () => checkInSharedPath(share.id), "Shared check-in recorded")} />
                                             : <span className="pill"><Icon name="eye" size={12} />Watching</span>}

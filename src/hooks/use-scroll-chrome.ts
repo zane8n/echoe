@@ -15,7 +15,12 @@ export function useScrollChrome(resetKey: string) {
         let frame = 0;
         const update = () => {
             frame = 0;
-            const y = window.scrollY;
+            // Clamp to the real scroll range: iOS rubber-banding past either end reports
+            // overshoot that reads as a direction change and made the bar flap.
+            const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+            const y = Math.min(Math.max(window.scrollY, 0), max);
+            // Pages barely taller than the screen gain nothing from compacting.
+            if (max < 160) { setScrolled(y > 4); setCompact(false); last = y; return; }
             const delta = y - last;
             setScrolled(y > 4);
             if (y < 80) setCompact(false);

@@ -17,11 +17,17 @@ interface Props {
     event: MilestoneEvent;
     tick: number;
     profile?: PersonalProfile;
-    onEdit: (id: string) => void;
-    onCelebrate: () => void;
-    onToggleToday: (id: string, origin?: Origin) => void;
-    onEntry: (id: string, status: HabitEntry["status"], date: string, note?: string) => void;
-    onClearEntry: (id: string, date: string) => void;
+    /** A friend's shared path: everything is visible, nothing that would change it is offered. */
+    readOnly?: boolean;
+    /** Overrides the path's own colour, e.g. "shared" for a friend's path. */
+    hue?: string;
+    /** "Shared by Amina" / "Shared with Amina", shown as a shared-hue pill. */
+    sharedLabel?: string;
+    onEdit?: (id: string) => void;
+    onCelebrate?: () => void;
+    onToggleToday?: (id: string, origin?: Origin) => void;
+    onEntry?: (id: string, status: HabitEntry["status"], date: string, note?: string) => void;
+    onClearEntry?: (id: string, date: string) => void;
     onProgress?: (id: string) => void;
     onEffort?: (id: string, hours: number) => void;
     onPin?: (id: string) => void;
@@ -32,7 +38,7 @@ interface Props {
 const QUICK_EFFORT = [0.5, 1, 2];
 const shortDate = (date: string) => formatDate(date, { day: "numeric", month: "short", year: undefined });
 
-export function PathDetail({ event, tick, profile, onEdit, onCelebrate, onToggleToday, onEntry, onClearEntry, onProgress, onEffort, onPin, onShare, onDelete }: Props) {
+export function PathDetail({ event, tick, profile, readOnly, hue, sharedLabel, onEdit, onCelebrate, onToggleToday, onEntry, onClearEntry, onProgress, onEffort, onPin, onShare, onDelete }: Props) {
     const previousRemaining = useRef<number | null>(null);
     const [selectedDate, setSelectedDate] = useState(localDate());
     const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
@@ -56,7 +62,7 @@ export function PathDetail({ event, tick, profile, onEdit, onCelebrate, onToggle
 
     useEffect(() => {
         if (remaining === null) return;
-        if (previousRemaining.current !== null && previousRemaining.current > 0 && remaining === 0) onCelebrate();
+        if (previousRemaining.current !== null && previousRemaining.current > 0 && remaining === 0) onCelebrate?.();
         previousRemaining.current = remaining;
     }, [remaining, onCelebrate]);
 
@@ -77,29 +83,35 @@ export function PathDetail({ event, tick, profile, onEdit, onCelebrate, onToggle
     const notes = [
         ...entries.filter((entry) => entry.note).map((entry) => ({ key: `c-${entry.date}`, date: entry.date, text: entry.note!, tag: entry.status === "done" ? "Checked in" : "Missed" })),
         ...(event.project?.entries ?? []).filter((entry) => entry.note).map((entry) => ({ key: entry.id, date: entry.date, text: entry.note!, tag: entry.hours > 0 ? `+${entry.hours}h` : `${entry.readiness}% ready` })),
-    ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
+    ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, readOnly ? 30 : 8);
+    // The owner reviews effort in the progress sheet; a friend only has this page.
+    const effortLog = readOnly ? [...(event.project?.entries ?? [])].sort((a, b) => b.date.localeCompare(a.date) || (b.recordedAt ?? "").localeCompare(a.recordedAt ?? "")).slice(0, 30) : [];
 
     const menu: MenuAction[] = [
         ...(onPin && !event.pinned ? [{ label: "Keep in focus", icon: "pin" as const, onSelect: () => onPin(event.id) }] : []),
         ...(onShare ? [{ label: "Share with a friend", icon: "share" as const, onSelect: () => onShare(event.id) }] : []),
         ...(onProgress && event.project ? [{ label: "Log effort or readiness", icon: "timer" as const, onSelect: () => onProgress(event.id) }] : []),
-        { label: "Edit", icon: "pencil", onSelect: () => onEdit(event.id) },
+        ...(onEdit ? [{ label: "Edit", icon: "pencil" as const, onSelect: () => onEdit(event.id) }] : []),
         ...(onDelete ? [{ label: "Delete", icon: "trash" as const, tone: "danger" as const, separatorBefore: true, onSelect: () => onDelete(event.id) }] : []),
     ];
 
     return (
-        <article className="detail" data-hue={event.color}>
+        <article className="detail" data-hue={hue ?? event.color}>
             <header className="detail-head">
                 <div className="detail-kind">
                     <span className="detail-dot" aria-hidden="true" />
                     {summary.kindLabel}
                     {event.pinned && <span className="pill pill-hue"><Icon name="pin" size={11} />In focus</span>}
                     {project && <span className={`pill ${project.risk === "at-risk" ? "pill-danger" : project.risk === "watch" ? "pill-warn" : "pill-hue"}`}>{riskLabel[project.risk]}</span>}
+                    {sharedLabel && <span className="pill pill-hue" data-hue="shared"><Icon name="users" size={12} />{sharedLabel}</span>}
+                    {readOnly && <span className="pill"><Icon name="eye" size={12} />View only</span>}
                 </div>
-                <div className="detail-actions">
-                    <button type="button" className="icon-btn" onClick={() => onEdit(event.id)} aria-label={`Edit ${event.name}`} title="Edit"><Icon name="pencil" size={18} /></button>
-                    <button type="button" className="icon-btn" aria-label="More actions" onClick={(click) => { const rect = click.currentTarget.getBoundingClientRect(); setMenuAt({ x: rect.right, y: rect.bottom + 4 }); }}><Icon name="more-horiz" size={20} /></button>
-                </div>
+                {!readOnly && onEdit && (
+                    <div className="detail-actions">
+                        <button type="button" className="icon-btn" onClick={() => onEdit(event.id)} aria-label={`Edit ${event.name}`} title="Edit"><Icon name="pencil" size={18} /></button>
+                        <button type="button" className="icon-btn" aria-label="More actions" onClick={(click) => { const rect = click.currentTarget.getBoundingClientRect(); setMenuAt({ x: rect.right, y: rect.bottom + 4 }); }}><Icon name="more-horiz" size={20} /></button>
+                    </div>
+                )}
                 <h1 style={{ viewTransitionName: `path-${event.id}` }}>{event.name}</h1>
             </header>
 
@@ -108,7 +120,7 @@ export function PathDetail({ event, tick, profile, onEdit, onCelebrate, onToggle
                     <strong className="num">{metricText}</strong>
                     <span>{metric.label}</span>
                 </div>
-                {summary.checkable && (
+                {summary.checkable && !readOnly && onToggleToday && (
                     <div className="detail-check">
                         <CheckButton
                             size="lg"
@@ -167,7 +179,7 @@ export function PathDetail({ event, tick, profile, onEdit, onCelebrate, onToggle
 
             {tracked && (
                 <section className="detail-section">
-                    <div className="section-head"><h2>History</h2><span className="section-meta">Tap a day to change it</span></div>
+                    <div className="section-head"><h2>History</h2><span className="section-meta">{readOnly ? "Tap a day to see it" : "Tap a day to change it"}</span></div>
                     <HeatCalendar entries={entries} weeks={weeks} start={event.start} selected={selectedDate} onSelect={setSelectedDate} label={`${event.name} history, last ${weeks} weeks`} />
                     <div className="heat-legend" aria-hidden="true">
                         <span><i style={{ background: "var(--hue)" }} />Checked in</span>
@@ -178,13 +190,28 @@ export function PathDetail({ event, tick, profile, onEdit, onCelebrate, onToggle
                         key={selectedDate}
                         date={selectedDate}
                         entry={selectedEntry}
-                        onSave={(status, note) => onEntry(event.id, status, selectedDate, note)}
-                        onClear={() => onClearEntry(event.id, selectedDate)}
+                        readOnly={readOnly || !onEntry}
+                        onSave={(status, note) => onEntry?.(event.id, status, selectedDate, note)}
+                        onClear={() => onClearEntry?.(event.id, selectedDate)}
                     />
                 </section>
             )}
 
-            {event.habit && <p className="insight-note"><Icon name="sparkle" size={16} />{habitInsight(event, profile?.supportStyle)}</p>}
+            {event.habit && !readOnly && <p className="insight-note"><Icon name="sparkle" size={16} />{habitInsight(event, profile?.supportStyle)}</p>}
+
+            {effortLog.length > 0 && (
+                <section className="detail-section">
+                    <div className="section-head"><h2>Effort log</h2><span className="section-meta">{effortLog.length}</span></div>
+                    <ol className="history-list">
+                        {effortLog.map((entry) => (
+                            <li key={entry.id}>
+                                <span><strong>{formatDate(entry.date, { weekday: "short", year: undefined })}</strong>{entry.readiness !== undefined && <small>{entry.readiness}% ready</small>}</span>
+                                <span className="num">{entry.hours > 0 ? `+${entry.hours}h` : "Readiness"}</span>
+                            </li>
+                        ))}
+                    </ol>
+                </section>
+            )}
 
             {notes.length > 0 && (
                 <section className="detail-section">

@@ -18,7 +18,7 @@ const GROUPS: Array<{ kind: ReturnType<typeof milestoneKind>; title: string }> =
     { kind: "ongoing", title: "Ongoing" },
 ];
 
-function PathRow({ event, summary, menu }: { event: MilestoneEvent; summary: PathSummary; menu: MenuAction[] }) {
+function PathRow({ event, summary, menu, shared }: { event: MilestoneEvent; summary: PathSummary; menu: MenuAction[]; shared?: boolean }) {
     const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
     const { rowRef, handlers } = useRowGestures({ onMenu: setMenuAt });
     const metric = summary.kind === "project" && event.isCountdown && summary.daysLeft !== undefined
@@ -37,6 +37,7 @@ function PathRow({ event, summary, menu }: { event: MilestoneEvent; summary: Pat
                         {summary.kind === "project" && summary.risk && summary.risk !== "on-track"
                             ? <span className={`pill ${summary.risk === "at-risk" ? "pill-danger" : summary.risk === "watch" ? "pill-warn" : "pill-accent"}`}>{riskLabel[summary.risk]}</span>
                             : null}
+                        {shared && <span className="pill pill-hue" data-hue="shared"><Icon name="users" size={12} />Shared</span>}
                         <span>{summary.meta}</span>
                     </span>
                     {event.habit
@@ -57,8 +58,9 @@ function PathRow({ event, summary, menu }: { event: MilestoneEvent; summary: Pat
 }
 
 export function PathsView() {
-    const { state, openComposer, openEventEditor, togglePin, handleDelete, toggleToday, setCheckInEventId, setProgressEventId, navigateTo } = useDashboard();
+    const { state, social, openComposer, openEventEditor, togglePin, handleDelete, toggleToday, setCheckInEventId, setProgressEventId, navigateTo } = useDashboard();
     const events = [...state.events].sort((a, b) => Number(b.pinned) - Number(a.pinned) || ((parseDate(a.target)?.getTime() ?? Number.MAX_SAFE_INTEGER) - (parseDate(b.target)?.getTime() ?? Number.MAX_SAFE_INTEGER)));
+    const sharedEventIds = new Set(social.sharedByMe.map((share) => share.eventId));
     const counts = GROUPS.map((group) => ({ ...group, events: events.filter((event) => milestoneKind(event) === group.kind) })).filter((group) => group.events.length);
 
     const menuFor = (event: MilestoneEvent, summary: PathSummary): MenuAction[] => {
@@ -99,7 +101,7 @@ export function PathsView() {
                     <ul className="rhythm-list group">
                         {group.events.map((event) => {
                             const summary = summarizePath(event);
-                            return <PathRow key={event.id} event={event} summary={summary} menu={menuFor(event, summary)} />;
+                            return <PathRow key={event.id} event={event} summary={summary} menu={menuFor(event, summary)} shared={sharedEventIds.has(event.id)} />;
                         })}
                     </ul>
                 </section>

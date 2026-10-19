@@ -126,6 +126,8 @@
 [data-hue="mint"] { --hue: #3e9e5a; --hue-ink: #2b7a41; --on-hue: #ffffff; }
 [data-hue="sky"] { --hue: #2f8dd6; --hue-ink: #1f6fb0; --on-hue: #ffffff; }
 [data-hue="accent"] { --hue: var(--accent); --hue-ink: var(--accent-ink); --on-hue: var(--on-accent); }
+/* Shared paths: a magenta no path colour or accent uses, so a friend's path never reads as yours. */
+[data-hue="shared"] { --hue: #c4379f; --hue-ink: #a8278a; --on-hue: #ffffff; }
 :root[data-mode="dark"] [data-hue="amber"] { --hue: #f2b04a; --hue-ink: #f6c46e; --on-hue: #1b1203; }
 :root[data-mode="dark"] [data-hue="coral"] { --hue: #f28a6e; --hue-ink: #f6a48d; --on-hue: #1d0d08; }
 :root[data-mode="dark"] [data-hue="teal"] { --hue: #3cc9ae; --hue-ink: #6fd8c3; --on-hue: #04140f; }
@@ -133,10 +135,13 @@
 :root[data-mode="dark"] [data-hue="mint"] { --hue: #6ccb86; --hue-ink: #91d9a5; --on-hue: #06160b; }
 :root[data-mode="dark"] [data-hue="sky"] { --hue: #62b2f0; --hue-ink: #8cc7f4; --on-hue: #04111c; }
 :root[data-mode="dark"] [data-hue="accent"] { --hue: var(--accent); --hue-ink: var(--accent-ink); --on-hue: var(--on-accent); }
+:root[data-mode="dark"] [data-hue="shared"] { --hue: #e56ac6; --hue-ink: #f29ad9; --on-hue: #1d0718; }
 
 /* ── Base ─────────────────────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
-html { background: var(--color-bg); -webkit-text-size-adjust: 100%; }
+/* Reserve the scrollbar's width even on short pages, so the top bar and tabs don't shift
+   sideways when moving between a page that scrolls and one that doesn't. */
+html { background: var(--color-bg); -webkit-text-size-adjust: 100%; scrollbar-gutter: stable; }
 body {
   margin: 0;
   min-width: 320px;
@@ -350,6 +355,13 @@ html[data-nav="forward"]::view-transition-new(page), html[data-nav="tab-right"]:
 html[data-nav="back"]::view-transition-old(page), html[data-nav="tab-left"]::view-transition-old(page) { animation: 220ms var(--ease-in-out) both vt-out-right; }
 html[data-nav="back"]::view-transition-new(page), html[data-nav="tab-left"]::view-transition-new(page) { animation: 340ms var(--ease-out) both vt-in-left; }
 ::view-transition-group(*) { animation-duration: 380ms; animation-timing-function: var(--ease-out); }
+/* The chrome swaps instantly instead of cross-fading: fading two snapshots of the tab bar
+   showed the active-tab thumb in both places at once while the live one slid across. */
+::view-transition-group(topbar), ::view-transition-group(tabbar), ::view-transition-group(fab),
+::view-transition-new(topbar), ::view-transition-new(tabbar), ::view-transition-new(fab) { animation: none; }
+::view-transition-old(topbar), ::view-transition-old(tabbar), ::view-transition-old(fab) { display: none; }
+/* Let taps reach the live page while a transition runs, so a quick second tab tap isn't swallowed. */
+::view-transition { pointer-events: none; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

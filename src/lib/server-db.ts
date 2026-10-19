@@ -614,6 +614,7 @@ export async function readSocialSnapshot(ownerId: string, requestedDate: string)
             target: event.target,
             overallPercent: event.project ? projectProgress(event).overallPercent : undefined,
             createdAt: new Date(row.created_at as string | Date).toISOString(),
+            event: isOwner ? undefined : event,
         }];
     });
 

@@ -27,7 +27,7 @@ export interface EditorSeed {
 
 export interface ToastAction { label: string; run: () => void }
 export interface ToastState { id: number; message: string; action?: ToastAction }
-export interface CelebrationState { id: number; x: number; y: number; hue: AccentColor | "accent"; big: boolean }
+export interface CelebrationState { id: number; x: number; y: number; hue: AccentColor | "accent" | "shared"; big: boolean }
 
 const EMPTY_SOCIAL: SocialSnapshot = { mode: "local", accountRequired: true, friends: [], sharedByMe: [], sharedWithMe: [], recentCheers: [] };
 
@@ -67,7 +67,7 @@ interface DashboardContextValue {
     closeComposer: () => void;
     showToast: (message: string, action?: ToastAction) => void;
     dismissToast: () => void;
-    celebrate: (origin?: Origin, hue?: AccentColor | "accent", big?: boolean) => void;
+    celebrate: (origin?: Origin, hue?: AccentColor | "accent" | "shared", big?: boolean) => void;
     clearCelebration: () => void;
     openEventEditor: (id?: string | null, seed?: EditorSeed | null) => void;
     openQuickStart: (kind: MilestoneKind, frequency?: "daily" | "weekly") => void;
@@ -189,7 +189,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         }, action ? 5200 : 2600);
     }, []);
 
-    const celebrate = useCallback((origin?: Origin, hue: AccentColor | "accent" = "accent", big = false) => {
+    const celebrate = useCallback((origin?: Origin, hue: AccentColor | "accent" | "shared" = "accent", big = false) => {
         const x = origin?.x ?? window.innerWidth / 2;
         const y = origin?.y ?? window.innerHeight / 2;
         setCelebration({ id: Date.now(), x, y, hue, big });
@@ -238,7 +238,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         // Optimistic: the friend's path shows done immediately; the server is the source of truth on refresh.
         setSocial((current) => ({ ...current, sharedWithMe: current.sharedWithMe.map((item) => item.id === shareId ? { ...item, guestToday: item.guestToday + 1, guestTotal: item.guestTotal + 1 } : item) }));
         vibrate(12);
-        if (origin) celebrate(origin, share?.color ?? "accent");
+        if (origin) celebrate(origin, "shared");
         try {
             await checkInSharedPath(shareId);
             showToast(share ? `Checked in with ${share.person.displayName}` : "Shared check-in recorded");

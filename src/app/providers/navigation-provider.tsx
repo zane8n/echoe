@@ -46,12 +46,15 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
     const router = useRouter();
     const pathname = usePathname();
     const pending = useRef<(() => void) | null>(null);
+    // Where a navigation is heading before pathname catches up, so a repeat tap on the same tab is ignored.
+    const inFlight = useRef<string | null>(null);
     const navigatedWithinApp = useRef(false);
 
     // The new route has committed; let the view transition snapshot it.
     useEffect(() => {
         const resolve = pending.current;
         pending.current = null;
+        inFlight.current = null;
         resolve?.();
     }, [pathname]);
 
@@ -74,7 +77,11 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
 
     const navigate = useCallback((href: string, direction?: NavDirection) => {
         navigatedWithinApp.current = true;
-        if (clean(href) === pathname && !href.includes("?")) return;
+        if (clean(href) === (inFlight.current ?? pathname) && !href.includes("?")) return;
+        const target = clean(href);
+        inFlight.current = target;
+        // Never let a navigation that didn't land block that tab for good.
+        window.setTimeout(() => { if (inFlight.current === target) inFlight.current = null; }, 1000);
         transition(direction ?? directionFor(pathname, href), () => router.push(href));
     }, [pathname, router, transition]);
 

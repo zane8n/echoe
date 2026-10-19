@@ -131,10 +131,10 @@ export function TodayView() {
                             return (
                                 <RhythmRow
                                     key={share.id}
-                                    hue={share.color ?? "teal"}
+                                    hue="shared"
                                     title={share.eventName}
                                     meta={<><Icon name="users" size={13} className="inline -mt-0.5 mr-1" />With {share.person.displayName}</>}
-                                    href="/friends"
+                                    href={`/friends/shared/${share.id}`}
                                     done={done}
                                     checkLabel={done ? (share.allowExtraCheckIns ? `Check in again to ${share.eventName}` : `Checked in to ${share.eventName}`) : `Check in to ${share.eventName}`}
                                     onToggle={(origin) => { if (canCheckAgain) void checkInShare(share.id, origin); }}

@@ -9,9 +9,10 @@ import { useDashboard } from "../../providers/dashboard-provider";
 export default function PathDetailPage() {
     const { id } = useParams<{ id: string }>();
     const {
-        state, tick, goBack, openEventEditor, celebrate, toggleToday, recordEntry, clearEntry, setProgressEventId, logProjectEffort, togglePin, navigateTo, handleDelete,
+        state, tick, social, goBack, openEventEditor, celebrate, toggleToday, recordEntry, clearEntry, setProgressEventId, logProjectEffort, togglePin, navigateTo, handleDelete,
     } = useDashboard();
     const event = state.events.find((item) => item.id === id);
+    const sharedWith = social.sharedByMe.filter((share) => share.eventId === id).map((share) => share.person.displayName.split(/\s+/)[0]);
     const onCelebrate = useCallback(() => celebrate(undefined, event?.color ?? "accent", true), [celebrate, event?.color]);
 
     useEffect(() => {
@@ -29,6 +30,7 @@ export default function PathDetailPage() {
                 event={event}
                 tick={tick}
                 profile={state.settings.profile}
+                sharedLabel={sharedWith.length ? `Shared with ${sharedWith.length > 1 ? `${sharedWith[0]} +${sharedWith.length - 1}` : sharedWith[0]}` : undefined}
                 onEdit={openEventEditor}
                 onCelebrate={onCelebrate}
                 onToggleToday={toggleToday}
