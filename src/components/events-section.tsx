@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { COLOR_MAP } from "@/lib/constants";
-import type { MilestoneEvent, MilestoneKind } from "@/lib/types";
+import type { MilestoneEvent, MilestoneKind, SharedPathSummary } from "@/lib/types";
 import { daysUntil, formatOpenDuration, formatRemaining, habitStats, isCheckedInForPeriod, milestoneKind, parseDate, periodProgress, projectProgress } from "@/lib/utils";
 import { Icon } from "./icon";
 import { QuickStart } from "./quick-start";
 
 interface Props {
     events: MilestoneEvent[];
+    sharedByMe?: SharedPathSummary[];
     onEdit: (id: string) => void;
     onExport: () => void;
     onCheckIn: (id: string) => void;
@@ -27,8 +28,9 @@ const filters: Array<{ id: Filter; label: string }> = [
     { id: "countdown", label: "Countdown" },
 ];
 
-export function EventsSection({ events, onEdit, onExport, onCheckIn, onProjectCheckIn, onOpenHistory, onProgress }: Props) {
+export function EventsSection({ events, sharedByMe = [], onEdit, onExport, onCheckIn, onProjectCheckIn, onOpenHistory, onProgress }: Props) {
     const [filter, setFilter] = useState<Filter>("all");
+    const sharedEventIds = useMemo(() => new Set(sharedByMe.map((share) => share.eventId)), [sharedByMe]);
     const sorted = useMemo(() => [...events]
         .filter((event) => filter === "all" || milestoneKind(event) === filter)
         .sort((a, b) => Number(b.pinned) - Number(a.pinned) || ((parseDate(a.target)?.getTime() ?? Number.MAX_SAFE_INTEGER) - (parseDate(b.target)?.getTime() ?? Number.MAX_SAFE_INTEGER))), [events, filter]);
@@ -80,11 +82,11 @@ export function EventsSection({ events, onEdit, onExport, onCheckIn, onProjectCh
                                     : habit?.total ? `${habit.rate}% consistency` : "Ready for your first check-in";
 
                         return (
-                            <article key={event.id} className="path-row animate-soft-enter" style={{ "--path-color": palette.color, "--path-glow": palette.glow, animationDelay: `${Math.min(index, 6) * 35}ms` } as React.CSSProperties}>
+                            <article key={event.id} className={`path-row animate-soft-enter${sharedEventIds.has(event.id) ? " shared-tone" : ""}`} style={{ "--path-color": palette.color, "--path-glow": palette.glow, animationDelay: `${Math.min(index, 6) * 35}ms` } as React.CSSProperties}>
                                 <Link href={`/paths/${event.id}`} className="path-main no-underline" aria-label={`Open ${event.name}`}>
                                     <span className="path-marker" aria-hidden="true" />
                                     <span className="min-w-0 flex-1">
-                                        <span className="flex min-w-0 items-center gap-2"><strong className="truncate text-[var(--text-md)] font-semibold">{event.name}</strong>{event.pinned && <span className="status-pill bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]">Focus</span>}</span>
+                                        <span className="flex min-w-0 items-center gap-2"><strong className="truncate text-[var(--text-md)] font-semibold">{event.name}</strong>{event.pinned && <span className="status-pill bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]">Focus</span>}{sharedEventIds.has(event.id) && <span className="status-pill shared-pill"><Icon name="users" size={11} />Shared</span>}</span>
                                         <span className="mt-0.5 block truncate text-xs text-[var(--color-muted)]">{statusText}</span>
                                         {(project || event.habit) && <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-[var(--color-line)]"><span className="progress-fill block h-full rounded-full" style={{ width: `${percent}%`, background: palette.color }} /></span>}
                                     </span>

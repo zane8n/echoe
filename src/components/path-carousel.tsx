@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { COLOR_MAP } from "@/lib/constants";
+import { COLOR_MAP, SHARED_PALETTE } from "@/lib/constants";
 import { checkInSharedPath } from "@/lib/social-client";
 import type { MilestoneEvent, PersonalProfile, SharedPathSummary } from "@/lib/types";
 import { daysUntil, formatOpenDuration, formatRemaining, habitInsight, habitStats, isCheckedInForPeriod, milestoneKind, periodProgress, projectProgress, timeSpent } from "@/lib/utils";
@@ -41,6 +41,11 @@ export function pathStatus(event: MilestoneEvent | undefined, profile: PersonalP
     return `${formatOpenDuration(event.start)} of continuity is already part of your story.`;
 }
 
+export function sharedWithLabel(shares: SharedPathSummary[]): string {
+    const first = shares[0]?.person.displayName.split(/\s+/)[0] ?? "";
+    return shares.length > 1 ? `Shared with ${first} +${shares.length - 1}` : `Shared with ${first}`;
+}
+
 export function PathCarousel({ events, profile, sharedByMe, sharedWithMe, onHabitCheckIn, onProjectCheckIn, onOpenHistory, onProgress, onCheer }: Props) {
     const [cheeredIds, setCheeredIds] = useState<Set<string>>(new Set());
     const [checkedShareIds, setCheckedShareIds] = useState<Set<string>>(new Set());
@@ -62,10 +67,11 @@ export function PathCarousel({ events, profile, sharedByMe, sharedWithMe, onHabi
                 ? habitProgress?.satisfied ?? false
                 : isCheckedInForPeriod(event.project?.checkInFrequency ?? "daily", event.project?.checkIns ?? []);
             const progress = project?.overallPercent ?? habit?.rate ?? 0;
-            const share = sharedByMe.find((item) => item.eventId === event.id && item.mode === "participant");
-            return <article key={event.id} className="focus-path animate-soft-enter" style={{ "--path-color": palette.color, "--path-glow": palette.glow, animationDelay: `${Math.min(index, 4) * 50}ms` } as React.CSSProperties}>
+            const shares = sharedByMe.filter((item) => item.eventId === event.id);
+            const share = shares.find((item) => item.mode === "participant");
+            return <article key={event.id} className={`focus-path animate-soft-enter${shares.length ? " shared-tone" : ""}`} style={{ "--path-color": palette.color, "--path-glow": palette.glow, animationDelay: `${Math.min(index, 4) * 50}ms` } as React.CSSProperties}>
                 <Link href={`/paths/${event.id}`} className="contents no-underline text-inherit">
-                    <div className="focus-path-top"><span>{event.pinned ? "In focus" : kind}</span>{project && <span className={`risk-label risk-${project.risk}`}>{project.risk.replace("-", " ")}</span>}</div>
+                    <div className="focus-path-top"><span>{event.pinned ? "In focus" : kind}</span>{shares.length > 0 && <span className="status-pill shared-pill"><Icon name="users" size={11} />{sharedWithLabel(shares)}</span>}{project && <span className={`risk-label risk-${project.risk}`}>{project.risk.replace("-", " ")}</span>}</div>
                     <div className="focus-path-body">
                         <h1>{event.name}</h1>
                         <div className="focus-metric">
@@ -100,12 +106,13 @@ export function PathCarousel({ events, profile, sharedByMe, sharedWithMe, onHabi
             </article>;
         })}
         {friendShares.map((share, index) => {
-            const palette = COLOR_MAP[share.color] ?? COLOR_MAP.teal;
+            const palette = SHARED_PALETTE;
             const remaining = formatRemaining(daysUntil(share.target));
             const checked = checkedShareIds.has(share.id);
             const canCheckAgain = share.allowExtraCheckIns || share.guestToday === 0;
-            return <article key={share.id} className="focus-path animate-soft-enter" style={{ "--path-color": palette.color, "--path-glow": palette.glow, animationDelay: `${Math.min(ordered.length + index, 4) * 50}ms` } as React.CSSProperties}>
-                <div className="focus-path-top"><span className="status-pill bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"><Icon name="users" size={11} />Shared by {share.person.displayName}</span></div>
+            return <article key={share.id} className="focus-path shared-tone animate-soft-enter" style={{ "--path-color": palette.color, "--path-glow": palette.glow, animationDelay: `${Math.min(ordered.length + index, 4) * 50}ms` } as React.CSSProperties}>
+                <Link href={`/friends/shared/${share.id}`} className="contents no-underline text-inherit">
+                <div className="focus-path-top"><span className="status-pill shared-pill"><Icon name="users" size={11} />Shared by {share.person.displayName}</span></div>
                 <div className="focus-path-body">
                     <h1>{share.eventName}</h1>
                     <div className="focus-metric">
@@ -117,6 +124,7 @@ export function PathCarousel({ events, profile, sharedByMe, sharedWithMe, onHabi
                         <span>{remaining.unit}{remaining.unit ? " remaining" : ""}</span>
                     </div>
                 </div>
+                </Link>
                 <CoProgress
                     compact
                     partnerName={share.person.displayName}

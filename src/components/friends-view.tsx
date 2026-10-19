@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { acceptInvite, checkInSharedPath, createInvite, peekFriendDay, removeFriend, revokeShare, sharePath } from "@/lib/social-client";
 import type { DailyTask, FriendInvite, FriendRole, MilestoneEvent, SocialSnapshot } from "@/lib/types";
@@ -211,14 +212,14 @@ export function FriendsView({ events, social: snapshot, socialLoading: loading, 
 
         {snapshot.sharedWithMe.length > 0 && <section className="social-section" aria-labelledby="withMeHeading"><div className="social-section-heading"><h2 id="withMeHeading">Shared with you</h2><span>{snapshot.sharedWithMe.length}</span></div><div className="shared-list">{snapshot.sharedWithMe.map((share) => {
             const canCheckAgain = share.mode === "participant" && (share.allowExtraCheckIns || share.guestToday === 0);
-            return <article className="shared-path" key={share.id}>
-                <div className="shared-path-title"><span><small>{share.person.displayName} · {share.mode}</small><strong>{share.eventName}</strong></span>{share.mode === "participant" ? <Icon name="trophy" size={15} /> : <Icon name="eye" size={15} />}</div>
+            return <article className="shared-path shared-tone" key={share.id}>
+                <Link href={`/friends/shared/${share.id}`} className="shared-path-title shared-path-link" aria-label={`View ${share.person.displayName}'s ${share.eventName}`}><span><small>{share.person.displayName} · {share.mode}</small><strong>{share.eventName}</strong></span><span className="shared-path-open">View<Icon name="chevron-right" size={14} /></span></Link>
                 {share.mode === "participant" && <CoProgress partnerName={share.person.displayName} youDoneToday={share.guestToday > 0} partnerDoneToday={share.ownerToday > 0} onCheer={() => void cheer(share.id)} cheerSent={cheeredIds.has(share.id)} />}
                 {share.mode === "participant" && <button type="button" className="compact-button" disabled={!canCheckAgain || busy === `check:${share.id}`} onClick={() => void perform(`check:${share.id}`, () => checkInSharedPath(share.id), "Shared check-in recorded")}><Icon name="check" size={14} />{share.guestToday ? share.allowExtraCheckIns ? "Check in again" : "Checked in" : "Check in"}</button>}
             </article>;
         })}</div></section>}
 
-        {snapshot.sharedByMe.length > 0 && <section className="social-section" aria-labelledby="byMeHeading"><div className="social-section-heading"><h2 id="byMeHeading">Visible to friends</h2><span>{snapshot.sharedByMe.length}</span></div><div className="shared-list">{snapshot.sharedByMe.map((share) => <article className="shared-path shared-path-owned" key={share.id}>
+        {snapshot.sharedByMe.length > 0 && <section className="social-section" aria-labelledby="byMeHeading"><div className="social-section-heading"><h2 id="byMeHeading">Visible to friends</h2><span>{snapshot.sharedByMe.length}</span></div><div className="shared-list">{snapshot.sharedByMe.map((share) => <article className="shared-path shared-path-owned shared-tone" key={share.id}>
             <div className="shared-path-title"><span><small>{share.person.displayName} · {share.mode}</small><strong>{share.eventName}</strong></span>{confirmRevoke === share.id ? <span className="friend-confirm"><button type="button" className="quiet-button" onClick={() => setConfirmRevoke(null)}>Keep</button><button type="button" className="quiet-button text-[var(--color-danger)]" disabled={busy === `revoke:${share.id}`} onClick={() => void perform(`revoke:${share.id}`, async () => { await revokeShare(share.id); setConfirmRevoke(null); })}>Stop</button></span> : <button type="button" className="icon-button" aria-label={`Stop sharing ${share.eventName} with ${share.person.displayName}`} onClick={() => setConfirmRevoke(share.id)}><Icon name="x" size={15} /></button>}</div>
             {share.mode === "participant" && <CoProgress partnerName={share.person.displayName} youDoneToday={share.ownerToday > 0} partnerDoneToday={share.guestToday > 0} onCheer={() => void cheer(share.id)} cheerSent={cheeredIds.has(share.id)} />}
         </article>)}</div></section>}

@@ -46,6 +46,11 @@ export const COLOR_MAP: Record<AccentColor, { color: string; ink: string; glow: 
     sky: { color: "#76b8e5", ink: "#285675", glow: "rgba(118,184,229,0.14)" },
 };
 
+// Shared paths get their own hue (Apple systemIndigo) so a friend's path never reads as one
+// of yours. `color` stays a literal because it feeds SVG stroke attributes, where var() is
+// not supported; `ink` resolves per mode via the --shared-ink token in globals.css.
+export const SHARED_PALETTE = { color: "#5E5CE6", ink: "var(--color-shared-ink)", glow: "rgba(94,92,230,0.14)" };
+
 export const CONFETTI_COLORS = ["#f1b45e", "#ed967f", "#55bea5", "#aaa0e0", "#87c995", "#76b8e5"];
 
 export const STREAK_MILESTONES = [7, 14, 30, 50, 100, 200, 365];

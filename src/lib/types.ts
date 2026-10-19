@@ -103,6 +103,8 @@ export interface SharedPathSummary {
     target: string;
     overallPercent?: number;
     createdAt: string;
+    // The owner's full path, sent only to the guest so they can follow along read-only.
+    event?: MilestoneEvent;
 }
 
 export interface CheerNotice {

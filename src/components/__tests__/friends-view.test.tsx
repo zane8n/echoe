@@ -88,4 +88,9 @@ describe("Friends view", () => {
         await user.click(screen.getByRole("button", { name: /cheer amina on/i }));
         expect(onCheer).toHaveBeenCalledWith("share-1");
     });
+
+    it("links a path shared with you to its full read-only view", async () => {
+        renderView();
+        expect(await screen.findByRole("link", { name: "View Amina's Morning run" })).toHaveAttribute("href", "/friends/shared/share-1");
+    });
 });

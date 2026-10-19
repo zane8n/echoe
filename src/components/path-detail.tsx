@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import type { MilestoneEvent, PersonalProfile } from "@/lib/types";
+import type { HabitEntry, MilestoneEvent, PersonalProfile } from "@/lib/types";
 import {
     addDays,
     daysUntil,
@@ -23,19 +23,52 @@ import { COLOR_MAP } from "@/lib/constants";
 import { Icon } from "./icon";
 import { ProgressRing } from "./progress-ring";
 
+type Palette = { color: string; ink: string; glow: string };
+
 interface Props {
     event: MilestoneEvent;
     tick: number;
     profile?: PersonalProfile;
-    onEdit: (id: string) => void;
-    onConfetti: () => void;
-    onCheckIn: (id: string) => void;
-    onMiss: (id: string) => void;
-    onOpenHistory: (id: string) => void;
+    // A friend's shared path: every control that would change it is hidden.
+    readOnly?: boolean;
+    // Overrides the path's own color, e.g. SHARED_PALETTE for shared paths.
+    palette?: Palette;
+    // "Shared by Alex" / "Shared with Alex", rendered as a shared-tone pill.
+    sharedLabel?: string;
+    onEdit?: (id: string) => void;
+    onConfetti?: () => void;
+    onCheckIn?: (id: string) => void;
+    onMiss?: (id: string) => void;
+    onOpenHistory?: (id: string) => void;
     onProgress?: (id: string) => void;
 }
 
-export function PathDetail({ event, tick, profile, onEdit, onConfetti, onCheckIn, onMiss, onOpenHistory, onProgress }: Props) {
+interface ActivityItem { key: string; date: string; recordedAt: string; label: string; note?: string; tone: "done" | "missed" | "effort" }
+
+const activityItems = (event: MilestoneEvent): ActivityItem[] => {
+    const checkIn = (entry: HabitEntry, index: number, source: string): ActivityItem => ({
+        key: `${source}:${entry.date}:${index}`,
+        date: entry.date,
+        recordedAt: entry.recordedAt ?? "",
+        label: entry.status === "done" ? "Checked in" : "Missed",
+        note: entry.note,
+        tone: entry.status,
+    });
+    return [
+        ...(event.habit?.entries ?? []).map((entry, index) => checkIn(entry, index, "habit")),
+        ...(event.project?.checkIns ?? []).map((entry, index) => checkIn(entry, index, "project")),
+        ...(event.project?.entries ?? []).map((entry): ActivityItem => ({
+            key: `effort:${entry.id}`,
+            date: entry.date,
+            recordedAt: entry.recordedAt ?? "",
+            label: `${entry.hours}h logged${entry.readiness !== undefined ? ` · ${entry.readiness}% ready` : ""}`,
+            note: entry.note,
+            tone: "effort",
+        })),
+    ].sort((a, b) => b.date.localeCompare(a.date) || b.recordedAt.localeCompare(a.recordedAt));
+};
+
+export function PathDetail({ event, tick, profile, readOnly, palette: paletteOverride, sharedLabel, onEdit, onConfetti, onCheckIn, onMiss, onOpenHistory, onProgress }: Props) {
     const previousRemaining = useRef<number | null>(null);
 
     const display = useMemo(() => {
@@ -47,16 +80,16 @@ export function PathDetail({ event, tick, profile, onEdit, onConfetti, onCheckIn
             remainingDisplay: formatRemaining(remaining),
             streak: habitStreak(event),
             stats: habitStats(event),
-            palette: COLOR_MAP[event.color] ?? COLOR_MAP.amber,
+            palette: paletteOverride ?? COLOR_MAP[event.color] ?? COLOR_MAP.amber,
             kind: milestoneKind(event),
             project: milestoneKind(event) === "project" ? projectProgress(event) : null,
         };
         // tick keeps date-driven milestones live without recalculating every render.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [event, tick]);
+    }, [event, tick, paletteOverride]);
 
     useEffect(() => {
-        if (previousRemaining.current !== null && previousRemaining.current > 0 && display.remaining === 0) onConfetti();
+        if (previousRemaining.current !== null && previousRemaining.current > 0 && display.remaining === 0) onConfetti?.();
         previousRemaining.current = display.remaining;
     }, [display, onConfetti]);
 
@@ -77,13 +110,23 @@ export function PathDetail({ event, tick, profile, onEdit, onConfetti, onCheckIn
     const progressValue = project?.overallPercent ?? (kind === "ongoing" ? stats.rate : spent.percent);
     const isCountdownLike = kind === "countdown" || event.isCountdown;
     const ringPercent = isCountdownLike ? spent.percent : (project?.overallPercent ?? spent.percent);
+    const activity = readOnly ? activityItems(event) : [];
 
     return (
         <section className="animate-soft-enter pb-10">
             <div className="mb-4 flex flex-wrap items-center gap-3">
-                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase text-[var(--color-accent-ink)]">
-                    <Icon name="target" size={14} /> Path
-                </span>
+                {readOnly ? (
+                    <span className="flex items-center gap-1.5 text-xs font-semibold uppercase text-[var(--color-shared-ink)]">
+                        <Icon name="eye" size={14} /> View only
+                    </span>
+                ) : (
+                    <span className="flex items-center gap-1.5 text-xs font-semibold uppercase text-[var(--color-accent-ink)]">
+                        <Icon name="target" size={14} /> Path
+                    </span>
+                )}
+                {sharedLabel && (
+                    <span className="status-pill shared-pill"><Icon name="users" size={12} /> {sharedLabel}</span>
+                )}
                 {event.habit && streak > 0 && (
                     <span className="status-pill" style={{ background: palette.glow, color: palette.ink }}>
                         <Icon name="flame" size={12} /> {streak}{event.habit.frequency === "daily" ? "d" : "w"} rhythm
@@ -125,8 +168,8 @@ export function PathDetail({ event, tick, profile, onEdit, onConfetti, onCheckIn
                         <span className="progress-fill absolute inset-y-0 left-0 rounded-full" style={{ width: `${progressValue}%`, background: palette.color }} />
                     </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    {event.habit && (
+                {!readOnly && <div className="flex flex-wrap items-center gap-2">
+                    {event.habit && onCheckIn && onMiss && onOpenHistory && (
                         <>
                             <button onClick={() => onCheckIn(event.id)} className="compact-button" style={{ borderColor: palette.color, color: palette.ink, background: palette.glow }} aria-pressed={todayEntry?.status === "done"}>
                                 <Icon name="check" size={14} /> Done
@@ -140,10 +183,10 @@ export function PathDetail({ event, tick, profile, onEdit, onConfetti, onCheckIn
                         </>
                     )}
                     {project && onProgress && <button onClick={() => onProgress(event.id)} className="compact-button" style={{ borderColor: palette.color, color: palette.ink, background: palette.glow }}><Icon name="trending-up" size={14} /> Update</button>}
-                    <button onClick={() => onEdit(event.id)} className="compact-button text-[var(--color-ink-soft)]">
+                    {onEdit && <button onClick={() => onEdit(event.id)} className="compact-button text-[var(--color-ink-soft)]">
                         <Icon name="pencil" size={14} /> Edit
-                    </button>
-                </div>
+                    </button>}
+                </div>}
             </div>
 
             {event.habit && (
@@ -154,8 +197,25 @@ export function PathDetail({ event, tick, profile, onEdit, onConfetti, onCheckIn
                             return <span key={date} title={`${date}: ${entry?.status ?? "not recorded"}`} className="h-2.5 min-w-1 flex-1 rounded-[2px]" style={{ background: entry?.status === "done" ? palette.color : entry?.status === "missed" ? "var(--color-danger)" : "var(--color-line)" }} />;
                         })}
                     </div>
-                    <p className="m-0 flex items-start gap-2 text-xs text-[var(--color-muted)]"><Icon name="sparkle" size={13} className="mt-0.5 shrink-0 text-[var(--color-accent)]" /> {habitInsight(event, profile?.supportStyle)}</p>
+                    {!readOnly && <p className="m-0 flex items-start gap-2 text-xs text-[var(--color-muted)]"><Icon name="sparkle" size={13} className="mt-0.5 shrink-0 text-[var(--color-accent)]" /> {habitInsight(event, profile?.supportStyle)}</p>}
                 </div>
+            )}
+
+            {readOnly && (
+                <section className="activity-log" aria-labelledby="activityHeading">
+                    <h2 id="activityHeading">Activity</h2>
+                    {activity.length === 0 ? <p className="activity-empty">Nothing recorded yet.</p> : (
+                        <ol>
+                            {activity.slice(0, 60).map((item) => (
+                                <li key={item.key} data-tone={item.tone}>
+                                    <Icon name={item.tone === "missed" ? "missed" : item.tone === "effort" ? "trending-up" : "check"} size={13} />
+                                    <span><strong>{item.label}</strong>{item.note && <small>{item.note}</small>}</span>
+                                    <time dateTime={item.date}>{formatDate(item.date, { month: "short", day: "numeric" })}</time>
+                                </li>
+                            ))}
+                        </ol>
+                    )}
+                </section>
             )}
         </section>
     );

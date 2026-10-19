@@ -30,6 +30,8 @@ function Shell({ children }: { children: React.ReactNode }) {
         snapshots, loadSnapshots, restoreSnapshot,
     } = useDashboard();
 
+    // Prefix match so nested routes (/paths/:id, /friends/shared/:id) keep their tab lit.
+    const section = (href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`)) ? "page" : undefined;
     const checkInEvent = state.events.find((event) => event.id === checkInEventId) ?? null;
     const progressEvent = state.events.find((event) => event.id === progressEventId) ?? null;
 
@@ -56,11 +58,11 @@ function Shell({ children }: { children: React.ReactNode }) {
         {notificationsOpen && <NotificationSheet notifications={notifications} readIds={readIds} onMarkRead={markNotificationsRead} onSelect={handleNotification} onClose={() => setNotificationsOpen(false)} />}
 
         <nav className="mobile-nav" aria-label="Primary navigation">
-            <Link href="/" aria-current={pathname === "/" ? "page" : undefined}><Icon name="home" size={19} /><span>Home</span></Link>
-            <Link href="/paths" aria-current={pathname === "/paths" ? "page" : undefined}><Icon name="layers" size={19} /><span>Paths</span></Link>
-            <Link href="/my-day" aria-current={pathname === "/my-day" ? "page" : undefined}><Icon name="list-checks" size={19} /><span>My Day</span></Link>
-            <Link href="/momentum" aria-current={pathname === "/momentum" ? "page" : undefined}><Icon name="trending-up" size={19} /><span>Momentum</span></Link>
-            <Link href="/friends" aria-current={pathname === "/friends" ? "page" : undefined}><Icon name="users" size={19} /><span>Friends</span></Link>
+            <Link href="/" aria-current={section("/")}><Icon name="home" size={19} /><span>Home</span></Link>
+            <Link href="/paths" aria-current={section("/paths")}><Icon name="layers" size={19} /><span>Paths</span></Link>
+            <Link href="/my-day" aria-current={section("/my-day")}><Icon name="list-checks" size={19} /><span>My Day</span></Link>
+            <Link href="/momentum" aria-current={section("/momentum")}><Icon name="trending-up" size={19} /><span>Momentum</span></Link>
+            <Link href="/friends" aria-current={section("/friends")}><Icon name="users" size={19} /><span>Friends</span></Link>
         </nav>
         <KbdModal open={keyboardOpen} onClose={() => setKeyboardOpen(() => false)} /><Toast message={toastMessage} undoEvent={undoEvent} onUndo={handleUndo} /><Confetti active={showConfetti} onDone={() => setShowConfetti(false)} /><SwUpdate />
     </div>;

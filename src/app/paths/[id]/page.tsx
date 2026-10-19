@@ -3,15 +3,17 @@
 import { useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { sharedWithLabel } from "@/components/path-carousel";
 import { PathDetail } from "@/components/path-detail";
 import { useDashboard } from "../../providers/dashboard-provider";
 
 export default function PathDetailPage() {
     const { id } = useParams<{ id: string }>();
     const {
-        state, tick, goBack, openEventEditor, setShowConfetti, handleHabitCheckIn, setCheckInEventId, setProgressEventId,
+        state, tick, social, goBack, openEventEditor, setShowConfetti, handleHabitCheckIn, setCheckInEventId, setProgressEventId,
     } = useDashboard();
     const event = state.events.find((item) => item.id === id);
+    const shares = social.sharedByMe.filter((share) => share.eventId === id);
 
     useEffect(() => {
         if (!event) goBack();
@@ -31,6 +33,7 @@ export default function PathDetailPage() {
                 event={event}
                 tick={tick}
                 profile={state.settings.profile}
+                sharedLabel={shares.length ? sharedWithLabel(shares) : undefined}
                 onEdit={openEventEditor}
                 onConfetti={() => setShowConfetti(true)}
                 onCheckIn={(checkInId) => handleHabitCheckIn(checkInId)}
