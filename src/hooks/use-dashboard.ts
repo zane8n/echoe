@@ -393,6 +393,27 @@ export function useDashboardState() {
         enqueueCommit({ ...current, events, updatedAt: now }, "progress", `Updated project readiness to ${normalized}%`, eventId);
     }, [enqueueCommit]);
 
+    /** Opens a countdown's door for a day. Pass a note to write or rewrite it ("" clears it); omit it to just open. */
+    const openCountdownDoor = useCallback((eventId: string, date: string, prompt: string, note?: string) => {
+        const current = stateRef.current;
+        if (!current) return;
+        const now = new Date().toISOString();
+        const events = current.events.map((event) => {
+            if (event.id !== eventId) return event;
+            const doors = event.countdown?.doors ?? [];
+            const existing = doors.find((door) => door.date === date);
+            const door = {
+                date,
+                prompt: existing?.prompt ?? prompt,
+                note: note === undefined ? existing?.note : note.trim() || undefined,
+                openedAt: existing?.openedAt ?? now,
+            };
+            const next = [...doors.filter((item) => item.date !== date), door].sort((a, b) => a.date.localeCompare(b.date));
+            return { ...event, updatedAt: now, countdown: { ...event.countdown, doors: next } };
+        });
+        enqueueCommit({ ...current, events, updatedAt: now }, "progress", note === undefined ? `Opened the door for ${date}` : `Wrote behind the door for ${date}`, eventId);
+    }, [enqueueCommit]);
+
     const markNotificationsRead = useCallback((ids: string[]) => {
         const current = stateRef.current;
         if (!current || ids.length === 0) return;
@@ -512,6 +533,7 @@ export function useDashboardState() {
         logProjectEffort,
         removeProjectEntry,
         updateProjectReadiness,
+        openCountdownDoor,
         markNotificationsRead,
         syncNow,
         importState,

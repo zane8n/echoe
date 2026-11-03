@@ -9,7 +9,7 @@ import { useDashboard } from "../../providers/dashboard-provider";
 export default function PathDetailPage() {
     const { id } = useParams<{ id: string }>();
     const {
-        state, tick, social, goBack, openEventEditor, celebrate, toggleToday, recordEntry, clearEntry, setProgressEventId, logProjectEffort, togglePin, navigateTo, handleDelete,
+        state, tick, social, goBack, openEventEditor, celebrate, toggleToday, recordEntry, clearEntry, setProgressEventId, logProjectEffort, openDoor, togglePin, navigateTo, handleDelete,
     } = useDashboard();
     const event = state.events.find((item) => item.id === id);
     const sharedWith = social.sharedByMe.filter((share) => share.eventId === id).map((share) => share.person.displayName.split(/\s+/)[0]);
@@ -38,6 +38,7 @@ export default function PathDetailPage() {
                 onClearEntry={clearEntry}
                 onProgress={event.project ? setProgressEventId : undefined}
                 onEffort={event.project ? (pathId, hours) => logProjectEffort(pathId, hours) : undefined}
+                onOpenDoor={openDoor}
                 onPin={togglePin}
                 onShare={(pathId) => navigateTo(`/friends?share=${pathId}`)}
                 onDelete={handleDelete}

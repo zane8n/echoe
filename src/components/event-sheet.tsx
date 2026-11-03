@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { EditorSeed } from "@/app/providers/dashboard-provider";
+import { whenOf } from "@/lib/anticipation";
 import { PATH_COLORS } from "@/lib/constants";
 import type { AccentColor, MilestoneEvent, MilestoneKind } from "@/lib/types";
 import { addDays, daysUntil, localDate, milestoneKind } from "@/lib/utils";
@@ -12,14 +13,14 @@ import { Sheet, SheetBody, SheetFooter, SheetHeader, useSheet } from "./sheet";
 const KINDS: Array<{ value: MilestoneKind; label: string; icon: IconName }> = [
     { value: "habit", label: "Habit", icon: "repeat" },
     { value: "project", label: "Project", icon: "target" },
-    { value: "countdown", label: "Countdown", icon: "hourglass" },
+    { value: "countdown", label: "Countdown", icon: "sunrise" },
     { value: "ongoing", label: "Ongoing", icon: "history" },
 ];
 
 const KIND_HINT: Record<MilestoneKind, string> = {
     habit: "Something you repeat. Check in each day or week.",
     project: "A deadline with an effort budget and honest readiness.",
-    countdown: "Just a date to look forward to. No check-ins, no tracking.",
+    countdown: "A date to look forward to. No check-ins, just a little door to open each day.",
     ongoing: "No finish line. Echoe counts up from when it began.",
 };
 
@@ -102,6 +103,7 @@ function EventForm({ event, events, onSave, onDelete, seed, nameInput, color, se
             project: kind === "project"
                 ? { plannedHours: Math.max(1, plannedHours), readiness, entries: event?.project?.entries ?? [], checkInFrequency: projectFreq, checkIns: event?.project?.checkIns ?? [] }
                 : undefined,
+            countdown: event?.countdown,
             achievedAt: event?.achievedAt,
             createdAt: event?.createdAt,
             updatedAt: event?.updatedAt,
@@ -170,7 +172,7 @@ function EventForm({ event, events, onSave, onDelete, seed, nameInput, color, se
                 {kind !== "ongoing" && (
                     <div className="grid gap-2">
                         <label className="grid min-w-0 gap-2">
-                            <span className="flex items-baseline justify-between"><span className="field-label">Target date</span>{days > 0 && <span className="field-hint">{days} day{days === 1 ? "" : "s"} from today</span>}</span>
+                            <span className="flex items-baseline justify-between"><span className="field-label">Target date</span>{days > 0 && <span className="field-hint">{kind === "countdown" ? whenOf(target).when : `${days} day${days === 1 ? "" : "s"} from today`}</span>}</span>
                             <input ref={targetInput} type="date" value={target} onChange={(input) => { setTarget(input.target.value); setDateError(""); }} className="field" aria-invalid={Boolean(dateError)} />
                         </label>
                         <div className="flex flex-wrap gap-1.5">
@@ -180,7 +182,7 @@ function EventForm({ event, events, onSave, onDelete, seed, nameInput, color, se
                 )}
                 {dateError && <p className="field-error" role="alert">{dateError}</p>}
 
-                {kind === "countdown" && <div className="editor-note"><Icon name="hourglass" size={18} /><span><strong>Just a date to look forward to</strong><small>No check-ins, no tracking. Only the days remaining.</small></span></div>}
+                {kind === "countdown" && <div className="editor-note"><Icon name="sunrise" size={18} /><span><strong>Looking toward tomorrow</strong><small>Instead of the days remaining, Echoe shows what tomorrow brings and a small door to open each day.</small></span></div>}
 
                 {kind === "project" && (
                     <>

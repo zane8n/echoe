@@ -8,6 +8,7 @@ import type { MilestoneEvent } from "@/lib/types";
 import { milestoneKind, parseDate } from "@/lib/utils";
 import { ActionMenu, type MenuAction } from "./action-menu";
 import { BeatStrip } from "./beat-strip";
+import { DawnBar } from "./dawn";
 import { Icon } from "./icon";
 import { TransitionLink } from "./transition-link";
 
@@ -26,7 +27,7 @@ function PathRow({ event, summary, menu, shared }: { event: MilestoneEvent; summ
         : { value: summary.metric, label: summary.metricLabel };
 
     return (
-        <li ref={rowRef as React.RefObject<HTMLLIElement>} className="path-row" data-hue={event.color} {...handlers}>
+        <li ref={rowRef as React.RefObject<HTMLLIElement>} className="path-row" data-hue={event.color} data-kind={summary.kind} {...handlers}>
             <TransitionLink href={`/paths/${event.id}`} className="path-row-link" draggable={false}>
                 <span className="path-row-main">
                     <span className="path-row-title">
@@ -42,7 +43,9 @@ function PathRow({ event, summary, menu, shared }: { event: MilestoneEvent; summ
                     </span>
                     {event.habit
                         ? <BeatStrip entries={summary.entries} days={14} />
-                        : summary.progressPercent !== undefined && <span className="path-row-bar" aria-hidden="true"><span style={{ width: `${summary.progressPercent}%` }} /></span>}
+                        : summary.kind === "countdown" && summary.progressPercent !== undefined
+                            ? <DawnBar percent={summary.progressPercent} tomorrow={summary.progressTomorrow} />
+                            : summary.progressPercent !== undefined && <span className="path-row-bar" aria-hidden="true"><span style={{ width: `${summary.progressPercent}%` }} /></span>}
                 </span>
                 <span className="path-row-metric">
                     <strong className="num">{metric.value}</strong>

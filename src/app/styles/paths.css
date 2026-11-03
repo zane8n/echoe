@@ -1,7 +1,8 @@
 /* ── Paths list ──────────────────────────────────────────────────────────── */
 .path-row { position: relative; display: flex; align-items: center; background: var(--color-surface); -webkit-touch-callout: none; transition: background-color 160ms var(--ease-out); }
 .path-row:hover { background: color-mix(in srgb, var(--color-ink) 2.5%, var(--color-surface)); }
-.path-row::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; background: var(--hue); }
+/* ::after, because .group draws its row dividers with ::before on every row after the first. */
+.path-row::after { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; background: var(--hue); }
 .path-row-link { min-width: 0; flex: 1; display: flex; align-items: center; gap: 16px; min-height: 84px; padding: 14px 8px 14px 20px; color: inherit; text-decoration: none; }
 .path-row-main { min-width: 0; flex: 1; display: grid; gap: 7px; }
 .path-row-title { display: flex; align-items: center; gap: 6px; min-width: 0; }

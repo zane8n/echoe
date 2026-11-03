@@ -1,3 +1,4 @@
+import { anticipate } from "./anticipation";
 import type { HabitEntry, MilestoneEvent, ProjectRisk } from "./types";
 import {
     daysUntil,
@@ -9,7 +10,6 @@ import {
     milestoneKind,
     periodProgress,
     projectProgress,
-    timeSpent,
 } from "./utils";
 
 /** Everything a list row or header needs to describe a path, worded the same way on every screen. */
@@ -28,6 +28,8 @@ export interface PathSummary {
     /** Check-in history used by beat strips and calendars. */
     entries: HabitEntry[];
     progressPercent?: number;
+    /** Where a countdown's progress will be tomorrow, drawn as a faint step ahead. */
+    progressTomorrow?: number;
     risk?: ProjectRisk;
     daysLeft?: number;
 }
@@ -112,19 +114,21 @@ export function summarizePath(event: MilestoneEvent, today = localDate()): PathS
         };
     }
 
-    const days = daysUntil(event.target);
+    // Countdowns speak in "Next week" and "what tomorrow brings", never a tally of days left.
+    const look = anticipate(event, today);
     return {
         kind,
         kindLabel: label,
         checkable: false,
         doneToday: false,
         doneForPeriod: false,
-        metric: days === 0 ? "Today" : String(Math.abs(days)),
-        metricLabel: days > 0 ? (days === 1 ? "day to go" : "days to go") : days === 0 ? "" : days === -1 ? "day ago" : "days ago",
-        meta: formatDate(event.target, { weekday: "short", day: "numeric", month: "short", year: undefined }),
+        metric: look.when,
+        metricLabel: look.hint,
+        meta: look.line,
         entries: [],
-        progressPercent: timeSpent(event.start, event.target).percent,
-        daysLeft: days,
+        progressPercent: look.rise * 100,
+        progressTomorrow: look.riseTomorrow * 100,
+        daysLeft: look.days,
     };
 }
 

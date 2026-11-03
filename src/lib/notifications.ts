@@ -1,3 +1,4 @@
+import { anticipate, hasDoorWaiting } from "./anticipation";
 import type { EchoeNotification, MilestoneEvent, PersonalProfile } from "./types";
 import { habitInsight, isCheckedInForPeriod, isSatisfied, localDate, milestoneKind, projectProgress } from "./utils";
 
@@ -23,6 +24,19 @@ export function buildNotifications(events: MilestoneEvent[], profile: PersonalPr
         if (!event.achievedAt && event.project && projectProgress(event).risk === "at-risk") {
             notifications.push({ id: `risk:${event.id}:${today}`, kind: "risk", title: `${event.name} needs a decision`, body: "Review the remaining pace when you have a clear minute.", createdAt: today, actionable: true, eventId: event.id });
         }
+    }
+
+    // The nearest couple of countdowns get a daily word about tomorrow, never a tally of days.
+    const countdowns = events
+        .filter((event) => milestoneKind(event) === "countdown" && !event.achievedAt)
+        .map((event) => ({ event, look: anticipate(event, today) }))
+        .filter(({ look }) => look.days >= 0 && look.days <= 14)
+        .sort((a, b) => a.look.days - b.look.days)
+        .slice(0, 2);
+    for (const { event, look } of countdowns) {
+        const title = look.days === 0 ? `${event.name} is today` : look.days === 1 ? `${event.name} is tomorrow` : `${event.name}: ${look.when.toLowerCase()}`;
+        const door = hasDoorWaiting(event, today) ? " Today's door is waiting." : "";
+        notifications.push({ id: `countdown:${event.id}:${today}`, kind: "encouragement", title, body: `${look.line}${door}`, createdAt: today, actionable: false, eventId: event.id });
     }
 
     const focused = events.find((event) => event.pinned) ?? events[0];

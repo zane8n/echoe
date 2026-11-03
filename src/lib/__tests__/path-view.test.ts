@@ -29,7 +29,9 @@ describe("summarizePath", () => {
     });
 
     it("counts down to dates and up from beginnings", () => {
-        expect(summarizePath({ ...base, kind: "countdown" })).toMatchObject({ checkable: false, metric: "26", metricLabel: "days to go" });
+        // Countdowns speak in phrases and look at tomorrow; the number of days left is never the headline.
+        expect(summarizePath({ ...base, kind: "countdown" })).toMatchObject({ checkable: false, metric: "In 4 weeks", daysLeft: 26 });
+        expect(summarizePath({ ...base, kind: "countdown" }).meta).toMatch(/^Tomorrow/);
         expect(summarizePath({ ...base, kind: "countdown", target: "2026-08-06" })).toMatchObject({ metric: "Today" });
         expect(summarizePath({ ...base, kind: "ongoing", target: "", start: "2025-08-06" })).toMatchObject({ checkable: false, metric: "1y", metricLabel: "and counting" });
     });

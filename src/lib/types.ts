@@ -50,6 +50,18 @@ export interface ProjectConfig {
     checkIns?: HabitEntry[];
 }
 
+/** One day's door on a countdown: opening it is the daily ritual, the note is optional. */
+export interface CountdownDoor {
+    date: string;
+    prompt: string;
+    note?: string;
+    openedAt: string;
+}
+
+export interface CountdownConfig {
+    doors: CountdownDoor[];
+}
+
 export interface MilestoneEvent {
     id: string;
     name: string;
@@ -60,6 +72,7 @@ export interface MilestoneEvent {
     kind?: MilestoneKind;
     habit?: HabitConfig;
     project?: ProjectConfig;
+    countdown?: CountdownConfig;
     achievedAt?: string;
     isCountdown?: boolean;
     allowExtraCheckIns?: boolean;

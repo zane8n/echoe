@@ -81,6 +81,7 @@ interface DashboardContextValue {
     upsertEvent: ReturnType<typeof useDashboardState>["upsertEvent"];
     syncNow: ReturnType<typeof useDashboardState>["syncNow"];
     updateProjectReadiness: (id: string, readiness: number, note?: string) => void;
+    openDoor: (id: string, date: string, prompt: string, note?: string, origin?: Origin) => void;
     logProjectEffort: (id: string, hours: number, date?: string, note?: string) => void;
     markNotificationsRead: ReturnType<typeof useDashboardState>["markNotificationsRead"];
     clearAllData: ReturnType<typeof useDashboardState>["clearAllData"];
@@ -121,7 +122,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const navigation = useNavigation();
     const {
         state, storageSummary, updateSettings, updateAccent, updateAppearance, upsertEvent: rawUpsertEvent, deleteEvent, restoreEvent,
-        addAchievement, checkInHabit, checkInProject, clearHabitCheckIn, clearProjectCheckIn, logProjectEffort: rawLogEffort, removeProjectEntry, updateProjectReadiness: rawUpdateReadiness,
+        addAchievement, checkInHabit, checkInProject, clearHabitCheckIn, clearProjectCheckIn, logProjectEffort: rawLogEffort, removeProjectEntry, updateProjectReadiness: rawUpdateReadiness, openCountdownDoor,
         markNotificationsRead, syncNow, importState, clearAllData, resetForAccountSwitch,
         listSnapshots, restoreSnapshot: restoreSnapshotState,
         addDailyTask, toggleDailyTask: rawToggleTask, updateDailyTask, deleteDailyTask, restoreDailyTask,
@@ -480,6 +481,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         showToast(`Readiness set to ${Math.round(readiness)}%`);
     }, [rawUpdateReadiness, showToast]);
 
+    const openDoor = useCallback((id: string, date: string, prompt: string, note?: string, origin?: Origin) => {
+        const event = state?.events.find((item) => item.id === id);
+        openCountdownDoor(id, date, prompt, note);
+        if (note !== undefined) {
+            showToast(note.trim() ? "Kept behind today's door" : "Note cleared");
+            return;
+        }
+        vibrate(12);
+        if (origin) celebrate(origin, event?.color ?? "accent");
+    }, [celebrate, openCountdownDoor, showToast, state?.events]);
+
     const handleAddDailyTask = useCallback((text: string, time?: string, date?: string) => {
         const day = date ?? localDate();
         const id = addDailyTask(text, time, day);
@@ -556,7 +568,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         setCheckInEventId, setProgressEventId, setNotificationsOpen, setKeyboardOpen, openComposer, closeComposer,
         showToast, dismissToast, celebrate, clearCelebration,
         openEventEditor, openQuickStart, openSettings, closeSheet, goBack, navigateTo,
-        updateSettings, updateAccent, updateAppearance, upsertEvent, syncNow, updateProjectReadiness, logProjectEffort, markNotificationsRead, clearAllData,
+        updateSettings, updateAccent, updateAppearance, upsertEvent, syncNow, updateProjectReadiness, openDoor, logProjectEffort, markNotificationsRead, clearAllData,
         snapshots, loadSnapshots, restoreSnapshot,
         todaysTasks, laterTasks, handleAddDailyTask, toggleDailyTask, updateDailyTask, handleDeleteDailyTask,
         handleDelete, handleUndo, handleExport, handleImport, handleHabitCheckIn, handleProjectCheckIn, handleClearCheckIn, toggleToday, recordEntry, clearEntry, togglePin, createFromQuick,

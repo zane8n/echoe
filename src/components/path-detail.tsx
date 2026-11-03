@@ -4,11 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Origin } from "@/app/providers/dashboard-provider";
 import { useCountUp } from "@/hooks/use-count-up";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { anticipate } from "@/lib/anticipation";
 import { riskLabel, summarizePath } from "@/lib/path-view";
 import type { HabitEntry, MilestoneEvent, PersonalProfile } from "@/lib/types";
 import { daysSince, daysUntil, formatDate, habitInsight, habitStats, localDate, milestoneKind, projectProgress, timeSpent } from "@/lib/utils";
 import { ActionMenu, type MenuAction } from "./action-menu";
 import { CheckButton } from "./check-button";
+import { CountdownDoors } from "./countdown-doors";
+import { Dawn } from "./dawn";
 import { DayEditor } from "./day-editor";
 import { HeatCalendar } from "./heat-calendar";
 import { Icon } from "./icon";
@@ -30,6 +33,7 @@ interface Props {
     onClearEntry?: (id: string, date: string) => void;
     onProgress?: (id: string) => void;
     onEffort?: (id: string, hours: number) => void;
+    onOpenDoor?: (id: string, date: string, prompt: string, note?: string, origin?: Origin) => void;
     onPin?: (id: string) => void;
     onShare?: (id: string) => void;
     onDelete?: (id: string) => void;
@@ -38,7 +42,7 @@ interface Props {
 const QUICK_EFFORT = [0.5, 1, 2];
 const shortDate = (date: string) => formatDate(date, { day: "numeric", month: "short", year: undefined });
 
-export function PathDetail({ event, tick, profile, readOnly, hue, sharedLabel, onEdit, onCelebrate, onToggleToday, onEntry, onClearEntry, onProgress, onEffort, onPin, onShare, onDelete }: Props) {
+export function PathDetail({ event, tick, profile, readOnly, hue, sharedLabel, onEdit, onCelebrate, onToggleToday, onEntry, onClearEntry, onProgress, onEffort, onOpenDoor, onPin, onShare, onDelete }: Props) {
     const previousRemaining = useRef<number | null>(null);
     const [selectedDate, setSelectedDate] = useState(localDate());
     const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
@@ -47,8 +51,11 @@ export function PathDetail({ event, tick, profile, readOnly, hue, sharedLabel, o
 
     const view = useMemo(() => {
         const kind = milestoneKind(event);
+        const today = localDate();
         return {
             kind,
+            today,
+            look: kind === "countdown" ? anticipate(event, today) : null,
             summary: summarizePath(event),
             remaining: kind === "ongoing" ? null : daysUntil(event.target),
             spent: timeSpent(event.start, event.target || undefined),
@@ -58,7 +65,7 @@ export function PathDetail({ event, tick, profile, readOnly, hue, sharedLabel, o
         // tick keeps date-driven numbers live without recalculating every render.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [event, tick]);
-    const { kind, summary, remaining, spent, stats, project } = view;
+    const { kind, today, look, summary, remaining, spent, stats, project } = view;
 
     useEffect(() => {
         if (remaining === null) return;
@@ -66,7 +73,8 @@ export function PathDetail({ event, tick, profile, readOnly, hue, sharedLabel, o
         previousRemaining.current = remaining;
     }, [remaining, onCelebrate]);
 
-    const countdownFirst = kind === "countdown" || Boolean(event.isCountdown);
+    // Countdown paths have their own sunrise hero; this is the opt-in "days left" emphasis for projects.
+    const countdownFirst = Boolean(event.isCountdown);
     const metric = countdownFirst && remaining !== null
         ? { value: remaining > 0 ? remaining : remaining === 0 ? "Today" : Math.abs(remaining), label: remaining > 0 ? `${remaining === 1 ? "day" : "days"} until ${shortDate(event.target)}` : remaining === 0 ? "is the day" : `${Math.abs(remaining) === 1 ? "day" : "days"} since ${shortDate(event.target)}` }
         : kind === "ongoing" && !event.habit
@@ -115,7 +123,7 @@ export function PathDetail({ event, tick, profile, readOnly, hue, sharedLabel, o
                 <h1 style={{ viewTransitionName: `path-${event.id}` }}>{event.name}</h1>
             </header>
 
-            <section className="detail-hero" aria-live="polite">
+            {look ? <Dawn look={look} name={event.name} /> : <section className="detail-hero" aria-live="polite">
                 <div className="detail-metric">
                     <strong className="num">{metricText}</strong>
                     <span>{metric.label}</span>
@@ -132,7 +140,7 @@ export function PathDetail({ event, tick, profile, readOnly, hue, sharedLabel, o
                         <span>{summary.doneToday ? "Done today" : summary.doneForPeriod ? "Done this week" : "Check in"}</span>
                     </div>
                 )}
-            </section>
+            </section>}
 
             <dl className="stat-row">
                 {event.habit && <>
@@ -148,9 +156,8 @@ export function PathDetail({ event, tick, profile, readOnly, hue, sharedLabel, o
                     <div><dt>Pace needed</dt><dd className="num">{project.requiredHoursPerWeek}h<small>/wk</small></dd></div>
                 </>}
                 {kind === "countdown" && <>
-                    <div><dt>Date</dt><dd>{formatDate(event.target, { weekday: "short", day: "numeric", month: "short", year: undefined })}</dd></div>
-                    <div><dt>Waited</dt><dd className="num">{spent.days}d</dd></div>
-                    <div><dt>Elapsed</dt><dd className="num">{Math.round(spent.percent)}%</dd></div>
+                    <div><dt>Looking forward since</dt><dd>{shortDate(event.start)}</dd></div>
+                    <div><dt>Doors opened</dt><dd className="num">{event.countdown?.doors.length ?? 0}</dd></div>
                 </>}
                 {kind === "ongoing" && !event.habit && <>
                     <div><dt>Began</dt><dd>{formatDate(event.start, { day: "numeric", month: "short" })}</dd></div>
@@ -158,13 +165,23 @@ export function PathDetail({ event, tick, profile, readOnly, hue, sharedLabel, o
                 </>}
             </dl>
 
-            {kind !== "ongoing" && (
+            {kind !== "ongoing" && kind !== "countdown" && (
                 <div className="timeline">
                     <div className="timeline-bar" role="progressbar" aria-label="Time elapsed" aria-valuenow={Math.round(spent.percent)} aria-valuemin={0} aria-valuemax={100}>
                         <span style={{ width: `${spent.percent}%` }} />
                     </div>
                     <div className="timeline-labels"><span>{shortDate(event.start)}</span><span>{remaining && remaining > 0 ? `${remaining} ${remaining === 1 ? "day" : "days"} left` : "Target reached"}</span><span>{shortDate(event.target)}</span></div>
                 </div>
+            )}
+
+            {look && (
+                <CountdownDoors
+                    event={event}
+                    today={today}
+                    days={look.days}
+                    readOnly={readOnly || !onOpenDoor}
+                    onOpen={(date, prompt, note, origin) => onOpenDoor?.(event.id, date, prompt, note, origin)}
+                />
             )}
 
             {project && onEffort && (
