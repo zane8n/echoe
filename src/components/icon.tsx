@@ -16,7 +16,6 @@ import {
     Command,
     CornerDownLeft,
     Database,
-    DoorOpen,
     Download,
     Ellipsis,
     Eye,
@@ -30,7 +29,6 @@ import {
     Keyboard,
     Layers3,
     ListChecks,
-    Lock,
     LogIn,
     Minus,
     Moon,
@@ -49,7 +47,6 @@ import {
     Smartphone,
     Sparkles,
     SunMedium,
-    Sunrise,
     Target,
     Timer,
     Trash2,
@@ -72,8 +69,7 @@ export type IconName =
     | "palette" | "sun" | "moon" | "user" | "log-in" | "bell" | "users" | "user-plus" | "share"
     | "eye" | "trophy" | "home" | "smartphone" | "heart" | "hourglass" | "list-checks"
     | "search" | "repeat" | "pin" | "pin-off" | "undo" | "keyboard" | "inbox" | "open"
-    | "note" | "minus" | "command" | "enter" | "calendar-clock" | "timer" | "book" | "walk" | "plane"
-    | "sunrise" | "door" | "lock";
+    | "note" | "minus" | "command" | "enter" | "calendar-clock" | "timer" | "book" | "walk" | "plane";
 
 const icons: Record<IconName, LucideIcon> = {
     settings: Settings,
@@ -134,9 +130,6 @@ const icons: Record<IconName, LucideIcon> = {
     book: BookOpen,
     walk: Footprints,
     plane: Plane,
-    sunrise: Sunrise,
-    door: DoorOpen,
-    lock: Lock,
 };
 
 interface Props extends Omit<ComponentProps<LucideIcon>, "ref"> {

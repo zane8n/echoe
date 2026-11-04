@@ -8,7 +8,7 @@ import { buildNotifications } from "@/lib/notifications";
 import type { QuickParse } from "@/lib/quick-parse";
 import { checkInSharedPath, getSocialSnapshot, sendCheer } from "@/lib/social-client";
 import { applyTheme } from "@/lib/theme";
-import type { AccentColor, AuditAction, DailyTask, DashboardState, EchoeNotification, HabitEntry, MilestoneEvent, MilestoneKind, SocialSnapshot, StorageSummary } from "@/lib/types";
+import type { AccentColor, AuditAction, CountdownConfig, DailyTask, DashboardState, EchoeNotification, HabitEntry, MilestoneEvent, MilestoneKind, SocialSnapshot, StorageSummary } from "@/lib/types";
 import { addDays, formatDate, habitStreak, isBlockedExtraCheckIn, isCheckedInForPeriod, isDashboardState, localDate, normalizeSettings, parseDate, seedState } from "@/lib/utils";
 import { useNavigation } from "./navigation-provider";
 
@@ -23,6 +23,7 @@ export interface EditorSeed {
     target?: string;
     targetPerPeriod?: number;
     plannedHours?: number;
+    countdown?: CountdownConfig;
 }
 
 export interface ToastAction { label: string; run: () => void }
@@ -81,7 +82,6 @@ interface DashboardContextValue {
     upsertEvent: ReturnType<typeof useDashboardState>["upsertEvent"];
     syncNow: ReturnType<typeof useDashboardState>["syncNow"];
     updateProjectReadiness: (id: string, readiness: number, note?: string) => void;
-    openDoor: (id: string, date: string, prompt: string, note?: string, origin?: Origin) => void;
     logProjectEffort: (id: string, hours: number, date?: string, note?: string) => void;
     markNotificationsRead: ReturnType<typeof useDashboardState>["markNotificationsRead"];
     clearAllData: ReturnType<typeof useDashboardState>["clearAllData"];
@@ -122,7 +122,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const navigation = useNavigation();
     const {
         state, storageSummary, updateSettings, updateAccent, updateAppearance, upsertEvent: rawUpsertEvent, deleteEvent, restoreEvent,
-        addAchievement, checkInHabit, checkInProject, clearHabitCheckIn, clearProjectCheckIn, logProjectEffort: rawLogEffort, removeProjectEntry, updateProjectReadiness: rawUpdateReadiness, openCountdownDoor,
+        addAchievement, checkInHabit, checkInProject, clearHabitCheckIn, clearProjectCheckIn, logProjectEffort: rawLogEffort, removeProjectEntry, updateProjectReadiness: rawUpdateReadiness,
         markNotificationsRead, syncNow, importState, clearAllData, resetForAccountSwitch,
         listSnapshots, restoreSnapshot: restoreSnapshotState,
         addDailyTask, toggleDailyTask: rawToggleTask, updateDailyTask, deleteDailyTask, restoreDailyTask,
@@ -481,17 +481,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         showToast(`Readiness set to ${Math.round(readiness)}%`);
     }, [rawUpdateReadiness, showToast]);
 
-    const openDoor = useCallback((id: string, date: string, prompt: string, note?: string, origin?: Origin) => {
-        const event = state?.events.find((item) => item.id === id);
-        openCountdownDoor(id, date, prompt, note);
-        if (note !== undefined) {
-            showToast(note.trim() ? "Kept behind today's door" : "Note cleared");
-            return;
-        }
-        vibrate(12);
-        if (origin) celebrate(origin, event?.color ?? "accent");
-    }, [celebrate, openCountdownDoor, showToast, state?.events]);
-
     const handleAddDailyTask = useCallback((text: string, time?: string, date?: string) => {
         const day = date ?? localDate();
         const id = addDailyTask(text, time, day);
@@ -520,9 +509,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         const todayDate = localDate();
         const start = parsed.kind === "ongoing" ? parsed.start ?? todayDate : todayDate;
         const target = parsed.kind === "ongoing" ? "" : parsed.date ?? localDate(addDays(new Date(), 30));
-        const seed: EditorSeed = { kind: parsed.kind, name: parsed.name, start, target, frequency: parsed.frequency, targetPerPeriod: parsed.targetPerPeriod, plannedHours: parsed.plannedHours };
+        const seed: EditorSeed = { kind: parsed.kind, name: parsed.name, start, target, frequency: parsed.frequency, targetPerPeriod: parsed.targetPerPeriod, plannedHours: parsed.plannedHours, countdown: parsed.countdown };
         // A target on or before today can't be counted toward; let the full editor explain.
-        if (parsed.kind !== "ongoing" && (parseDate(target)?.getTime() ?? 0) <= (parseDate(start)?.getTime() ?? 0)) {
+        if (parsed.kind !== "ongoing" && !parsed.countdown?.repeat && (parseDate(target)?.getTime() ?? 0) <= (parseDate(start)?.getTime() ?? 0)) {
             openEventEditor(null, seed);
             return "needs-editor";
         }
@@ -541,6 +530,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             allowExtraCheckIns: false,
             habit: parsed.kind === "habit" ? { frequency: parsed.frequency ?? "daily", targetPerPeriod: parsed.frequency === "weekly" ? parsed.targetPerPeriod ?? 1 : undefined, entries: [] } : undefined,
             project: parsed.kind === "project" ? { plannedHours: parsed.plannedHours ?? 40, readiness: 0, entries: [], checkInFrequency: "daily", checkIns: [] } : undefined,
+            countdown: parsed.kind === "countdown" ? parsed.countdown : undefined,
         };
         rawUpsertEvent(event);
         vibrate(10);
@@ -568,7 +558,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         setCheckInEventId, setProgressEventId, setNotificationsOpen, setKeyboardOpen, openComposer, closeComposer,
         showToast, dismissToast, celebrate, clearCelebration,
         openEventEditor, openQuickStart, openSettings, closeSheet, goBack, navigateTo,
-        updateSettings, updateAccent, updateAppearance, upsertEvent, syncNow, updateProjectReadiness, openDoor, logProjectEffort, markNotificationsRead, clearAllData,
+        updateSettings, updateAccent, updateAppearance, upsertEvent, syncNow, updateProjectReadiness, logProjectEffort, markNotificationsRead, clearAllData,
         snapshots, loadSnapshots, restoreSnapshot,
         todaysTasks, laterTasks, handleAddDailyTask, toggleDailyTask, updateDailyTask, handleDeleteDailyTask,
         handleDelete, handleUndo, handleExport, handleImport, handleHabitCheckIn, handleProjectCheckIn, handleClearCheckIn, toggleToday, recordEntry, clearEntry, togglePin, createFromQuick,

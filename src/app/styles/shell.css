@@ -2,9 +2,7 @@
    One DOM for every screen size. On phones the nav and the add button float
    at the bottom within thumb reach; from 900px up they sit in the top bar. */
 .app-shell {
-  --tab-w: min(100vw - 112px, 340px);
-  --fab: 62px;
-  --dock-gap: 10px;
+  --dock-h: 58px;
   position: relative;
   min-height: 100dvh;
   isolation: isolate;
@@ -12,8 +10,6 @@
   color: var(--color-ink);
   overflow-x: clip;
 }
-/* Shrinks while you scroll down, like iOS 26 tab bars, and returns on the way up. */
-.app-shell[data-compact="true"] { --tab-w: min(100vw - 112px, 248px); --fab: 50px; }
 
 .topbar {
   position: sticky;
@@ -61,94 +57,100 @@
 .badge-dot { position: absolute; top: 6px; right: 6px; min-width: 17px; height: 17px; display: grid; place-items: center; padding: 0 4px; border: 2px solid var(--color-bg); border-radius: 999px; background: var(--color-accent-fill); color: var(--color-on-accent); font-size: 9.5px; font-weight: 800; line-height: 1; }
 
 /* Primary navigation */
-/* The tab bar and add button are placed with `left` rather than a -50% translate: a
-   fractional translate on a blurred layer made the labels shimmer. Both derive from the
-   same variables and timing, so they move in lockstep when the dock compacts. */
+/* On phones: one docked, full-width bar. Four destinations sit two either side of the
+   add button, which lives in the bar's centre column rather than floating over content.
+   The bar is solid, so page content never reads through it. */
 .tabbar {
   position: fixed;
-  left: calc(50% - (var(--tab-w) + var(--dock-gap) + var(--fab)) / 2);
-  bottom: calc(14px + env(safe-area-inset-bottom));
+  inset: auto 0 0 0;
   z-index: 45;
-  height: var(--fab);
+  height: calc(var(--dock-h) + env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  width: var(--tab-w);
-  padding: 5px;
-  border-radius: 999px;
+  grid-template-columns: 1fr 1fr 72px 1fr 1fr;
+  padding: 0 max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-left));
   isolation: isolate;
   view-transition-name: tabbar;
-  transition: height 320ms var(--ease-spring), width 320ms var(--ease-spring), left 320ms var(--ease-spring), opacity 200ms var(--ease-out);
+  transition: opacity 200ms var(--ease-out);
 }
 .tabbar, .fab { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
-.tabbar::before, .fab::before {
+.tabbar::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
-  border-radius: inherit;
-  background: color-mix(in srgb, var(--color-raised) 76%, transparent);
-  backdrop-filter: blur(22px) saturate(1.8);
-  -webkit-backdrop-filter: blur(22px) saturate(1.8);
-  box-shadow: var(--shadow-2);
+  background: var(--color-raised);
+  border-top: 1px solid var(--color-line);
+  box-shadow: 0 -6px 18px -14px rgb(0 0 0 / .25);
 }
+/* The thumb is span #1; tabs 3 and 4 skip the centre column the add button occupies. */
+.tabbar > .tab:nth-child(2) { grid-column: 1; }
+.tabbar > .tab:nth-child(3) { grid-column: 2; }
+.tabbar > .tab:nth-child(4) { grid-column: 4; }
+.tabbar > .tab:nth-child(5) { grid-column: 5; }
 .tab {
   position: relative;
   z-index: 1;
+  grid-row: 1;
   min-width: 0;
+  height: var(--dock-h);
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 2px;
-  border-radius: 999px;
+  gap: 3px;
   color: var(--color-muted);
-  font-size: 10.5px;
-  font-weight: 650;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   text-decoration: none;
-  transition: color 200ms var(--ease-out), transform 160ms var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+  transition: color 160ms var(--ease-out);
 }
-.tab:active { transform: scale(.94); }
-.tab[aria-current="page"] { color: var(--color-accent-ink); }
-.tab svg { transition: transform 300ms var(--ease-spring); }
-.tab[aria-current="page"] svg { transform: translateY(-1px) scale(1.06); }
-.tab-label { max-height: 16px; overflow: hidden; line-height: 16px; transition: opacity 200ms var(--ease-out), max-height 260ms var(--ease-out); }
-.tab-thumb {
+.tab::after {
+  content: "";
   position: absolute;
-  z-index: 0;
-  top: 5px;
-  bottom: 5px;
-  left: 5px;
-  width: calc((100% - 10px) / 4);
-  border-radius: 999px;
-  background: var(--color-accent-soft);
-  transform: translateX(calc(100% * var(--tab-index, 0)));
-  transition: transform 420ms var(--ease-spring), opacity 200ms;
+  top: -1px;
+  left: 50%;
+  width: 20px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--color-accent-fill);
+  translate: -50% 0;
+  scale: 0 1;
+  transition: scale 220ms var(--ease-out);
 }
-.tabbar[data-active="-1"] .tab-thumb { opacity: 0; }
-.app-shell[data-compact="true"] .tab-label { opacity: 0; max-height: 0; }
+.tab[aria-current="page"] { color: var(--color-accent-ink); }
+.tab[aria-current="page"]::after { scale: 1 1; }
+.tab:active svg { scale: .92; }
+.tab svg { transition: scale 140ms var(--ease-out); }
+.tab-label { line-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.tab-thumb { display: none; }
 
 .fab {
   position: fixed;
-  left: calc(50% + (var(--tab-w) + var(--dock-gap) - var(--fab)) / 2);
-  bottom: calc(14px + env(safe-area-inset-bottom));
-  z-index: 45;
-  width: var(--fab);
-  height: var(--fab);
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + (var(--dock-h) - 44px) / 2);
+  z-index: 46;
+  width: 52px;
+  height: 44px;
   display: grid;
   place-items: center;
   padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: 14px;
+  background: var(--color-accent-fill);
   color: var(--color-on-accent);
-  isolation: isolate;
+  translate: -50% 0;
   view-transition-name: fab;
-  transition: transform 220ms var(--ease-spring), width 320ms var(--ease-spring), height 320ms var(--ease-spring), left 320ms var(--ease-spring), opacity 200ms var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms var(--ease-out), filter 160ms var(--ease-out), opacity 200ms var(--ease-out);
 }
-.fab::before { background: var(--color-accent-fill); backdrop-filter: none; }
-.fab:hover { transform: scale(1.04); }
-.fab:active { transform: scale(.92); }
+.fab:hover { filter: brightness(1.06); }
+.fab:active { transform: scale(.94); }
 .fab .fab-label, .fab kbd { display: none; }
-.fab svg { transition: transform 300ms var(--ease-spring); }
+.fab svg { transition: transform 240ms var(--ease-out); }
 .fab[aria-expanded="true"] svg { transform: rotate(45deg); }
+.fab:focus-visible, .tab:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -4px; border-radius: 12px; }
+.fab:focus-visible { outline-offset: 2px; }
 
 .topbar-actions { display: flex; align-items: center; gap: 2px; }
 
@@ -162,24 +164,28 @@
   :root { --gutter: 32px; --topbar-h: 68px; --tabbar-space: 48px; }
   .tabbar {
     position: absolute;
+    inset: auto;
     top: calc(env(safe-area-inset-top) + (var(--topbar-h) - 44px) / 2);
-    bottom: auto;
+    left: calc(50% - 220px);
     height: 44px;
     width: 440px;
     padding: 4px;
-    left: calc(50% - 220px);
+    border-radius: 999px;
     grid-template-columns: repeat(4, 1fr);
   }
-  .tabbar::before { background: color-mix(in srgb, var(--color-ink) 5%, transparent); backdrop-filter: none; box-shadow: none; }
-  .tab { display: flex; align-items: center; justify-content: center; gap: 7px; font-size: var(--text-sm); color: var(--color-ink-soft); }
+  .tabbar > .tab:nth-child(n) { grid-column: auto; }
+  .tabbar::before { border: 0; border-radius: inherit; box-shadow: none; background: color-mix(in srgb, var(--color-ink) 5%, transparent); }
+  .tab { height: auto; display: flex; align-items: center; justify-content: center; gap: 7px; border-radius: 999px; font-size: var(--text-sm); letter-spacing: 0; color: var(--color-ink-soft); }
+  .tab::after { display: none; }
   .tab svg { width: 17px; height: 17px; }
   .tab[aria-current="page"] { color: var(--color-ink); }
-  .tab-thumb { top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 4); background: var(--color-raised); box-shadow: var(--shadow-1); }
-  .app-shell[data-compact="true"] .tab-label { opacity: 1; max-height: 16px; }
+  .tab-thumb { display: block; position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 4); border-radius: 999px; background: var(--color-raised); box-shadow: var(--shadow-1); transform: translateX(calc(100% * var(--tab-index, 0))); transition: transform 360ms var(--ease-spring), opacity 200ms; }
+  .tabbar[data-active="-1"] .tab-thumb { opacity: 0; }
   .fab {
     position: relative;
     left: auto;
     bottom: auto;
+    translate: none;
     width: auto;
     height: 40px;
     gap: 8px;
@@ -190,7 +196,6 @@
     font-weight: 650;
     order: 1;
   }
-  .fab:hover { transform: none; filter: brightness(1.06); }
   .fab .fab-label { display: inline; }
   .fab kbd { display: inline-grid; background: rgb(255 255 255 / .18); color: inherit; }
   .topbar-actions { order: 2; margin-left: 6px; }

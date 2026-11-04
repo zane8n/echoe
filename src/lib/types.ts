@@ -50,16 +50,19 @@ export interface ProjectConfig {
     checkIns?: HabitEntry[];
 }
 
-/** One day's door on a countdown: opening it is the daily ritual, the note is optional. */
-export interface CountdownDoor {
-    date: string;
-    prompt: string;
-    note?: string;
-    openedAt: string;
-}
+/** How a countdown reads its remaining time. */
+export type CountdownUnit = "days" | "weeks" | "months" | "precise";
+export type CountdownRepeat = "none" | "monthly" | "yearly";
 
+/** Per-countdown display options; every field is optional so older countdowns keep working. */
 export interface CountdownConfig {
-    doors: CountdownDoor[];
+    unit?: CountdownUnit;
+    /** 24h HH:MM. Without it the countdown runs to the start of the day. */
+    time?: string;
+    /** Count Monday to Friday only (work deadlines). Applies to the days unit. */
+    weekdaysOnly?: boolean;
+    /** Birthdays, anniversaries, renewals: roll forward to the next occurrence once the date passes. */
+    repeat?: CountdownRepeat;
 }
 
 export interface MilestoneEvent {

@@ -210,10 +210,12 @@ describe("Echoe milestone experience", () => {
         render(<EventSheet eventId={null} events={[]} onSave={onSave} onDelete={vi.fn()} onClose={vi.fn()} />);
         await user.type(screen.getByRole("textbox", { name: "Name" }), "Trip to Lisbon");
         await user.click(screen.getByRole("radio", { name: "Countdown" }));
-        expect(screen.getByText("Looking toward tomorrow")).toBeInTheDocument();
         expect(screen.getByText("Target date")).toBeInTheDocument();
+        await user.click(screen.getByRole("radio", { name: "Weeks" }));
+        await user.click(screen.getByRole("radio", { name: "Yearly" }));
+        expect(screen.getByText("First date")).toBeInTheDocument();
         await user.click(screen.getByRole("button", { name: "Create path" }));
-        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ kind: "countdown", habit: undefined, project: undefined }));
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ kind: "countdown", habit: undefined, project: undefined, countdown: expect.objectContaining({ unit: "weeks", repeat: "yearly" }) }));
         expect(onSave.mock.calls[0][0].target).not.toBe("");
     });
 
