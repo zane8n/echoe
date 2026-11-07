@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
+import { lockScroll } from "@/lib/scroll-lock";
 import { Icon } from "./icon";
 
 interface SheetContextValue {
@@ -52,8 +53,7 @@ export function Sheet({ onClose, label, labelledBy, size = "md", hue, className 
     useEffect(() => {
         mounted.current = true;
         const previous = document.activeElement as HTMLElement | null;
-        const previousOverflow = document.body.style.overflow;
-        document.body.style.overflow = "hidden";
+        const unlock = lockScroll();
         const fine = window.matchMedia("(pointer: fine)").matches;
         const timer = window.setTimeout(() => {
             // Someone already reached into the sheet; don't pull focus out from under them.
@@ -64,7 +64,7 @@ export function Sheet({ onClose, label, labelledBy, size = "md", hue, className 
         return () => {
             mounted.current = false;
             window.clearTimeout(timer);
-            document.body.style.overflow = previousOverflow;
+            unlock();
             if (previous && document.contains(previous)) previous.focus({ preventScroll: true });
         };
         // Focus is decided once, when the sheet opens.

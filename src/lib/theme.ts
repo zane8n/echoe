@@ -26,7 +26,32 @@ function paint(root: HTMLElement, accentName: AccentName, appearance: Appearance
     root.style.setProperty("--on-accent", variant.onFill);
     root.style.colorScheme = dark ? "dark" : "light";
     if (typeof document !== "undefined" && root === document.documentElement) {
-        for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) meta.content = dark ? THEME_COLOR.dark : THEME_COLOR.light;
+        const color = resolvedBackground() ?? (dark ? THEME_COLOR.dark : THEME_COLOR.light);
+        for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) meta.content = color;
+    }
+}
+
+/**
+ * The page background as a plain hex colour. The background is an accent-tinted color-mix,
+ * which iOS won't take as a theme colour, so it is resolved by painting one pixel. Without
+ * this the status bar and overscroll area showed a grey that didn't match the app.
+ */
+function resolvedBackground(): string | null {
+    try {
+        const css = getComputedStyle(document.body).backgroundColor;
+        if (!css) return null;
+        const canvas = document.createElement("canvas");
+        canvas.width = 1;
+        canvas.height = 1;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        if (!context) return null;
+        context.fillStyle = css;
+        context.fillRect(0, 0, 1, 1);
+        const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+        if (a === 0) return null;
+        return `#${[r, g, b].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+    } catch {
+        return null;
     }
 }
 
