@@ -1,3 +1,4 @@
+import type { CountdownConfig } from "./types";
 import { addDays, localDate, startOfDay } from "./utils";
 
 export type QuickKind = "task" | "habit" | "project" | "countdown" | "ongoing";
@@ -12,6 +13,8 @@ export interface QuickParse {
     frequency?: "daily" | "weekly";
     targetPerPeriod?: number;
     plannedHours?: number;
+    /** Countdowns only: a time, or a yearly/monthly repeat. */
+    countdown?: CountdownConfig;
     /** Ongoing paths only. */
     start?: string;
     /** The phrases that were understood, in the order they were found. */
@@ -155,6 +158,7 @@ export function parseQuickInput(input: string, now = new Date(), forceKind?: Qui
     };
 
     const since = take(readSince(rest));
+    const repeat = take(extract(rest, /\b(?:every\s+year|each\s+year|yearly|annually|every\s+month|each\s+month|monthly)\b/i, (m) => (/month/i.test(m[0]) ? "monthly" as const : "yearly" as const)));
     const frequency = take(readFrequency(rest));
     const plannedHours = take(extract(rest, /\b(\d+(?:\.\d+)?)\s*(?:h|hrs?|hours)\b/i, (m) => {
         const hours = Number(m[1]);
@@ -164,11 +168,12 @@ export function parseQuickInput(input: string, now = new Date(), forceKind?: Qui
     const date = take(readDate(rest, today));
     const name = tidyName(rest);
 
+    const recurring = repeat ?? (/\b(birthday|bday|anniversary)\b/i.test(name) ? "yearly" as const : undefined);
     const daysAway = date ? Math.round((startOfDay(date).getTime() - today.getTime()) / 86_400_000) : 0;
     const inferred: QuickKind = since ? "ongoing"
         : frequency ? "habit"
             : plannedHours ? "project"
-                : date && !time && daysAway > TASK_HORIZON_DAYS ? "countdown"
+                : date && (recurring || (!time && daysAway > TASK_HORIZON_DAYS)) ? "countdown"
                     : "task";
     const kind = forceKind ?? inferred;
 
@@ -186,5 +191,13 @@ export function parseQuickInput(input: string, now = new Date(), forceKind?: Qui
         if (result.frequency === "weekly") result.targetPerPeriod = frequency?.target ?? 1;
     }
     if (kind === "project" && plannedHours) result.plannedHours = plannedHours;
+    if (kind === "countdown") {
+        // Birthdays and anniversaries come round every year even when nobody says so.
+        const yearly = recurring;
+        const countdown: CountdownConfig = {};
+        if (time) countdown.time = time;
+        if (yearly) countdown.repeat = yearly;
+        if (Object.keys(countdown).length) result.countdown = countdown;
+    }
     return result;
 }

@@ -47,14 +47,14 @@ export function AppChrome({ displayName, notificationCount, scrolled, composerOp
                     <span className="tab-thumb" aria-hidden="true" />
                     {TABS.map((tab, index) => (
                         <TransitionLink key={tab.href} href={tab.href} className="tab" aria-current={active === index ? "page" : undefined}>
-                            <Icon name={tab.icon} size={21} strokeWidth={active === index ? 2.1 : 1.75} />
+                            <Icon name={tab.icon} size={22} strokeWidth={active === index ? 2.2 : 1.7} />
                             <span className="tab-label">{tab.label}</span>
                         </TransitionLink>
                     ))}
                 </nav>
 
                 <button type="button" className="fab" onClick={onOpenComposer} aria-label="New" aria-haspopup="dialog" aria-expanded={composerOpen} title={`Add anything (${modKey})`}>
-                    <Icon name="plus" size={24} strokeWidth={2.2} />
+                    <Icon name="plus" size={22} strokeWidth={2.4} />
                     <span className="fab-label">New</span>
                     <kbd>{modKey}</kbd>
                 </button>

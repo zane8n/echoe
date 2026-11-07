@@ -19,7 +19,7 @@ import { NavigationProvider, TAB_PATHS } from "./providers/navigation-provider";
 
 function Shell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
-    const { scrolled, compact } = useScrollChrome(pathname);
+    const { scrolled } = useScrollChrome(pathname);
     const {
         state, storageSummary, checkInEventId, progressEventId, activeSheet, editingEventId, editorSeed, notificationsOpen, keyboardOpen, composer,
         toast, celebration, notifications, readIds, unreadActionable,
@@ -61,7 +61,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     });
 
     return (
-        <div className="app-shell" data-compact={compact}>
+        <div className="app-shell">
             <AppChrome
                 displayName={state.settings.profile.displayName}
                 notificationCount={unreadActionable.length}

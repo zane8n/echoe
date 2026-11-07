@@ -1,4 +1,4 @@
-import { anticipate } from "./anticipation";
+import { countdownMeta, countdownView } from "./countdown";
 import type { HabitEntry, MilestoneEvent, ProjectRisk } from "./types";
 import {
     daysUntil,
@@ -7,6 +7,7 @@ import {
     habitStats,
     isCheckedInForPeriod,
     localDate,
+    parseDate,
     milestoneKind,
     periodProgress,
     projectProgress,
@@ -28,8 +29,6 @@ export interface PathSummary {
     /** Check-in history used by beat strips and calendars. */
     entries: HabitEntry[];
     progressPercent?: number;
-    /** Where a countdown's progress will be tomorrow, drawn as a faint step ahead. */
-    progressTomorrow?: number;
     risk?: ProjectRisk;
     daysLeft?: number;
 }
@@ -48,7 +47,7 @@ export function kindLabel(event: MilestoneEvent): string {
 
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
-export function summarizePath(event: MilestoneEvent, today = localDate()): PathSummary {
+export function summarizePath(event: MilestoneEvent, today = localDate(), now?: Date): PathSummary {
     const kind = milestoneKind(event);
     const label = kindLabel(event);
 
@@ -114,21 +113,19 @@ export function summarizePath(event: MilestoneEvent, today = localDate()): PathS
         };
     }
 
-    // Countdowns speak in "Next week" and "what tomorrow brings", never a tally of days left.
-    const look = anticipate(event, today);
+    const view = countdownView(event, now ?? (today === localDate() ? new Date() : parseDate(today) ?? new Date()));
     return {
         kind,
         kindLabel: label,
         checkable: false,
         doneToday: false,
         doneForPeriod: false,
-        metric: look.when,
-        metricLabel: look.hint,
-        meta: look.line,
+        metric: view.value,
+        metricLabel: view.state === "today" && view.label === "is the day" ? "" : view.label,
+        meta: countdownMeta(view),
         entries: [],
-        progressPercent: look.rise * 100,
-        progressTomorrow: look.riseTomorrow * 100,
-        daysLeft: look.days,
+        progressPercent: view.percent,
+        daysLeft: view.days,
     };
 }
 

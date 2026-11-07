@@ -14,14 +14,13 @@ Echoe has four places: **Today**, **Paths**, **Momentum**, and **Friends**. Toda
 | `Gym tomorrow 7am`, `Laundry sunday` | A task planned for that day |
 | `Read 20 pages daily`, `Run 3x a week` | A daily or weekly habit |
 | `Lisbon trip Nov 8`, `Launch in 3 weeks` | A countdown |
+| `Sam's birthday Mar 3`, `Rent every month Nov 30` | A repeating countdown |
 | `Thesis 40h by Dec 1` | A project with an effort budget |
 | `Life in Nairobi since March 2023` | An ongoing path |
 
 The chips under the input switch the type if the guess is wrong, and **More options** opens the full editor. Typing a path's name also finds it, and the composer doubles as a command palette for navigation, settings, appearance, and export.
 
-**Countdowns look toward tomorrow.** A countdown never leads with the number of days left. It says when the day is the way you'd say it ("Thursday", "Next week", "Mid December") and draws the wait as a sunrise that climbs a little each day, with a faint outline of where the sun will be tomorrow. Each day also has a line about what tomorrow brings, such as "Tomorrow is the last Wednesday before Lisbon trip" or "Tomorrow is the eve of Lisbon trip". The nearest countdown's line also shows on Today. Tap the headline on a countdown's page to count the sleeps instead.
-
-**A door a day.** Every countdown has one small door to open each day. Behind it is a prompt to imagine the day a little, with room to jot a line. Opened doors collect on a shelf and your notes are kept as a journal of the wait. Days you skip simply aren't in the collection; nothing counts as missed. A countdown whose door is still closed shows a door badge on Today.
+**Countdowns fit the occasion.** Each countdown can show the time left in days, weeks (`3w 2d`), months (`4mo 5d`), or exactly to the minute, and can carry a time of day for flights, exams, and launches. Deadlines can count working days only (Monday to Friday). Birthdays, anniversaries, rent, and renewals can repeat monthly or yearly and roll forward on their own once the date passes. The composer picks these up too: `Rent every month Nov 30` repeats monthly, and anything named a birthday or anniversary repeats yearly.
 
 **Gestures and shortcuts.** Tap a ring to check in and tap it again to take it back. On touch screens, swipe a row right to check in, swipe left to mark a habit missed (or delete a task), and press and hold for more actions. With a mouse, right-click a row or use its ⋯ button. Changes confirm with a toast that offers Undo, and Ctrl+Z undoes the last one. Sheets close with Escape, a tap outside, or by dragging their header down. Keys `1` to `4` switch tabs, `S` opens settings, and `?` lists every shortcut.
 

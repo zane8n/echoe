@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useDashboard, type EditorSeed } from "@/app/providers/dashboard-provider";
-import { whenOf } from "@/lib/anticipation";
+import { countdownView } from "@/lib/countdown";
 import { summarizePath } from "@/lib/path-view";
 import { parseQuickInput, type QuickKind, type QuickParse } from "@/lib/quick-parse";
 import { addDays, daysUntil, formatDate, localDate } from "@/lib/utils";
@@ -13,7 +13,7 @@ const KINDS: Array<{ id: QuickKind; label: string; icon: IconName }> = [
     { id: "task", label: "Task", icon: "list-checks" },
     { id: "habit", label: "Habit", icon: "repeat" },
     { id: "project", label: "Project", icon: "target" },
-    { id: "countdown", label: "Countdown", icon: "sunrise" },
+    { id: "countdown", label: "Countdown", icon: "hourglass" },
     { id: "ongoing", label: "Ongoing", icon: "history" },
 ];
 
@@ -35,7 +35,9 @@ function describe(parsed: QuickParse): string {
         }
         case "countdown": {
             if (!parsed.date) return "A countdown to 30 days from now. Add a date like “Nov 8” or “in 3 weeks”.";
-            return daysUntil(parsed.date) > 0 ? `${whenOf(parsed.date).when}: ${shortDate(parsed.date)}. A door to open each day until then.` : "Pick a date in the future to look forward to.";
+            const view = countdownView({ start: localDate(), target: parsed.date, countdown: parsed.countdown });
+            if (!parsed.countdown?.repeat && daysUntil(parsed.date) <= 0) return "Pick a date in the future to count down to.";
+            return `Counting down to ${view.dateLabel}${view.repeatLabel ? `, ${view.repeatLabel.toLowerCase()}` : ""}. ${view.value} ${view.label}.`;
         }
         case "ongoing":
             return `Counting up since ${formatDate(parsed.start ?? today)}.`;
@@ -127,7 +129,7 @@ function ComposerBody({ initialText, inputRef }: { initialText: string; inputRef
             { id: "go-friends", group: "Go to", label: "Friends", icon: "users", run: () => { close(); navigateTo("/friends"); } },
             { id: "new-habit", group: "More", label: "New habit with every option", icon: "repeat", run: () => openQuickStart("habit", "daily") },
             { id: "new-project", group: "More", label: "New project with every option", icon: "target", run: () => openQuickStart("project") },
-            { id: "new-countdown", group: "More", label: "New countdown with every option", icon: "sunrise", run: () => openQuickStart("countdown") },
+            { id: "new-countdown", group: "More", label: "New countdown with every option", icon: "hourglass", run: () => openQuickStart("countdown") },
             { id: "notifications", group: "More", label: "Notifications", icon: "bell", run: () => { close(); setNotificationsOpen(true); } },
             { id: "settings", group: "More", label: "Settings", icon: "settings", run: () => { close(); openSettings(); } },
             { id: "theme", group: "More", label: dark ? "Switch to light mode" : "Switch to dark mode", icon: dark ? "sun" : "moon", run: () => { close(); updateAppearance(dark ? "light" : "dark"); } },

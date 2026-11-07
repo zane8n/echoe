@@ -3,7 +3,6 @@
 @import "./styles/rhythm.css";
 @import "./styles/today.css";
 @import "./styles/paths.css";
-@import "./styles/countdown.css";
 @import "./styles/composer.css";
 @import "./styles/screens.css";
 
@@ -81,7 +80,7 @@
 
   --gutter: 20px;
   --topbar-h: 56px;
-  --tabbar-space: calc(84px + env(safe-area-inset-bottom));
+  --tabbar-space: calc(58px + env(safe-area-inset-bottom));
 }
 
 :root[data-mode="dark"] {

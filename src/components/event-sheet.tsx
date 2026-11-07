@@ -2,9 +2,9 @@
 
 import { useRef, useState } from "react";
 import type { EditorSeed } from "@/app/providers/dashboard-provider";
-import { whenOf } from "@/lib/anticipation";
 import { PATH_COLORS } from "@/lib/constants";
-import type { AccentColor, MilestoneEvent, MilestoneKind } from "@/lib/types";
+import { REPEAT_OPTIONS, UNIT_OPTIONS, countdownView } from "@/lib/countdown";
+import type { AccentColor, CountdownRepeat, CountdownUnit, MilestoneEvent, MilestoneKind } from "@/lib/types";
 import { addDays, daysUntil, localDate, milestoneKind } from "@/lib/utils";
 import { Icon, type IconName } from "./icon";
 import { Segmented } from "./segmented";
@@ -13,14 +13,14 @@ import { Sheet, SheetBody, SheetFooter, SheetHeader, useSheet } from "./sheet";
 const KINDS: Array<{ value: MilestoneKind; label: string; icon: IconName }> = [
     { value: "habit", label: "Habit", icon: "repeat" },
     { value: "project", label: "Project", icon: "target" },
-    { value: "countdown", label: "Countdown", icon: "sunrise" },
+    { value: "countdown", label: "Countdown", icon: "hourglass" },
     { value: "ongoing", label: "Ongoing", icon: "history" },
 ];
 
 const KIND_HINT: Record<MilestoneKind, string> = {
     habit: "Something you repeat. Check in each day or week.",
     project: "A deadline with an effort budget and honest readiness.",
-    countdown: "A date to look forward to. No check-ins, just a little door to open each day.",
+    countdown: "A date to count to: deadlines, events, birthdays, renewals. No check-ins.",
     ongoing: "No finish line. Echoe counts up from when it began.",
 };
 
@@ -61,11 +61,18 @@ function EventForm({ event, events, onSave, onDelete, seed, nameInput, color, se
     const [plannedHours, setPlannedHours] = useState(event?.project?.plannedHours ?? seed?.plannedHours ?? 40);
     const [readiness, setReadiness] = useState(event?.project?.readiness ?? 0);
     const [projectFreq, setProjectFreq] = useState<"daily" | "weekly">(event?.project?.checkInFrequency ?? "daily");
+    const [unit, setUnit] = useState<CountdownUnit>(event?.countdown?.unit ?? seed?.countdown?.unit ?? "days");
+    const [time, setTime] = useState(event?.countdown?.time ?? seed?.countdown?.time ?? "");
+    const [weekdaysOnly, setWeekdaysOnly] = useState(event?.countdown?.weekdaysOnly ?? false);
+    const [repeat, setRepeat] = useState<CountdownRepeat>(event?.countdown?.repeat ?? seed?.countdown?.repeat ?? "none");
     const [nameError, setNameError] = useState("");
     const [dateError, setDateError] = useState("");
     const targetInput = useRef<HTMLInputElement>(null);
     const tracksHabit = kind === "habit" || (kind === "ongoing" && trackOngoing);
     const days = daysUntil(target);
+    const repeats = kind === "countdown" && repeat !== "none";
+    const countdownConfig = { unit, time: time || undefined, weekdaysOnly: unit === "days" && weekdaysOnly ? true : undefined, repeat: repeat === "none" ? undefined : repeat };
+    const preview = kind === "countdown" && target ? countdownView({ start, target, countdown: countdownConfig }) : null;
 
     const handleSubmit = (submitEvent: React.FormEvent) => {
         submitEvent.preventDefault();
@@ -80,7 +87,7 @@ function EventForm({ event, events, onSave, onDelete, seed, nameInput, color, se
             setDateError(kind === "ongoing" ? "This path needs a start date." : "This path needs a start date and a target date.");
             if (!hasError) targetInput.current?.focus();
             hasError = true;
-        } else if (kind !== "ongoing" && new Date(target) <= new Date(start)) {
+        } else if (kind !== "ongoing" && !repeats && new Date(target) <= new Date(start)) {
             setDateError("The target date needs to come after the start date.");
             if (!hasError) targetInput.current?.focus();
             hasError = true;
@@ -103,7 +110,7 @@ function EventForm({ event, events, onSave, onDelete, seed, nameInput, color, se
             project: kind === "project"
                 ? { plannedHours: Math.max(1, plannedHours), readiness, entries: event?.project?.entries ?? [], checkInFrequency: projectFreq, checkIns: event?.project?.checkIns ?? [] }
                 : undefined,
-            countdown: event?.countdown,
+            countdown: kind === "countdown" ? countdownConfig : undefined,
             achievedAt: event?.achievedAt,
             createdAt: event?.createdAt,
             updatedAt: event?.updatedAt,
@@ -172,7 +179,7 @@ function EventForm({ event, events, onSave, onDelete, seed, nameInput, color, se
                 {kind !== "ongoing" && (
                     <div className="grid gap-2">
                         <label className="grid min-w-0 gap-2">
-                            <span className="flex items-baseline justify-between"><span className="field-label">Target date</span>{days > 0 && <span className="field-hint">{kind === "countdown" ? whenOf(target).when : `${days} day${days === 1 ? "" : "s"} from today`}</span>}</span>
+                            <span className="flex items-baseline justify-between"><span className="field-label">{repeats ? "First date" : "Target date"}</span>{days > 0 && <span className="field-hint">{days} day{days === 1 ? "" : "s"} from today</span>}</span>
                             <input ref={targetInput} type="date" value={target} onChange={(input) => { setTarget(input.target.value); setDateError(""); }} className="field" aria-invalid={Boolean(dateError)} />
                         </label>
                         <div className="flex flex-wrap gap-1.5">
@@ -182,7 +189,33 @@ function EventForm({ event, events, onSave, onDelete, seed, nameInput, color, se
                 )}
                 {dateError && <p className="field-error" role="alert">{dateError}</p>}
 
-                {kind === "countdown" && <div className="editor-note"><Icon name="sunrise" size={18} /><span><strong>Looking toward tomorrow</strong><small>Instead of the days remaining, Echoe shows what tomorrow brings and a small door to open each day.</small></span></div>}
+                {kind === "countdown" && (
+                    <div className="grid gap-4">
+                        <label className="grid min-w-0 gap-2">
+                            <span className="flex items-baseline justify-between"><span className="field-label">Time</span><span className="field-hint">Optional</span></span>
+                            <span className="flex gap-2">
+                                <input type="time" value={time} onChange={(input) => setTime(input.target.value)} className="field" aria-label="Time" />
+                                {time && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setTime("")}>Clear</button>}
+                            </span>
+                        </label>
+                        <div className="grid gap-2">
+                            <span className="field-label">Show time left in</span>
+                            <Segmented label="Show time left in" value={unit} onChange={setUnit} options={UNIT_OPTIONS} />
+                        </div>
+                        {unit === "days" && <label className="toggle-row"><span><strong>Working days only</strong><small>Count Monday to Friday, for work and school deadlines.</small></span><input type="checkbox" className="switch" checked={weekdaysOnly} onChange={(input) => setWeekdaysOnly(input.target.checked)} /></label>}
+                        <div className="grid gap-2">
+                            <span className="field-label">Repeats</span>
+                            <Segmented label="Repeats" value={repeat} onChange={setRepeat} options={REPEAT_OPTIONS} />
+                            {repeats && <p className="field-hint">Rolls over to the next {repeat === "yearly" ? "year" : "month"} once the date passes. Good for birthdays, anniversaries, rent and renewals.</p>}
+                        </div>
+                        {preview && (
+                            <div className="editor-note" aria-live="polite">
+                                <Icon name="hourglass" size={18} />
+                                <span><strong><span className="num">{preview.value}</span> {preview.label}</strong><small>{[preview.dateLabel, preview.repeatLabel].filter(Boolean).join(" · ")}</small></span>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {kind === "project" && (
                     <>

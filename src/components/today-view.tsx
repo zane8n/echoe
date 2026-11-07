@@ -2,13 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useDashboard } from "@/app/providers/dashboard-provider";
-import { hasDoorWaiting } from "@/lib/anticipation";
 import { greeting, summarizePath } from "@/lib/path-view";
 import type { MilestoneEvent, SharedPathSummary } from "@/lib/types";
 import { habitInsight, localDate, milestoneKind } from "@/lib/utils";
 import type { MenuAction } from "./action-menu";
 import { CoProgress } from "./co-progress";
-import { DawnBar } from "./dawn";
 import { Icon } from "./icon";
 import { MyDayView } from "./my-day-view";
 import { RhythmRow } from "./rhythm-row";
@@ -53,8 +51,6 @@ export function TodayView() {
         .filter(({ event, summary }) => !summary.checkable || milestoneKind(event) === "project")
         .filter(({ summary }) => summary.daysLeft === undefined || summary.daysLeft >= 0)
         .sort((a, b) => (a.summary.daysLeft ?? Number.MAX_SAFE_INTEGER) - (b.summary.daysLeft ?? Number.MAX_SAFE_INTEGER));
-    // The nearest countdown lends Today one line about what tomorrow brings.
-    const tomorrowPeek = milestones.find(({ summary }) => summary.kind === "countdown" && (summary.daysLeft ?? 0) >= 1);
     const shares = social.sharedWithMe.filter((share) => share.mode === "participant");
     const ownedShares = new Map(social.sharedByMe.filter((share) => share.mode === "participant").map((share) => [share.eventId, share]));
 
@@ -160,36 +156,22 @@ export function TodayView() {
                         <TransitionLink href="/paths" className="section-meta section-link">All paths</TransitionLink>
                     </div>
                     <ul className="milestone-strip">
-                        {milestones.map(({ event, summary }) => {
-                            const countdown = summary.kind === "countdown";
-                            const doorWaiting = hasDoorWaiting(event, today);
-                            return (
-                                <li key={event.id} data-hue={event.color}>
-                                    <TransitionLink href={`/paths/${event.id}`} className="milestone-tile" data-kind={summary.kind}>
-                                        <span className="milestone-kind">
-                                            {summary.kindLabel}
-                                            {doorWaiting && <span className="milestone-door" title="Today's door is waiting"><Icon name="door" size={13} /><span className="sr-only">, today&apos;s door is waiting</span></span>}
-                                        </span>
-                                        <span className="milestone-metric">
-                                            <strong className={countdown ? undefined : "num"}>{summary.kind === "project" ? summary.daysLeft : summary.metric}</strong>
-                                            <small>{summary.kind === "project" ? (summary.daysLeft === 1 ? "day left" : "days left") : summary.metricLabel}</small>
-                                        </span>
-                                        <span className="milestone-name">{event.name}</span>
-                                        {countdown && summary.progressPercent !== undefined
-                                            ? <DawnBar percent={summary.progressPercent} tomorrow={summary.progressTomorrow} />
-                                            : summary.progressPercent !== undefined && summary.kind !== "ongoing" && (
-                                                <span className="milestone-bar" aria-hidden="true"><span style={{ width: `${summary.progressPercent}%` }} /></span>
-                                            )}
-                                    </TransitionLink>
-                                </li>
-                            );
-                        })}
+                        {milestones.map(({ event, summary }) => (
+                            <li key={event.id} data-hue={event.color}>
+                                <TransitionLink href={`/paths/${event.id}`} className="milestone-tile">
+                                    <span className="milestone-kind">{summary.kindLabel}</span>
+                                    <span className="milestone-metric">
+                                        <strong className="num">{summary.kind === "project" ? summary.daysLeft : summary.metric}</strong>
+                                        <small>{summary.kind === "project" ? (summary.daysLeft === 1 ? "day left" : "days left") : summary.metricLabel}</small>
+                                    </span>
+                                    <span className="milestone-name">{event.name}</span>
+                                    {summary.progressPercent !== undefined && summary.kind !== "ongoing" && (
+                                        <span className="milestone-bar" aria-hidden="true"><span style={{ width: `${summary.progressPercent}%` }} /></span>
+                                    )}
+                                </TransitionLink>
+                            </li>
+                        ))}
                     </ul>
-                    {tomorrowPeek && (
-                        <p className="tomorrow-peek" data-hue={tomorrowPeek.event.color}>
-                            <Icon name="sunrise" size={16} />{tomorrowPeek.summary.meta}
-                        </p>
-                    )}
                 </section>
             )}
 
