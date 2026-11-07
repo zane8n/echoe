@@ -80,7 +80,7 @@ export function PathsView() {
             <header className="page-head">
                 <div>
                     <h1>Paths</h1>
-                    <p>{events.length ? `${events.length} ${events.length === 1 ? "path" : "paths"} you're building. Press and hold one for shortcuts.` : "Habits, projects, and dates worth counting."}</p>
+                    <p>{events.length ? `${events.length} active ${events.length === 1 ? "path" : "paths"}` : "Habits, projects, and dates worth counting."}</p>
                 </div>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => openComposer()}><Icon name="plus" size={16} />New</button>
             </header>
