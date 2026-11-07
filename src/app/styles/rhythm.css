@@ -40,7 +40,7 @@
 .check-tick { fill: none; stroke: var(--on-hue); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; transition: stroke-dashoffset 300ms var(--ease-out) 90ms; }
 /* A faint tick in the empty ring says what tapping will do. */
 .check-hint { fill: none; stroke: color-mix(in oklab, var(--hue) 55%, transparent); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: opacity 160ms; }
-.check:hover .check-hint { stroke: var(--hue); }
+@media (hover: hover) { .check:hover .check-hint { stroke: var(--hue); } }
 .check[aria-pressed="true"] .check-hint, .check:has(.check-count) .check-hint { opacity: 0; }
 .check-count { position: relative; font-family: var(--font-display); font-size: var(--text-sm); font-weight: 700; font-variant-numeric: tabular-nums; }
 .check[aria-pressed="true"] .check-fill { transform: scale(1); }
@@ -121,7 +121,7 @@
   font-variant-numeric: tabular-nums;
   transition: transform 160ms var(--ease-spring), background-color 200ms var(--ease-out), box-shadow 160ms;
 }
-.heat-cell:hover { box-shadow: inset 0 0 0 1.5px var(--color-line-strong); }
+@media (hover: hover) { .heat-cell:hover { box-shadow: inset 0 0 0 1.5px var(--color-line-strong); } }
 .heat-cell[data-status="done"] { background: var(--hue); color: var(--on-hue); }
 .heat-cell[data-status="missed"] { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--color-ink) 28%, transparent); color: var(--color-ink-soft); }
 .heat-cell[data-before="true"] { opacity: .4; }
@@ -134,7 +134,7 @@
 .heat-legend i { width: 10px; height: 10px; border-radius: 2px; }
 
 /* Inline editor for one day of history. */
-.day-editor { display: grid; gap: 12px; margin-top: 16px; padding: 16px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-ink) 4%, transparent); animation: rise-in 260ms var(--ease-out) both; }
+.day-editor { display: grid; gap: 12px; margin-top: 16px; padding: 16px; border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-1); animation: rise-in 260ms var(--ease-out) both; }
 .day-editor-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .day-editor-head strong { display: block; font-size: var(--text-base); }
 .day-editor-head small { display: block; color: var(--color-muted); font-size: var(--text-sm); }
@@ -150,7 +150,7 @@
 .co-progress-line[data-filled="true"] { background: var(--hue, var(--color-accent)); }
 .co-progress-copy { flex: 1; min-width: 0; margin: 0; color: var(--color-ink-soft); font-size: var(--text-sm); line-height: 1.4; }
 .co-cheer { width: 36px; height: 36px; flex: 0 0 auto; display: grid; place-items: center; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--color-ink) 6%, transparent); color: var(--color-muted); transition: transform 200ms var(--ease-spring), color 160ms, background-color 160ms; }
-.co-cheer:hover:not(:disabled) { color: var(--color-danger); background: var(--color-danger-soft); }
+@media (hover: hover) { .co-cheer:hover:not(:disabled) { color: var(--color-danger); background: var(--color-danger-soft); } }
 .co-cheer:active:not(:disabled) { transform: scale(.88); }
 .co-cheer:disabled { cursor: default; color: var(--color-danger); background: var(--color-danger-soft); opacity: 1; }
 .co-cheer:disabled svg { fill: currentColor; animation: pop-in 420ms var(--ease-spring); }
