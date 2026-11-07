@@ -134,7 +134,7 @@
 .heat-legend i { width: 10px; height: 10px; border-radius: 2px; }
 
 /* Inline editor for one day of history. */
-.day-editor { display: grid; gap: 12px; margin-top: 16px; padding: 16px; border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-1); animation: rise-in 260ms var(--ease-out) both; }
+.day-editor { display: grid; gap: 12px; margin-top: 16px; padding: 16px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-ink) 4%, transparent); animation: rise-in 260ms var(--ease-out) both; }
 .day-editor-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .day-editor-head strong { display: block; font-size: var(--text-base); }
 .day-editor-head small { display: block; color: var(--color-muted); font-size: var(--text-sm); }
