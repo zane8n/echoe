@@ -10,6 +10,7 @@ import { CoProgress } from "./co-progress";
 import { Icon } from "./icon";
 import { MyDayView } from "./my-day-view";
 import { RhythmRow } from "./rhythm-row";
+import { SignalLine } from "./signal-line";
 import { TransitionLink } from "./transition-link";
 
 const STARTERS = ["Read 20 pages daily", "Run 3x a week", "Lisbon trip Nov 8", "Thesis 40h by Dec 1"];
@@ -80,6 +81,7 @@ export function TodayView() {
             <header className="today-head">
                 <p className="today-date">{now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</p>
                 <h1>{greeting(now)}{firstName ? `, ${firstName}` : ""}</h1>
+                {!isEmpty && <SignalLine events={state.events} today={today} />}
                 <DayMeter done={doneCount} total={totalCount} now={now} />
             </header>
 

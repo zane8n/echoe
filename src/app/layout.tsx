@@ -1,10 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Funnel_Display, Funnel_Sans } from "next/font/google";
 import { AppShell } from "./app-shell";
 import "./globals.css";
-
-const display = Funnel_Display({ subsets: ["latin"], variable: "--font-funnel-display", display: "swap" });
-const sans = Funnel_Sans({ subsets: ["latin"], variable: "--font-funnel-sans", display: "swap" });
 
 export const metadata: Metadata = {
     title: "Echoe: build a rhythm you can trust",
@@ -17,8 +13,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
     themeColor: [
-        { media: "(prefers-color-scheme: light)", color: "#f2f3f7" },
-        { media: "(prefers-color-scheme: dark)", color: "#101115" },
+        { media: "(prefers-color-scheme: light)", color: "#f6f7fa" },
+        { media: "(prefers-color-scheme: dark)", color: "#0a0b10" },
     ],
     colorScheme: "light dark",
     width: "device-width",
@@ -28,7 +24,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang="en" data-accent="blue" className={`${display.variable} ${sans.variable}`}>
+        <html lang="en" data-accent="blue">
+            <head>
+                {/* Sora is self-hosted (public/fonts) so neither the build nor the installed app waits on a font server. */}
+                <link rel="preload" href="/fonts/sora-latin.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+            </head>
             <body className="antialiased">
                 <AppShell>{children}</AppShell>
             </body>

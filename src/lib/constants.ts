@@ -17,7 +17,7 @@ export const ACCENTS: Record<AccentName, AccentConfig> = {
 };
 
 // Browser chrome colours that sit closest to the tinted backgrounds.
-export const THEME_COLOR = { light: "#f2f3f7", dark: "#101115" } as const;
+export const THEME_COLOR = { light: "#f6f7fa", dark: "#0a0b10" } as const;
 
 export const ACCENT_ORDER: AccentName[] = ["blue", "teal", "amber", "rose", "violet"];
 

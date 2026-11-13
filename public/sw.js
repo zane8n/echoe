@@ -1,5 +1,5 @@
-const CACHE = "echoe-shell-v7";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
+const CACHE = "echoe-shell-v8";
+const APP_SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/fonts/sora-latin.woff2"];
 const MAX_CACHE_ENTRIES = 80;
 
 const trimCache = async (cache) => {
